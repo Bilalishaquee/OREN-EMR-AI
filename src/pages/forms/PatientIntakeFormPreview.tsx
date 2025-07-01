@@ -55,12 +55,24 @@ const PatientIntakeFormPreview: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [language, setLanguage] = useState<string>('english');
+  const [doctors, setDoctors] = useState<Array<{_id: string, firstName: string, lastName: string}>>([]);
   
   useEffect(() => {
     if (id) {
       fetchFormTemplate();
+      fetchDoctors();
     }
   }, [id]);
+  
+  const fetchDoctors = async () => {
+    try {
+      const response = await axios.get('/api/auth/doctors');
+      setDoctors(response.data);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
   
   const fetchFormTemplate = async () => {
     setIsLoading(true);
@@ -74,21 +86,24 @@ const PatientIntakeFormPreview: React.FC = () => {
     }
   };
   
-  const handleInputChange = (questionId: string, value: any) => {
-    setResponses(prev => ({
-      ...prev,
-      [questionId]: value
-    }));
+  const handleInputChange = (questionId: string, value: any, fieldName?: string) => {
+    if (fieldName) {
+      // For demographic and insurance fields, store with field name
+      setResponses(prev => ({
+        ...prev,
+        [`${questionId}_${fieldName}`]: value
+      }));
+    } else {
+      // For regular questions
+      setResponses(prev => ({
+        ...prev,
+        [questionId]: value
+      }));
+    }
   };
-  
-  const handleFieldInputChange = (questionId: string, fieldName: string, value: any) => {
-    setResponses(prev => ({
-      ...prev,
-      [questionId]: {
-        ...(prev[questionId] || {}),
-        [fieldName]: value
-      }
-    }));
+
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
   };
   
   const handleNext = () => {
@@ -98,34 +113,35 @@ const PatientIntakeFormPreview: React.FC = () => {
     const currentQuestion = formTemplate.items[currentStep];
     
     if (currentQuestion.isRequired) {
-      // For regular questions
-      if (currentQuestion.type !== 'demographics' && currentQuestion.type !== 'primaryInsurance' && currentQuestion.type !== 'secondaryInsurance') {
-        if (!responses[currentQuestion.id]) {
-          alert('This question is required');
-          return;
-        }
+      // Different validation based on question type
+      if (currentQuestion.type === 'blank' && !responses[currentQuestion.id]) {
+        alert('This question is required');
+        return;
       }
       
-      // For demographics questions
+      // For demographics, check if required fields are filled
       if (currentQuestion.type === 'demographics' && currentQuestion.demographicFields) {
         const requiredFields = currentQuestion.demographicFields.filter(field => field.required);
-        const fieldResponses = responses[currentQuestion.id] || {};
-        
         for (const field of requiredFields) {
-          if (!fieldResponses[field.fieldName]) {
+          if (!responses[`${currentQuestion.id}_${field.fieldName}`]) {
             alert(`${field.fieldName} is required`);
             return;
           }
         }
+        
+        // Check if assignedDoctor is selected
+        if (!responses[`${currentQuestion.id}_assignedDoctor`] && !responses['assignedDoctor']) {
+          alert('Assigned Doctor is required');
+          return;
+        }
       }
       
-      // For insurance questions
-      if ((currentQuestion.type === 'primaryInsurance' || currentQuestion.type === 'secondaryInsurance') && currentQuestion.insuranceFields) {
+      // For insurance, check if required fields are filled
+      if ((currentQuestion.type === 'primaryInsurance' || currentQuestion.type === 'secondaryInsurance') && 
+          currentQuestion.insuranceFields) {
         const requiredFields = currentQuestion.insuranceFields.filter(field => field.required);
-        const fieldResponses = responses[currentQuestion.id] || {};
-        
         for (const field of requiredFields) {
-          if (!fieldResponses[field.fieldName]) {
+          if (!responses[`${currentQuestion.id}_${field.fieldName}`]) {
             alert(`${field.fieldName} is required`);
             return;
           }
@@ -133,7 +149,7 @@ const PatientIntakeFormPreview: React.FC = () => {
       }
     }
     
-    if (currentStep < formTemplate.items.length - 1) {
+    if (currentStep < filteredItems.length - 1) {
       setCurrentStep(currentStep + 1);
       window.scrollTo(0, 0);
     }
@@ -146,10 +162,77 @@ const PatientIntakeFormPreview: React.FC = () => {
     }
   };
   
-  const handleSubmit = () => {
-    // In a real implementation, this would submit the form responses
-    alert('Form submitted successfully!');
-    navigate(`/forms/templates/${id}`);
+  const handleSubmit = async () => {
+    if (!formTemplate) return;
+    
+    // Validate current step if required
+    const currentQuestion = formTemplate.items[currentStep];
+    if (currentQuestion.isRequired && !responses[currentQuestion.id]) {
+      alert('This question is required');
+      return;
+    }
+    
+    try {
+      // Format responses for submission
+      const formattedResponses = Object.keys(responses).map(questionId => {
+        const question = formTemplate.items.find(item => item.id === questionId);
+        return {
+          questionId,
+          questionType: question?.type || 'blank',
+          questionText: question?.questionText || '',
+          answer: responses[questionId]
+        };
+      });
+      
+      // Create a new patient record from demographic information if available
+      let patientId = null;
+      const demographicQuestion = formTemplate.items.find(item => item.type === 'demographics');
+      
+      if (demographicQuestion && demographicQuestion.demographicFields) {
+        // Extract patient data from responses
+        const patientData = {
+          firstName: responses[`${demographicQuestion.id}_firstName`] || '',
+          lastName: responses[`${demographicQuestion.id}_lastName`] || '',
+          dateOfBirth: responses[`${demographicQuestion.id}_dateOfBirth`] || '',
+          gender: responses[`${demographicQuestion.id}_gender`] || '',
+          email: responses[`${demographicQuestion.id}_email`] || '',
+          phone: responses[`${demographicQuestion.id}_phone`] || '',
+          address: {
+            street: responses[`${demographicQuestion.id}_street`] || '',
+            city: responses[`${demographicQuestion.id}_city`] || '',
+            state: responses[`${demographicQuestion.id}_state`] || '',
+            zipCode: responses[`${demographicQuestion.id}_zipCode`] || ''
+          },
+          // Add assignedDoctor field which is required by the Patient model
+          assignedDoctor: responses[`${demographicQuestion.id}_assignedDoctor`] || responses['assignedDoctor'] || ''
+        };
+        
+        // Create new patient
+        const patientResponse = await axios.post('/api/patients', patientData);
+        patientId = patientResponse.data.patient._id;
+      }
+      
+      // Submit form response
+      await axios.post('/api/form-responses', {
+        formTemplate: id,
+        patient: patientId,
+        responses: formattedResponses,
+        status: 'completed',
+        completedAt: new Date()
+      });
+      
+      alert('Form submitted successfully!');
+      
+      // Navigate to patient list if a patient was created
+      if (patientId) {
+        navigate('/patients');
+      } else {
+        navigate(`/forms/templates/${id}`);
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('Error submitting form. Please try again.');
+    }
   };
   
   if (isLoading) {
@@ -176,8 +259,32 @@ const PatientIntakeFormPreview: React.FC = () => {
     );
   }
   
-  const currentQuestion = formTemplate.items[currentStep];
-  const progress = ((currentStep + 1) / formTemplate.items.length) * 100;
+  // No duplicate definition needed as it's now defined above
+  
+  // Filter questions based on language preference
+  const filteredItems = formTemplate.items.filter(item => {
+    // For language selection question, always show
+    if (item.questionText.includes('Language Preference')) {
+      return true;
+    }
+    
+    // For English language, show English questions (those without Spanish text)
+    if (language === 'english') {
+      return !item.questionText.includes('¿') && !item.questionText.includes('español');
+    }
+    
+    // For Spanish language, show Spanish questions
+    if (language === 'spanish') {
+      return item.questionText.includes('¿') || item.questionText.includes('español');
+    }
+    
+    return true;
+  });
+  
+  // Get the current question based on the current step
+  const currentQuestion = filteredItems[currentStep];
+  
+  const progress = ((currentStep + 1) / filteredItems.length) * 100;
   
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -192,7 +299,7 @@ const PatientIntakeFormPreview: React.FC = () => {
         
         <div className="p-6">
           <div className="text-sm text-gray-500 mb-2">
-            {currentStep + 1} / {formTemplate.items.length}
+            {currentStep + 1} / {filteredItems.length}
           </div>
           
           <div className="mb-8">
@@ -237,23 +344,23 @@ const PatientIntakeFormPreview: React.FC = () => {
                         type="text"
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         placeholder={`Enter ${field.fieldName.toLowerCase()}`}
-                        value={(responses[currentQuestion.id]?.[field.fieldName] || '')}
-                        onChange={(e) => handleFieldInputChange(currentQuestion.id, field.fieldName, e.target.value)}
+                        value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
                       />
                     )}
                     {field.fieldType === 'date' && (
                       <input
                         type="date"
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        value={(responses[currentQuestion.id]?.[field.fieldName] || '')}
-                        onChange={(e) => handleFieldInputChange(currentQuestion.id, field.fieldName, e.target.value)}
+                        value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
                       />
                     )}
                     {field.fieldType === 'dropdown' && (
                       <select
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        value={(responses[currentQuestion.id]?.[field.fieldName] || '')}
-                        onChange={(e) => handleFieldInputChange(currentQuestion.id, field.fieldName, e.target.value)}
+                        value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
                       >
                         <option value="">Select {field.fieldName}</option>
                         {field.options?.map((option, i) => (
@@ -263,6 +370,33 @@ const PatientIntakeFormPreview: React.FC = () => {
                     )}
                   </div>
                 ))}
+                
+                {/* Doctor Selection Dropdown - Required Field */}
+                <div className="col-span-1 md:col-span-2 mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assigned Doctor<span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={responses[`${currentQuestion.id}_assignedDoctor`] || responses['assignedDoctor'] || ''}
+                    onChange={(e) => {
+                      // Store in both formats for flexibility
+                      handleInputChange(currentQuestion.id, e.target.value, 'assignedDoctor');
+                      setResponses(prev => ({
+                        ...prev,
+                        'assignedDoctor': e.target.value
+                      }));
+                    }}
+                    required
+                  >
+                    <option value="">Select a doctor</option>
+                    {doctors.map((doctor) => (
+                      <option key={doctor._id} value={doctor._id}>
+                        Dr. {doctor.firstName} {doctor.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
             
@@ -278,23 +412,23 @@ const PatientIntakeFormPreview: React.FC = () => {
                         type="text"
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         placeholder={`Enter ${field.fieldName.toLowerCase()}`}
-                        value={(responses[currentQuestion.id]?.[field.fieldName] || '')}
-                        onChange={(e) => handleFieldInputChange(currentQuestion.id, field.fieldName, e.target.value)}
+                        value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
                       />
                     )}
                     {field.fieldType === 'date' && (
                       <input
                         type="date"
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        value={(responses[currentQuestion.id]?.[field.fieldName] || '')}
-                        onChange={(e) => handleFieldInputChange(currentQuestion.id, field.fieldName, e.target.value)}
+                        value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
                       />
                     )}
                     {field.fieldType === 'dropdown' && (
                       <select
                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                        value={(responses[currentQuestion.id]?.[field.fieldName] || '')}
-                        onChange={(e) => handleFieldInputChange(currentQuestion.id, field.fieldName, e.target.value)}
+                        value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
                       >
                         <option value="">Select {field.fieldName}</option>
                         {field.options?.map((option, i) => (
@@ -327,8 +461,19 @@ const PatientIntakeFormPreview: React.FC = () => {
                             {currentQuestion.matrix?.columnTypes[colIndex] === 'dropdown' ? (
                               <select
                                 className="w-full p-1 border border-gray-300 rounded-md text-sm"
-                                value={responses[currentQuestion.id]?.[`${row}-${colIndex}`] || ''}
-                                onChange={(e) => handleFieldInputChange(currentQuestion.id, `${row}-${colIndex}`, e.target.value)}
+                                value={responses[`${currentQuestion.id}_${rowIndex}_${colIndex}`] || ''}
+                                onChange={(e) => {
+                                  const matrixValue = e.target.value;
+                                  setResponses(prev => ({
+                                    ...prev,
+                                    [`${currentQuestion.id}_${rowIndex}_${colIndex}`]: matrixValue,
+                                    // Also store in a format suitable for the API
+                                    [currentQuestion.id]: [
+                                      ...(Array.isArray(prev[currentQuestion.id]) ? prev[currentQuestion.id] : []),
+                                      { rowIndex, columnIndex: colIndex, value: matrixValue }
+                                    ]
+                                  }));
+                                }}
                               >
                                 <option value="">Select</option>
                                 {currentQuestion.matrix?.dropdownOptions[colIndex]?.map((option, i) => (
@@ -339,8 +484,19 @@ const PatientIntakeFormPreview: React.FC = () => {
                               <input
                                 type="text"
                                 className="w-full p-1 border border-gray-300 rounded-md text-sm"
-                                value={responses[currentQuestion.id]?.[`${row}-${colIndex}`] || ''}
-                                onChange={(e) => handleFieldInputChange(currentQuestion.id, `${row}-${colIndex}`, e.target.value)}
+                                value={responses[`${currentQuestion.id}_${rowIndex}_${colIndex}`] || ''}
+                                onChange={(e) => {
+                                  const matrixValue = e.target.value;
+                                  setResponses(prev => ({
+                                    ...prev,
+                                    [`${currentQuestion.id}_${rowIndex}_${colIndex}`]: matrixValue,
+                                    // Also store in a format suitable for the API
+                                    [currentQuestion.id]: [
+                                      ...(Array.isArray(prev[currentQuestion.id]) ? prev[currentQuestion.id] : []),
+                                      { rowIndex, columnIndex: colIndex, value: matrixValue }
+                                    ]
+                                  }));
+                                }}
                               />
                             )}
                           </td>
@@ -359,11 +515,39 @@ const PatientIntakeFormPreview: React.FC = () => {
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                       rows={3}
                       placeholder="Enter any additional information about your allergies"
-                      value={responses[currentQuestion.id]?.['additionalInfo'] || ''}
-                      onChange={(e) => handleFieldInputChange(currentQuestion.id, 'additionalInfo', e.target.value)}
+                      value={responses[`${currentQuestion.id}_additionalInfo`] || ''}
+                      onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, 'additionalInfo')}
                     ></textarea>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Special handling for language preference question */}
+            {currentStep === 0 && currentQuestion.questionText.includes('Language Preference') && (
+              <div className="space-y-4 mt-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="english"
+                    name="language"
+                    checked={language === 'english'}
+                    onChange={() => handleLanguageChange('english')}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="english" className="text-gray-700">I am able to complete this form in English</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    id="spanish"
+                    name="language"
+                    checked={language === 'spanish'}
+                    onChange={() => handleLanguageChange('spanish')}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="spanish" className="text-gray-700">Mejor puedo responder este formulario en español</label>
+                </div>
               </div>
             )}
           </div>
@@ -378,7 +562,7 @@ const PatientIntakeFormPreview: React.FC = () => {
               Previous
             </button>
             
-            {currentStep < formTemplate.items.length - 1 ? (
+            {currentStep < filteredItems.length - 1 ? (
               <button
                 onClick={handleNext}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center"

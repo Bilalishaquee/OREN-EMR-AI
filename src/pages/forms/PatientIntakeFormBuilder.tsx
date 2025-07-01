@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -53,6 +53,7 @@ interface FormTemplate {
 const PatientIntakeFormBuilder: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const menuRef = useRef<HTMLDivElement>(null);
   
   const [formTemplate, setFormTemplate] = useState<FormTemplate>({
     title: 'New Patient Form',
@@ -69,7 +70,7 @@ const PatientIntakeFormBuilder: React.FC = () => {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   
-  // Predefined questions
+  // Predefined questions from the text file
   const predefinedQuestions = [
     { id: '1', questionText: 'Language Preference', type: 'blank', isRequired: false },
     { id: '2', questionText: 'Who referred you? Which hospital, clinic, urgent care and/or medical provider?', type: 'blank', isRequired: false },
@@ -120,7 +121,12 @@ const PatientIntakeFormBuilder: React.FC = () => {
     { id: '47', questionText: 'Please upload any relevant medical reports or documentation that will aid in the assessment and management of your condition. This may include, but is not limited to, imaging studies such as X-rays, MRI, or CT scans; nerve conduction studies; and clear, high-resolution photographs of your injury. Additionally, please feel free to include any other information or documentation that you believe may be pertinent to your case. Providing comprehensive and detailed information will enable us to gain a better understanding of your condition and facilitate the delivery of the highest quality care tailored to your needs.', type: 'blank', isRequired: false, multipleLines: true },
     { id: '48', questionText: 'Please upload any relevant medical reports or documentation that will aid in the assessment and management of your condition. This may include, but is not limited to, imaging studies such as X-rays, MRI, or CT scans; nerve conduction studies; and clear, high-resolution photographs of your injury. Additionally, please feel free to include any other information or documentation that you believe may be pertinent to your case. Providing comprehensive and detailed information will enable us to gain a better understanding of your condition and facilitate the delivery of the highest quality care tailored to your needs. Por favor, suba cualquier informe médico relevante o documentación que ayudará en la evaluación y manejo de su condición. Esto puede incluir, pero no se limita a, estudios de imagen como rayos X, MRI o tomografías computarizadas; estudios de conducción nerviosa; y fotografías claras y en alta resolución de su lesión. Adicionalmente, no dude en incluir cualquier otra información o documentación que crea que pueda ser pertinente a su caso. Proporcionar información completa y detallada nos permitirá obtener una mejor comprensión de su condición y facilitar la entrega de la atención de la más alta calidad adaptada a sus necesidades.', type: 'blank', isRequired: false, multipleLines: true },
     { id: '49', questionText: 'Communication Preferences in reference to the previous section on HIPAA Please indicate how you would like to receive communications from our office regarding your medical care, appointments, test results, or billing information. You may select one or more options:', type: 'blank', isRequired: true },
-    { id: '50', questionText: 'Preferencias de Comunicación en referencia a la sección anterior sobre HIPAA Indique cómo prefiere recibir comunicaciones de nuestra oficina con respecto a su atención médica, citas, resultados de exámenes o información de facturación. Puede seleccionar una o más opciones:', type: 'blank', isRequired: true }
+    { id: '50', questionText: 'Preferencias de Comunicación en referencia a la sección anterior sobre HIPAA Indique cómo prefiere recibir comunicaciones de nuestra oficina con respecto a su atención médica, citas, resultados de exámenes o información de facturación. Puede seleccionar una o más opciones:', type: 'blank', isRequired: true },
+    { id: '51', questionText: 'INSURANCE AND SELF PAY (section)', type: 'blank', isRequired: false },
+    { id: '52', questionText: 'INSURANCE AND SELF PAY / SEGURO Y PAGO POR CUENTA PROPIA (section)', type: 'blank', isRequired: false },
+    { id: '53', questionText: 'Flexible Healthcare Financing (section)', type: 'blank', isRequired: false },
+    { id: '54', questionText: 'Flexible Healthcare Financing Spanish (section)', type: 'blank', isRequired: false },
+    { id: '55', questionText: 'Signature', type: 'blank', isRequired: true }
   ];
   
   // Fetch form template if in edit mode
@@ -135,6 +141,20 @@ const PatientIntakeFormBuilder: React.FC = () => {
       }));
     }
   }, [id]);
+
+  // Close the add menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowAddMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   const fetchFormTemplate = async () => {
     setIsLoading(true);
@@ -472,8 +492,8 @@ const PatientIntakeFormBuilder: React.FC = () => {
           <span>Preview</span>
         </button>
         
-        <div className="px-4 h-full flex items-center hover:bg-blue-800 border-l border-blue-800">
-          <button onClick={() => setShowAddMenu(!showAddMenu)} className="relative">
+        <div className="px-4 h-full flex items-center hover:bg-blue-800 border-l border-blue-800 relative" ref={menuRef}>
+          <button onClick={() => setShowAddMenu(!showAddMenu)}>
             <Plus className="h-5 w-5" />
           </button>
           
@@ -537,7 +557,7 @@ const PatientIntakeFormBuilder: React.FC = () => {
             </button>
           </div>
           
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto max-h-[calc(100vh-120px)]">
             {formTemplate.items.map((item, index) => (
               <div 
                 key={item.id} 
