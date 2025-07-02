@@ -59,7 +59,7 @@ const MainLayout: React.FC = () => {
       <div className="hidden md:flex md:flex-shrink-0">
         <div className="flex flex-col w-64 bg-white border-r border-gray-200">
           <div className="flex items-center justify-center h-16 px-4 bg-blue-600">
-            <h1 className="text-xl font-semibold text-white">Wellness Studio</h1>
+            <h1 className="text-xl font-semibold text-white">EMR SYSTEM</h1>
           </div>
           <div className="flex flex-col flex-1 overflow-y-auto">
             <nav className="flex-1 px-2 py-4 space-y-1">
@@ -102,7 +102,7 @@ const MainLayout: React.FC = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={closeSidebar}></div>
         <div className="fixed inset-y-0 left-0 flex flex-col w-full max-w-xs bg-white">
           <div className="flex items-center justify-between h-16 px-4 bg-blue-600">
-            <h1 className="text-xl font-semibold text-white">Wellness Studio</h1>
+            <h1 className="text-xl font-semibold text-white">EMR SYSTEM</h1>
             <button
               onClick={closeSidebar}
               className="text-white focus:outline-none"
