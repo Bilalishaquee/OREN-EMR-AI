@@ -17,6 +17,34 @@ const questionResponseSchema = new mongoose.Schema({
     rowIndex: Number,
     columnIndex: Number,
     value: String
+  }],
+  // For file attachment responses
+  fileAttachments: [{
+    fileName: String,
+    fileType: String,
+    fileSize: Number,
+    fileUrl: String,
+    uploadedAt: Date
+  }],
+  // For e-signature responses
+  signature: {
+    signatureData: String, // Base64 encoded signature image
+    signedAt: Date,
+    signedBy: String
+  },
+  // For body map / drawing responses
+  bodyMapMarkings: [{
+    x: Number,
+    y: Number,
+    type: String, // e.g., 'pain', 'swelling', etc.
+    intensity: Number, // 1-10 scale
+    notes: String
+  }],
+  // For mixed controls responses
+  mixedControlsResponses: [{
+    controlId: String,
+    controlType: String,
+    value: mongoose.Schema.Types.Mixed
   }]
 });
 

@@ -11,6 +11,19 @@ import SecondaryInsuranceQuestionEditor from './QuestionEditors/SecondaryInsuran
 import AllergiesQuestionEditor from './QuestionEditors/AllergiesQuestionEditor';
 import QuestionSidebar from './QuestionSidebar';
 
+// Import new question editor components
+import MixedControlsQuestionEditor from './QuestionEditors/MixedControlsQuestionEditor';
+import MultipleChoiceSingleQuestionEditor from './QuestionEditors/MultipleChoiceSingleQuestionEditor';
+import MultipleChoiceMultipleQuestionEditor from './QuestionEditors/MultipleChoiceMultipleQuestionEditor';
+import MatrixQuestionEditor from './QuestionEditors/MatrixQuestionEditor';
+import MatrixSingleAnswerQuestionEditor from './QuestionEditors/MatrixSingleAnswerQuestionEditor';
+import SectionTitleQuestionEditor from './QuestionEditors/SectionTitleQuestionEditor';
+import FileAttachmentQuestionEditor from './QuestionEditors/FileAttachmentQuestionEditor';
+import ESignatureQuestionEditor from './QuestionEditors/ESignatureQuestionEditor';
+import SmartEditorQuestionEditor from './QuestionEditors/SmartEditorQuestionEditor';
+import BodyMapQuestionEditor from './QuestionEditors/BodyMapQuestionEditor';
+import OpenAnswerQuestionEditor from './QuestionEditors/OpenAnswerQuestionEditor';
+
 interface FormItem {
   _id?: string;
   type: string;
@@ -27,6 +40,7 @@ interface FormItem {
     rows: string[];
     dropdownOptions: string[][];
     displayTextBox: boolean;
+    allowMultipleAnswers?: boolean;
   };
   demographicFields?: {
     fieldName: string;
@@ -40,6 +54,20 @@ interface FormItem {
     required: boolean;
     options?: string[];
   }[];
+  mixedControlsConfig?: {
+    controlType: string;
+    label: string;
+    required: boolean;
+    placeholder?: string;
+    options?: string[];
+  }[];
+  sectionContent?: string;
+  fileTypes?: string[];
+  maxFileSize?: number;
+  signaturePrompt?: string;
+  editorContent?: string;
+  bodyMapType?: string;
+  allowPatientMarkings?: boolean;
 }
 
 interface FormTemplate {
@@ -120,9 +148,10 @@ const FormBuilder: React.FC = () => {
     let newItem: FormItem;
     
     switch (questionType) {
-      case 'blank':
+      case 'blank': // Keep for backward compatibility
+      case 'openAnswer':
         newItem = {
-          type: 'blank',
+          type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
           placeholder: 'Enter your answer here',
@@ -222,9 +251,120 @@ const FormBuilder: React.FC = () => {
           }
         };
         break;
+      case 'mixedControls':
+        newItem = {
+          type: 'mixedControls',
+          questionText: 'Mixed Controls Question',
+          isRequired: false,
+          instructions: 'Please fill out all fields below.',
+          mixedControlsConfig: [
+            { controlType: 'text', label: 'Text Field', required: false, placeholder: 'Enter text here' },
+            { controlType: 'dropdown', label: 'Dropdown Field', required: false, options: ['Option 1', 'Option 2', 'Option 3'] }
+          ]
+        };
+        break;
+      case 'openAnswer':
+        newItem = {
+          type: 'openAnswer',
+          questionText: 'Type your question text here',
+          isRequired: false,
+          placeholder: 'Enter your answer here',
+          multipleLines: false
+        };
+        break;
+      case 'multipleChoiceSingle':
+        newItem = {
+          type: 'multipleChoiceSingle',
+          questionText: 'Multiple Choice Question',
+          isRequired: false,
+          options: ['Option 1', 'Option 2', 'Option 3']
+        };
+        break;
+      case 'multipleChoiceMultiple':
+        newItem = {
+          type: 'multipleChoiceMultiple',
+          questionText: 'Multiple Choice Question (Select all that apply)',
+          isRequired: false,
+          options: ['Option 1', 'Option 2', 'Option 3']
+        };
+        break;
+      case 'matrix':
+        newItem = {
+          type: 'matrix',
+          questionText: 'Matrix Question',
+          isRequired: false,
+          matrix: {
+            rowHeader: 'Questions',
+            columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+            columnTypes: ['checkbox', 'checkbox', 'checkbox'],
+            rows: ['Row 1', 'Row 2', 'Row 3'],
+            dropdownOptions: [[], [], []],
+            displayTextBox: false,
+            allowMultipleAnswers: true
+          }
+        };
+        break;
+      case 'matrixSingleAnswer':
+        newItem = {
+          type: 'matrixSingleAnswer',
+          questionText: 'Matrix Question (Single Answer per Row)',
+          isRequired: false,
+          matrix: {
+            rowHeader: 'Questions',
+            columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+            columnTypes: ['radio', 'radio', 'radio'],
+            rows: ['Row 1', 'Row 2', 'Row 3'],
+            dropdownOptions: [[], [], []],
+            displayTextBox: false,
+            allowMultipleAnswers: false
+          }
+        };
+        break;
+      case 'sectionTitle':
+        newItem = {
+          type: 'sectionTitle',
+          questionText: 'Section Title',
+          isRequired: false,
+          sectionContent: 'Add additional information or instructions here.'
+        };
+        break;
+      case 'fileAttachment':
+        newItem = {
+          type: 'fileAttachment',
+          questionText: 'File Attachment',
+          isRequired: false,
+          fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
+          maxFileSize: 5 * 1024 * 1024 // 5MB
+        };
+        break;
+      case 'eSignature':
+        newItem = {
+          type: 'eSignature',
+          questionText: 'Signature',
+          isRequired: false,
+          signaturePrompt: 'Please sign below to confirm your agreement.'
+        };
+        break;
+      case 'smartEditor':
+        newItem = {
+          type: 'smartEditor',
+          questionText: 'Smart Editor',
+          isRequired: false,
+          editorContent: '<p>Enter your formatted text here.</p>'
+        };
+        break;
+      case 'bodyMap':
+        newItem = {
+          type: 'bodyMap',
+          questionText: 'Body Map / Drawing',
+          isRequired: false,
+          bodyMapType: 'fullBody',
+          allowPatientMarkings: true
+        };
+        break;
       default:
         newItem = {
-          type: 'blank',
+          type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
           placeholder: 'Enter your answer here',
@@ -340,7 +480,7 @@ const FormBuilder: React.FC = () => {
           <div className="text-center">
             <p className="text-gray-500 mb-4">No question selected</p>
             <button
-              onClick={() => addNewQuestion('blank')}
+              onClick={() => addNewQuestion('openAnswer')}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
             >
               <Plus className="inline-block mr-2 h-4 w-4" />
@@ -357,6 +497,13 @@ const FormBuilder: React.FC = () => {
       case 'blank':
         return (
           <BlankQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'openAnswer':
+        return (
+          <OpenAnswerQuestionEditor
             item={currentItem}
             onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
           />
@@ -389,8 +536,78 @@ const FormBuilder: React.FC = () => {
             onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
           />
         );
+      case 'mixedControls':
+        return (
+          <MixedControlsQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'multipleChoiceSingle':
+        return (
+          <MultipleChoiceSingleQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'multipleChoiceMultiple':
+        return (
+          <MultipleChoiceMultipleQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'matrix':
+        return (
+          <MatrixQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'matrixSingleAnswer':
+        return (
+          <MatrixSingleAnswerQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'sectionTitle':
+        return (
+          <SectionTitleQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'fileAttachment':
+        return (
+          <FileAttachmentQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'eSignature':
+        return (
+          <ESignatureQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'smartEditor':
+        return (
+          <SmartEditorQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
+      case 'bodyMap':
+        return (
+          <BodyMapQuestionEditor
+            item={currentItem}
+            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
+          />
+        );
       default:
-        return <div>Unknown question type</div>;
+        return <div>Unknown question type: {currentItem.type}</div>;
     }
   };
   

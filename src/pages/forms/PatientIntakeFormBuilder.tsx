@@ -72,61 +72,61 @@ const PatientIntakeFormBuilder: React.FC = () => {
   
   // Predefined questions from the text file
   const predefinedQuestions = [
-    { id: '1', questionText: 'Language Preference', type: 'blank', isRequired: false },
-    { id: '2', questionText: 'Who referred you? Which hospital, clinic, urgent care and/or medical provider?', type: 'blank', isRequired: false },
-    { id: '3', questionText: 'Who referred you? Which hospital, clinic, urgent care and/or medical provider? ¿Es usted un paciente nuevo o ya establecido en Hand, Nerve & Microsurgery PC?', type: 'blank', isRequired: false },
+    { id: '1', questionText: 'Language Preference', type: 'openAnswer', isRequired: false },
+    { id: '2', questionText: 'Who referred you? Which hospital, clinic, urgent care and/or medical provider?', type: 'openAnswer', isRequired: false },
+    { id: '3', questionText: 'Who referred you? Which hospital, clinic, urgent care and/or medical provider? ¿Es usted un paciente nuevo o ya establecido en Hand, Nerve & Microsurgery PC?', type: 'openAnswer', isRequired: false },
     { id: '4', questionText: 'Please enter your information.', type: 'demographics', isRequired: true },
     { id: '5', questionText: 'Please enter your information. Por favor, introduzca su información.', type: 'demographics', isRequired: true },
-    { id: '6', questionText: 'Do you have medical insurance?', type: 'blank', isRequired: true },
-    { id: '7', questionText: 'Do you have medical insurance? ¿Tiene seguro médico?', type: 'blank', isRequired: true },
+    { id: '6', questionText: 'Do you have medical insurance?', type: 'openAnswer', isRequired: true },
+    { id: '7', questionText: 'Do you have medical insurance? ¿Tiene seguro médico?', type: 'openAnswer', isRequired: true },
     { id: '8', questionText: 'Primary Insurance', type: 'primaryInsurance', isRequired: true },
     { id: '9', questionText: 'Primary Insurance Seguro Primario', type: 'primaryInsurance', isRequired: true },
-    { id: '10', questionText: 'Please capture a high-resolution image of the front side of your government issued identification card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability.', type: 'blank', isRequired: true },
-    { id: '11', questionText: 'Please capture a high-resolution image of the front side of your government issued identification card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability. Por favor, tome una imagen en alta resolución de la parte frontal de su tarjeta de identificación emitida por el gobierno, colocándola en una superficie nivelada. Asegúrese de que la tarjeta ocupe la mayor parte del visor de la cámara para mejorar la legibilidad.', type: 'blank', isRequired: true },
-    { id: '12', questionText: 'Please capture a high-resolution image of the front side and backside of your health insurance card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability.', type: 'blank', isRequired: true },
-    { id: '13', questionText: 'Please capture a high-resolution image of the front side and backside of your health insurance card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability. Por favor, tome una imagen en alta resolución de ambos lados (frontal y posterior) de su tarjeta de seguro de salud, colocándola en una superficie nivelada. Asegúrese de que la tarjeta ocupe la mayor parte del visor de la cámara para mejorar la legibilidad.', type: 'blank', isRequired: true },
-    { id: '14', questionText: 'Please capture a high-resolution image of your auto insurance card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability. Por favor, tome una imagen en alta resolución de su tarjeta de seguro de automóvil, colocándola en una superficie nivelada. Asegúrese de que la tarjeta ocupe la mayor parte del visor de la cámara para mejorar la legibilidad.', type: 'blank', isRequired: true },
-    { id: '15', questionText: 'Hand Dominance, Occupation, Hobbies', type: 'blank', isRequired: false },
-    { id: '16', questionText: 'Hand Dominance, Occupation, Hobbies Dominancia Manual, Ocupación, Aficiones', type: 'blank', isRequired: false },
-    { id: '17', questionText: 'Is this visit for an established problem or a new problem?', type: 'blank', isRequired: true },
-    { id: '18', questionText: 'Is this visit for an established problem or a new problem? ¿Esta visita es por un problema establecido o un problema nuevo?', type: 'blank', isRequired: true },
-    { id: '19', questionText: 'Visit Related Details', type: 'blank', isRequired: false },
-    { id: '20', questionText: 'Visit Related Details Detalles Relacionados con la Visita', type: 'blank', isRequired: false },
-    { id: '21', questionText: 'Previous Care', type: 'blank', isRequired: false },
-    { id: '22', questionText: 'Previous Care Cuidados Previos', type: 'blank', isRequired: false },
-    { id: '23', questionText: 'Please provide as much detail as possible about the incident surrounding the injury so that I can write as detailed a note as possible to help your case. Try to Include how it happened, where it happened, care received initially and ongoing, any relevant dates.', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '24', questionText: 'Please provide as much detail as possible about the incident surrounding the injury so that I can write as detailed a note as possible to help your case. Try to Include how it happened, where it happened, care received initially and ongoing, any relevant dates. Por favor, proporcione tanto detalle como sea posible sobre el incidente que rodea la lesión para que pueda escribir una nota lo más detallada posible para ayudar en su caso. Intente incluir cómo sucedió, dónde sucedió, atención recibida inicialmente y continuada, cualquier fecha relevante.', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '25', questionText: 'How does it impact your quality of life?', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '26', questionText: 'How does it impact your quality of life? ¿Cómo afecta esto a su calidad de vida?', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '27', questionText: 'Have you had any serious conditions, illnesses, injuries, and/or hospitalizations in the past? If \'yes\', please list approximate dates. If you have none write "not applicable".', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '28', questionText: 'Have you had any serious conditions, illnesses, injuries, and/or hospitalizations in the past? If \'yes\', please list approximate dates. If you have none write "not applicable". ¿Ha tenido alguna condición seria, enfermedad, lesión y/o hospitalización en el pasado? Si es \'sí\', por favor liste las fechas aproximadas. Si no tiene ninguno, escriba "no aplica".', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '29', questionText: 'Do you have any allergies (medicines, cosmetics, environmental, foods)? If \'yes\', please describe. If you have none write "no".', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '30', questionText: 'Do you have any allergies (medicines, cosmetics, environmental, foods)? If \'yes\', please describe. ¿Tiene alguna alergia (medicamentos, cosméticos, ambientales, alimentos)? Si es \'sí\', por favor describa. Si no tiene ninguno, escriba "no".', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '31', questionText: 'Cardiovascular Please check the boxes for any condition(s) you have experienced or are experiencing:', type: 'blank', isRequired: false },
-    { id: '32', questionText: 'Cardiovascular Please check the boxes for any condition(s) you have experienced or are experiencing: Cardiovascular Por favor, marque las casillas de cualquier condición que haya experimentado o esté experimentando:', type: 'blank', isRequired: false },
-    { id: '33', questionText: 'Respiratory Please check the boxes for any condition(s) you have experienced or are experiencing:', type: 'blank', isRequired: false },
-    { id: '34', questionText: 'Respiratory / Respiratorio Please check the boxes for any condition(s) you have experienced or are experiencing: Por favor, marque las casillas de cualquier condición que haya experimentado o esté experimentando:', type: 'blank', isRequired: false },
-    { id: '35', questionText: 'Communicable Diseases Please check the boxes for any condition(s) you have experienced or are experiencing:', type: 'blank', isRequired: false },
-    { id: '36', questionText: 'Communicable Diseases / Enfermedades transmisibles Please check the boxes for any condition(s) you have experienced or are experiencing: Por favor, marque las casillas de cualquier condición que haya experimentado o esté experimentando:', type: 'blank', isRequired: false },
-    { id: '37', questionText: 'Diabetes', type: 'blank', isRequired: false },
-    { id: '38', questionText: 'Diabetes', type: 'blank', isRequired: false },
-    { id: '39', questionText: 'Please list any previous surgical procedures and any details/hardware (i.e. prosthesis, wires, internal pins/fixators). If no then press no.', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '40', questionText: 'Please list any previous surgical procedures and any details/hardware (i.e. prosthesis, wires, internal pins/fixators). Por favor, liste cualquier procedimiento quirúrgico previo y cualquier detalle/hardware (por ejemplo, prótesis, alambres, clavos/pinzas internos). Si no tiene, escriba "no".', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '41', questionText: 'Habits and Lifestyle', type: 'blank', isRequired: false },
-    { id: '42', questionText: 'Habits and Lifestyle Hábitos y Estilo de Vida', type: 'blank', isRequired: false },
-    { id: '43', questionText: 'Please list all current medications (prescription, over-the-counter, vitamins, herbs, homeopathics) and specify the date your started using it and dosage.', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '44', questionText: 'Please list all current medications (prescription, over-the-counter, vitamins, herbs, homeopathics) and specify the date your started using it and dosage. Por favor, liste todos los medicamentos actuales (prescripción, sin receta, vitaminas, hierbas, homeopáticos) y especifique la fecha en que comenzó a usarlo y la dosis.', type: 'blank', isRequired: true, multipleLines: true },
-    { id: '45', questionText: 'Supplements:', type: 'blank', isRequired: false },
-    { id: '46', questionText: 'Supplements: Suplementos:', type: 'blank', isRequired: false },
-    { id: '47', questionText: 'Please upload any relevant medical reports or documentation that will aid in the assessment and management of your condition. This may include, but is not limited to, imaging studies such as X-rays, MRI, or CT scans; nerve conduction studies; and clear, high-resolution photographs of your injury. Additionally, please feel free to include any other information or documentation that you believe may be pertinent to your case. Providing comprehensive and detailed information will enable us to gain a better understanding of your condition and facilitate the delivery of the highest quality care tailored to your needs.', type: 'blank', isRequired: false, multipleLines: true },
-    { id: '48', questionText: 'Please upload any relevant medical reports or documentation that will aid in the assessment and management of your condition. This may include, but is not limited to, imaging studies such as X-rays, MRI, or CT scans; nerve conduction studies; and clear, high-resolution photographs of your injury. Additionally, please feel free to include any other information or documentation that you believe may be pertinent to your case. Providing comprehensive and detailed information will enable us to gain a better understanding of your condition and facilitate the delivery of the highest quality care tailored to your needs. Por favor, suba cualquier informe médico relevante o documentación que ayudará en la evaluación y manejo de su condición. Esto puede incluir, pero no se limita a, estudios de imagen como rayos X, MRI o tomografías computarizadas; estudios de conducción nerviosa; y fotografías claras y en alta resolución de su lesión. Adicionalmente, no dude en incluir cualquier otra información o documentación que crea que pueda ser pertinente a su caso. Proporcionar información completa y detallada nos permitirá obtener una mejor comprensión de su condición y facilitar la entrega de la atención de la más alta calidad adaptada a sus necesidades.', type: 'blank', isRequired: false, multipleLines: true },
-    { id: '49', questionText: 'Communication Preferences in reference to the previous section on HIPAA Please indicate how you would like to receive communications from our office regarding your medical care, appointments, test results, or billing information. You may select one or more options:', type: 'blank', isRequired: true },
-    { id: '50', questionText: 'Preferencias de Comunicación en referencia a la sección anterior sobre HIPAA Indique cómo prefiere recibir comunicaciones de nuestra oficina con respecto a su atención médica, citas, resultados de exámenes o información de facturación. Puede seleccionar una o más opciones:', type: 'blank', isRequired: true },
-    { id: '51', questionText: 'INSURANCE AND SELF PAY (section)', type: 'blank', isRequired: false },
-    { id: '52', questionText: 'INSURANCE AND SELF PAY / SEGURO Y PAGO POR CUENTA PROPIA (section)', type: 'blank', isRequired: false },
-    { id: '53', questionText: 'Flexible Healthcare Financing (section)', type: 'blank', isRequired: false },
-    { id: '54', questionText: 'Flexible Healthcare Financing Spanish (section)', type: 'blank', isRequired: false },
-    { id: '55', questionText: 'Signature', type: 'blank', isRequired: true }
+    { id: '10', questionText: 'Please capture a high-resolution image of the front side of your government issued identification card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability.', type: 'openAnswer', isRequired: true },
+    { id: '11', questionText: 'Please capture a high-resolution image of the front side of your government issued identification card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability. Por favor, tome una imagen en alta resolución de la parte frontal de su tarjeta de identificación emitida por el gobierno, colocándola en una superficie nivelada. Asegúrese de que la tarjeta ocupe la mayor parte del visor de la cámara para mejorar la legibilidad.', type: 'openAnswer', isRequired: true },
+    { id: '12', questionText: 'Please capture a high-resolution image of the front side and backside of your health insurance card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability.', type: 'openAnswer', isRequired: true },
+    { id: '13', questionText: 'Please capture a high-resolution image of the front side and backside of your health insurance card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability. Por favor, tome una imagen en alta resolución de ambos lados (frontal y posterior) de su tarjeta de seguro de salud, colocándola en una superficie nivelada. Asegúrese de que la tarjeta ocupe la mayor parte del visor de la cámara para mejorar la legibilidad.', type: 'openAnswer', isRequired: true },
+    { id: '14', questionText: 'Please capture a high-resolution image of your auto insurance card by positioning it on a level surface. Ensure the card occupies the majority of the camera\'s viewfinder to enhance readability. Por favor, tome una imagen en alta resolución de su tarjeta de seguro de automóvil, colocándola en una superficie nivelada. Asegúrese de que la tarjeta ocupe la mayor parte del visor de la cámara para mejorar la legibilidad.', type: 'openAnswer', isRequired: true },
+    { id: '15', questionText: 'Hand Dominance, Occupation, Hobbies', type: 'openAnswer', isRequired: false },
+    { id: '16', questionText: 'Hand Dominance, Occupation, Hobbies Dominancia Manual, Ocupación, Aficiones', type: 'openAnswer', isRequired: false },
+    { id: '17', questionText: 'Is this visit for an established problem or a new problem?', type: 'openAnswer', isRequired: true },
+    { id: '18', questionText: 'Is this visit for an established problem or a new problem? ¿Esta visita es por un problema establecido o un problema nuevo?', type: 'openAnswer', isRequired: true },
+    { id: '19', questionText: 'Visit Related Details', type: 'openAnswer', isRequired: false },
+    { id: '20', questionText: 'Visit Related Details Detalles Relacionados con la Visita', type: 'openAnswer', isRequired: false },
+    { id: '21', questionText: 'Previous Care', type: 'openAnswer', isRequired: false },
+    { id: '22', questionText: 'Previous Care Cuidados Previos', type: 'openAnswer', isRequired: false },
+    { id: '23', questionText: 'Please provide as much detail as possible about the incident surrounding the injury so that I can write as detailed a note as possible to help your case. Try to Include how it happened, where it happened, care received initially and ongoing, any relevant dates.', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '24', questionText: 'Please provide as much detail as possible about the incident surrounding the injury so that I can write as detailed a note as possible to help your case. Try to Include how it happened, where it happened, care received initially and ongoing, any relevant dates. Por favor, proporcione tanto detalle como sea posible sobre el incidente que rodea la lesión para que pueda escribir una nota lo más detallada posible para ayudar en su caso. Intente incluir cómo sucedió, dónde sucedió, atención recibida inicialmente y continuada, cualquier fecha relevante.', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '25', questionText: 'How does it impact your quality of life?', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '26', questionText: 'How does it impact your quality of life? ¿Cómo afecta esto a su calidad de vida?', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '27', questionText: 'Have you had any serious conditions, illnesses, injuries, and/or hospitalizations in the past? If \'yes\', please list approximate dates. If you have none write "not applicable".', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '28', questionText: 'Have you had any serious conditions, illnesses, injuries, and/or hospitalizations in the past? If \'yes\', please list approximate dates. If you have none write "not applicable". ¿Ha tenido alguna condición seria, enfermedad, lesión y/o hospitalización en el pasado? Si es \'sí\', por favor liste las fechas aproximadas. Si no tiene ninguno, escriba "no aplica".', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '29', questionText: 'Do you have any allergies (medicines, cosmetics, environmental, foods)? If \'yes\', please describe. If you have none write "no".', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '30', questionText: 'Do you have any allergies (medicines, cosmetics, environmental, foods)? If \'yes\', please describe. ¿Tiene alguna alergia (medicamentos, cosméticos, ambientales, alimentos)? Si es \'sí\', por favor describa. Si no tiene ninguno, escriba "no".', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '31', questionText: 'Cardiovascular Please check the boxes for any condition(s) you have experienced or are experiencing:', type: 'openAnswer', isRequired: false },
+    { id: '32', questionText: 'Cardiovascular Please check the boxes for any condition(s) you have experienced or are experiencing: Cardiovascular Por favor, marque las casillas de cualquier condición que haya experimentado o esté experimentando:', type: 'openAnswer', isRequired: false },
+    { id: '33', questionText: 'Respiratory Please check the boxes for any condition(s) you have experienced or are experiencing:', type: 'openAnswer', isRequired: false },
+    { id: '34', questionText: 'Respiratory / Respiratorio Please check the boxes for any condition(s) you have experienced or are experiencing: Por favor, marque las casillas de cualquier condición que haya experimentado o esté experimentando:', type: 'openAnswer', isRequired: false },
+    { id: '35', questionText: 'Communicable Diseases Please check the boxes for any condition(s) you have experienced or are experiencing:', type: 'openAnswer', isRequired: false },
+    { id: '36', questionText: 'Communicable Diseases / Enfermedades transmisibles Please check the boxes for any condition(s) you have experienced or are experiencing: Por favor, marque las casillas de cualquier condición que haya experimentado o esté experimentando:', type: 'openAnswer', isRequired: false },
+    { id: '37', questionText: 'Diabetes', type: 'openAnswer', isRequired: false },
+    { id: '38', questionText: 'Diabetes', type: 'openAnswer', isRequired: false },
+    { id: '39', questionText: 'Please list any previous surgical procedures and any details/hardware (i.e. prosthesis, wires, internal pins/fixators). If no then press no.', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '40', questionText: 'Please list any previous surgical procedures and any details/hardware (i.e. prosthesis, wires, internal pins/fixators). Por favor, liste cualquier procedimiento quirúrgico previo y cualquier detalle/hardware (por ejemplo, prótesis, alambres, clavos/pinzas internos). Si no tiene, escriba "no".', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '41', questionText: 'Habits and Lifestyle', type: 'openAnswer', isRequired: false },
+    { id: '42', questionText: 'Habits and Lifestyle Hábitos y Estilo de Vida', type: 'openAnswer', isRequired: false },
+    { id: '43', questionText: 'Please list all current medications (prescription, over-the-counter, vitamins, herbs, homeopathics) and specify the date your started using it and dosage.', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '44', questionText: 'Please list all current medications (prescription, over-the-counter, vitamins, herbs, homeopathics) and specify the date your started using it and dosage. Por favor, liste todos los medicamentos actuales (prescripción, sin receta, vitaminas, hierbas, homeopáticos) y especifique la fecha en que comenzó a usarlo y la dosis.', type: 'openAnswer', isRequired: true, multipleLines: true },
+    { id: '45', questionText: 'Supplements:', type: 'openAnswer', isRequired: false },
+    { id: '46', questionText: 'Supplements: Suplementos:', type: 'openAnswer', isRequired: false },
+    { id: '47', questionText: 'Please upload any relevant medical reports or documentation that will aid in the assessment and management of your condition. This may include, but is not limited to, imaging studies such as X-rays, MRI, or CT scans; nerve conduction studies; and clear, high-resolution photographs of your injury. Additionally, please feel free to include any other information or documentation that you believe may be pertinent to your case. Providing comprehensive and detailed information will enable us to gain a better understanding of your condition and facilitate the delivery of the highest quality care tailored to your needs.', type: 'openAnswer', isRequired: false, multipleLines: true },
+    { id: '48', questionText: 'Please upload any relevant medical reports or documentation that will aid in the assessment and management of your condition. This may include, but is not limited to, imaging studies such as X-rays, MRI, or CT scans; nerve conduction studies; and clear, high-resolution photographs of your injury. Additionally, please feel free to include any other information or documentation that you believe may be pertinent to your case. Providing comprehensive and detailed information will enable us to gain a better understanding of your condition and facilitate the delivery of the highest quality care tailored to your needs. Por favor, suba cualquier informe médico relevante o documentación que ayudará en la evaluación y manejo de su condición. Esto puede incluir, pero no se limita a, estudios de imagen como rayos X, MRI o tomografías computarizadas; estudios de conducción nerviosa; y fotografías claras y en alta resolución de su lesión. Adicionalmente, no dude en incluir cualquier otra información o documentación que crea que pueda ser pertinente a su caso. Proporcionar información completa y detallada nos permitirá obtener una mejor comprensión de su condición y facilitar la entrega de la atención de la más alta calidad adaptada a sus necesidades.', type: 'openAnswer', isRequired: false, multipleLines: true },
+    { id: '49', questionText: 'Communication Preferences in reference to the previous section on HIPAA Please indicate how you would like to receive communications from our office regarding your medical care, appointments, test results, or billing information. You may select one or more options:', type: 'openAnswer', isRequired: true },
+    { id: '50', questionText: 'Preferencias de Comunicación en referencia a la sección anterior sobre HIPAA Indique cómo prefiere recibir comunicaciones de nuestra oficina con respecto a su atención médica, citas, resultados de exámenes o información de facturación. Puede seleccionar una o más opciones:', type: 'openAnswer', isRequired: true },
+    { id: '51', questionText: 'INSURANCE AND SELF PAY (section)', type: 'openAnswer', isRequired: false },
+    { id: '52', questionText: 'INSURANCE AND SELF PAY / SEGURO Y PAGO POR CUENTA PROPIA (section)', type: 'openAnswer', isRequired: false },
+    { id: '53', questionText: 'Flexible Healthcare Financing (section)', type: 'openAnswer', isRequired: false },
+    { id: '54', questionText: 'Flexible Healthcare Financing Spanish (section)', type: 'openAnswer', isRequired: false },
+    { id: '55', questionText: 'Signature', type: 'openAnswer', isRequired: true }
   ];
   
   // Fetch form template if in edit mode
@@ -199,10 +199,11 @@ const PatientIntakeFormBuilder: React.FC = () => {
     let newItem: FormItem;
     
     switch (questionType) {
-      case 'blank':
+      case 'blank': // Keep for backward compatibility
+      case 'openAnswer':
         newItem = {
           id: `item_${Date.now()}`,
-          type: 'blank',
+          type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
           placeholder: 'Enter your answer here',
@@ -282,7 +283,7 @@ const PatientIntakeFormBuilder: React.FC = () => {
       default:
         newItem = {
           id: `item_${Date.now()}`,
-          type: 'blank',
+          type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
           placeholder: 'Enter your answer here',
@@ -500,10 +501,10 @@ const PatientIntakeFormBuilder: React.FC = () => {
           {showAddMenu && (
             <div className="absolute top-12 left-0 bg-white shadow-md rounded-md z-10 w-64">
               <button
-                onClick={() => addNewQuestion('blank')}
+                onClick={() => addNewQuestion('openAnswer')}
                 className="w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 border-b border-gray-200"
               >
-                Add Blank Question
+                Add Open Answer Question
               </button>
               <button
                 onClick={() => addNewQuestion('demographics')}

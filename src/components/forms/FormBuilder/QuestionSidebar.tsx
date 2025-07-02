@@ -1,5 +1,5 @@
-import React from 'react';
-import { Plus, Copy, Trash } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Copy, Trash, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface FormItem {
   _id?: string;
@@ -27,25 +27,67 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
 }) => {
   // Question type options
   const questionTypes = [
-    { type: 'blank', label: 'Add Blank Question' },
+    { type: 'openAnswer', label: 'Add Open Answer Question' },
     { type: 'demographics', label: 'Add Demographics Question' },
     { type: 'primaryInsurance', label: 'Add Primary Insurance Question' },
     { type: 'secondaryInsurance', label: 'Add Secondary Insurance Question' },
     { type: 'allergies', label: 'Add Allergies Question' }
   ];
   
+  // Question subtypes for each question type
+  const questionSubtypes = [
+    { type: 'mixedControls', label: 'Mixed Controls' },
+    { type: 'openAnswer', label: 'Open Answer' },
+    { type: 'multipleChoiceSingle', label: 'Multiple Choice - Single Answer' },
+    { type: 'multipleChoiceMultiple', label: 'Multiple Choice - Multiple Answer' },
+    { type: 'matrix', label: 'Matrix' },
+    { type: 'matrixSingleAnswer', label: 'Matrix - Single Answer per Line' },
+    { type: 'sectionTitle', label: 'Section Title / Note' },
+    { type: 'fileAttachment', label: 'File Attachment' },
+    { type: 'eSignature', label: 'e-Signature' },
+    { type: 'smartEditor', label: 'Smart Editor' },
+    { type: 'bodyMap', label: 'Body Map / Drawing' }
+  ];
+  
+  // State to track which question type's subtypes are expanded
+  const [expandedType, setExpandedType] = useState<string | null>(null);
+
+  // Toggle expanded state for a question type
+  const toggleExpand = (type: string) => {
+    setExpandedType(expandedType === type ? null : type);
+  };
+
   return (
     <div className="bg-white shadow-md rounded-lg overflow-hidden">
       {/* Question type buttons */}
       <div className="border-b border-gray-200">
         {questionTypes.map((qType) => (
-          <button
-            key={qType.type}
-            onClick={() => onAddItem(qType.type)}
-            className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 text-sm font-medium text-gray-700"
-          >
-            {qType.label}
-          </button>
+          <div key={qType.type}>
+            <button
+              onClick={() => toggleExpand(qType.type)}
+              className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 flex items-center justify-between text-sm font-medium text-gray-700"
+            >
+              <span>{qType.label}</span>
+              {expandedType === qType.type ? 
+                <ChevronDown className="h-4 w-4" /> : 
+                <ChevronRight className="h-4 w-4" />}
+            </button>
+            
+            {/* Subtypes dropdown when expanded */}
+            {expandedType === qType.type && (
+              <div className="bg-gray-50 pl-8">
+                {questionSubtypes.map((subtype) => (
+                  <button
+                    key={`${qType.type}-${subtype.type}`}
+                    onClick={() => onAddItem(subtype.type)}
+                    className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 text-sm text-gray-600"
+                  >
+                    ❯ {subtype.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
       
@@ -68,11 +110,22 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                     {item.questionText || `Question ${index + 1}`}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {item.type === 'blank' ? 'Blank Question' : 
-                     item.type === 'demographics' ? 'Demographics' :
+                    {item.type === 'demographics' ? 'Demographics' :
                      item.type === 'primaryInsurance' ? 'Primary Insurance' :
                      item.type === 'secondaryInsurance' ? 'Secondary Insurance' :
-                     item.type === 'allergies' ? 'Allergies' : 
+                     item.type === 'allergies' ? 'Allergies' :
+                     item.type === 'mixedControls' ? 'Mixed Controls' :
+                     item.type === 'openAnswer' ? 'Open Answer' :
+                     item.type === 'blank' ? 'Open Answer' :
+                     item.type === 'multipleChoiceSingle' ? 'Multiple Choice - Single Answer' :
+                     item.type === 'multipleChoiceMultiple' ? 'Multiple Choice - Multiple Answer' :
+                     item.type === 'matrix' ? 'Matrix' :
+                     item.type === 'matrixSingleAnswer' ? 'Matrix - Single Answer per Line' :
+                     item.type === 'sectionTitle' ? 'Section Title / Note' :
+                     item.type === 'fileAttachment' ? 'File Attachment' :
+                     item.type === 'eSignature' ? 'e-Signature' :
+                     item.type === 'smartEditor' ? 'Smart Editor' :
+                     item.type === 'bodyMap' ? 'Body Map / Drawing' :
                      item.type}
                     {item.isRequired && ' (Required)'}
                   </div>

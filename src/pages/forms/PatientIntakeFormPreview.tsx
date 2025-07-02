@@ -114,7 +114,7 @@ const PatientIntakeFormPreview: React.FC = () => {
     
     if (currentQuestion.isRequired) {
       // Different validation based on question type
-      if (currentQuestion.type === 'blank' && !responses[currentQuestion.id]) {
+      if ((currentQuestion.type === 'blank' || currentQuestion.type === 'openAnswer') && !responses[currentQuestion.id]) {
         alert('This question is required');
         return;
       }
@@ -178,7 +178,7 @@ const PatientIntakeFormPreview: React.FC = () => {
         const question = formTemplate.items.find(item => item.id === questionId);
         return {
           questionId,
-          questionType: question?.type || 'blank',
+          questionType: question?.type || 'openAnswer',
           questionText: question?.questionText || '',
           answer: responses[questionId]
         };
@@ -310,7 +310,7 @@ const PatientIntakeFormPreview: React.FC = () => {
           </div>
           
           <div className="mb-8">
-            {currentQuestion.type === 'blank' && (
+            {(currentQuestion.type === 'blank' || currentQuestion.type === 'openAnswer') && (
               <div>
                 {currentQuestion.multipleLines ? (
                   <textarea

@@ -201,7 +201,7 @@ const PatientIntakeFormPage: React.FC = () => {
                       {item.isRequired && <span className="text-red-500 ml-1">*</span>}
                     </h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      {item.type === 'blank' ? 'Blank Question' : 
+                      {item.type === 'blank' || item.type === 'openAnswer' ? 'Open Answer Question' : 
                        item.type === 'demographics' ? 'Demographics' :
                        item.type === 'primaryInsurance' ? 'Primary Insurance' :
                        item.type === 'secondaryInsurance' ? 'Secondary Insurance' :
@@ -211,7 +211,7 @@ const PatientIntakeFormPage: React.FC = () => {
                   </div>
                 </div>
                 
-                {item.type === 'blank' && (
+                {(item.type === 'blank' || item.type === 'openAnswer') && (
                   <div className="mt-2">
                     <div className="bg-gray-50 p-2 rounded border border-gray-200">
                       <p className="text-sm text-gray-500">

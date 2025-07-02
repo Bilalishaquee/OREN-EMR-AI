@@ -285,7 +285,7 @@ const PatientIntakeFormEditor: React.FC<PatientIntakeFormEditorProps> = ({ item,
             disabled
             className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
           >
-            <option value="blank">Open Answer</option>
+            <option value="openAnswer">Open Answer</option>
             <option value="demographics">Demographics</option>
             <option value="primaryInsurance">Primary Insurance</option>
             <option value="secondaryInsurance">Secondary Insurance</option>
@@ -324,7 +324,7 @@ const PatientIntakeFormEditor: React.FC<PatientIntakeFormEditorProps> = ({ item,
         />
       </div>
       
-      {item.type === 'blank' && (
+      {(item.type === 'blank' || item.type === 'openAnswer') && (
         <>
           <div className="mb-6">
             <div className="flex items-center mb-4">

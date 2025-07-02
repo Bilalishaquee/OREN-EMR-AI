@@ -1,20 +1,18 @@
 import React from 'react';
-// This component is kept for backward compatibility.
-// New code should use OpenAnswerQuestionEditor instead.
 
-interface BlankQuestionProps {
+interface OpenAnswerQuestionProps {
   item: {
     type: string;
     questionText: string;
     isRequired: boolean;
-    placeholder?: string;
     multipleLines?: boolean;
+    placeholder?: string;
   };
   onChange: (updatedItem: any) => void;
 }
 
-const BlankQuestionEditor: React.FC<BlankQuestionProps> = ({ item, onChange }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+const OpenAnswerQuestionEditor: React.FC<OpenAnswerQuestionProps> = ({ item, onChange }) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     
     if (type === 'checkbox') {
@@ -35,28 +33,7 @@ const BlankQuestionEditor: React.FC<BlankQuestionProps> = ({ item, onChange }) =
     <div className="bg-white shadow-md rounded-lg p-6">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Question Type</h2>
-          <div className="flex items-center">
-            <button
-              type="button"
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Question Options
-            </button>
-          </div>
-        </div>
-        
-        <div className="relative">
-          <select
-            value="text"
-            onChange={(e) => {
-              // This would normally change the question type
-              // For this example, we're keeping it as a blank question
-            }}
-            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-          >
-            <option value="text">Open Answer</option>
-          </select>
+          <h2 className="text-lg font-medium text-gray-900">Open Answer</h2>
         </div>
       </div>
       
@@ -91,7 +68,7 @@ const BlankQuestionEditor: React.FC<BlankQuestionProps> = ({ item, onChange }) =
       </div>
       
       <div className="mb-6">
-        <div className="flex items-center mb-4">
+        <div className="flex items-center">
           <input
             type="checkbox"
             id="multipleLines"
@@ -117,26 +94,33 @@ const BlankQuestionEditor: React.FC<BlankQuestionProps> = ({ item, onChange }) =
           value={item.placeholder || ''}
           onChange={handleChange}
           className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-          placeholder="Enter placeholder text"
+          placeholder="Enter your answer here"
         />
       </div>
-      
-      <div className="flex justify-end space-x-2">
-        <button
-          type="button"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Duplicate
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Delete
-        </button>
+
+      <div className="mb-6">
+        <h3 className="text-md font-medium text-gray-900 mb-4">Preview</h3>
+        <div className="border border-gray-200 rounded-md p-4">
+          <p className="text-sm text-gray-900 mb-2">{item.questionText || 'Your question here'}</p>
+          {item.multipleLines ? (
+            <textarea
+              disabled
+              rows={4}
+              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-50"
+              placeholder={item.placeholder || 'Enter your answer here'}
+            />
+          ) : (
+            <input
+              type="text"
+              disabled
+              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md bg-gray-50"
+              placeholder={item.placeholder || 'Enter your answer here'}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default BlankQuestionEditor;
+export default OpenAnswerQuestionEditor;

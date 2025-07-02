@@ -5,7 +5,8 @@ const formItemSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['blank', 'demographics', 'primaryInsurance', 'secondaryInsurance', 'allergies', 'text', 'dropdown', 'checkbox', 'radio', 'date', 'matrix']
+    // 'blank' is kept for backward compatibility, use 'openAnswer' for new forms
+    enum: ['blank', 'demographics', 'primaryInsurance', 'secondaryInsurance', 'allergies', 'text', 'dropdown', 'checkbox', 'radio', 'date', 'matrix', 'mixedControls', 'openAnswer', 'multipleChoiceSingle', 'multipleChoiceMultiple', 'matrix', 'matrixSingleAnswer', 'sectionTitle', 'fileAttachment', 'eSignature', 'smartEditor', 'bodyMap']
   },
   questionText: {
     type: String,
@@ -29,8 +30,29 @@ const formItemSchema = new mongoose.Schema({
     columnTypes: [String], // text, dropdown, etc.
     rows: [String],
     dropdownOptions: [[String]], // Options for each column that is a dropdown
-    displayTextBox: Boolean
+    displayTextBox: Boolean,
+    allowMultipleAnswers: Boolean // For matrix with multiple answers per row
   },
+  // For section title / note
+  sectionContent: String,
+  // For file attachment
+  fileTypes: [String], // Allowed file types (e.g., 'pdf', 'jpg', 'png')
+  maxFileSize: Number, // Maximum file size in bytes
+  // For e-signature
+  signaturePrompt: String,
+  // For smart editor
+  editorContent: String,
+  // For body map / drawing
+  bodyMapType: String, // e.g., 'fullBody', 'head', 'torso', etc.
+  allowPatientMarkings: Boolean,
+  // For mixed controls
+  mixedControlsConfig: [{
+    controlType: String, // text, dropdown, checkbox, etc.
+    label: String,
+    required: Boolean,
+    options: [String], // For dropdown, checkbox, radio
+    placeholder: String
+  }],
   // For demographics questions
   demographicFields: [{ 
     fieldName: String,

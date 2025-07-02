@@ -7,14 +7,17 @@ interface QuestionTypeSelectorProps {
 
 const QuestionTypeSelector: React.FC<QuestionTypeSelectorProps> = ({ value, onChange }) => {
   const questionTypes = [
-    { value: 'text', label: 'Text' },
-    { value: 'textarea', label: 'Text Area' },
-    { value: 'dropdown', label: 'Dropdown' },
-    { value: 'radio', label: 'Radio Buttons' },
-    { value: 'checkbox', label: 'Checkboxes' },
-    { value: 'date', label: 'Date' },
+    { value: 'mixedControls', label: 'Mixed Controls' },
+    { value: 'openAnswer', label: 'Open Answer' },
+    { value: 'multipleChoiceSingle', label: 'Multiple Choice - Single Answer' },
+    { value: 'multipleChoiceMultiple', label: 'Multiple Choice - Multiple Answer' },
     { value: 'matrix', label: 'Matrix' },
-    { value: 'mixed', label: 'Mixed Controls' }
+    { value: 'matrixSingleAnswer', label: 'Matrix - Single Answer per Line' },
+    { value: 'sectionTitle', label: 'Section Title / Note' },
+    { value: 'fileAttachment', label: 'File Attachment' },
+    { value: 'eSignature', label: 'e-Signature' },
+    { value: 'smartEditor', label: 'Smart Editor' },
+    { value: 'bodyMap', label: 'Body Map / Drawing' }
   ];
   
   return (
