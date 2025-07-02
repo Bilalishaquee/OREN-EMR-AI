@@ -1,5 +1,7 @@
 import React from 'react';
-import { Plus, Trash } from 'lucide-react';
+import { Plus, Trash, CheckCircle, Circle } from 'lucide-react';
+import QuestionButton from '../QuestionButton';
+import QuestionControl from '../QuestionControl';
 
 interface MultipleChoiceSingleQuestionProps {
   item: {
@@ -61,10 +63,15 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
   };
   
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-lg rounded-lg p-6 border-l-4 border-indigo-500">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Multiple Choice - Single Answer</h2>
+          <div className="flex items-center">
+            <div className="bg-indigo-100 p-2 rounded-md mr-3">
+              <Circle className="h-5 w-5 text-indigo-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Multiple Choice - Single Answer</h2>
+          </div>
         </div>
       </div>
       
@@ -80,7 +87,7 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
               name="isRequired"
               checked={item.isRequired}
               onChange={handleChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-colors duration-200"
             />
             <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
               Is Required
@@ -93,7 +100,7 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
           value={item.questionText}
           onChange={handleChange}
           rows={3}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-white transition-colors duration-200"
           placeholder="Type your question text here"
         />
       </div>
@@ -101,34 +108,39 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-md font-medium text-gray-900">Answer Options</h3>
-          <button
-            type="button"
+          <QuestionButton
+            icon={Plus}
+            label="Add Option"
             onClick={addOption}
-            className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Option
-          </button>
+            color="#4F46E5"
+            bgColor="bg-indigo-50"
+            hoverColor="hover:bg-indigo-100"
+            textColor="text-indigo-700"
+            size="md"
+            variant="solid"
+          />
         </div>
         
         {item.options && item.options.length > 0 ? (
           <div className="space-y-3">
             {item.options.map((option, index) => (
-              <div key={index} className="flex items-center">
+              <div key={index} className="flex items-center bg-gray-50 p-1.5 rounded-md hover:bg-indigo-50 transition-colors duration-200">
                 <div className="flex-shrink-0 mr-2">
-                  <div className="h-5 w-5 border border-gray-300 rounded-full"></div>
+                  <div className="h-5 w-5 border-2 border-indigo-500 rounded-full flex items-center justify-center bg-white">
+                    {index === 0 && <div className="h-2.5 w-2.5 bg-indigo-500 rounded-full"></div>}
+                  </div>
                 </div>
                 <input
                   type="text"
                   value={option}
                   onChange={(e) => updateOption(index, e.target.value)}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-white transition-colors duration-200"
                   placeholder={`Option ${index + 1}`}
                 />
                 <button
                   type="button"
                   onClick={() => removeOption(index)}
-                  className="ml-2 text-red-600 hover:text-red-800"
+                  className="ml-2 text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors duration-200"
                 >
                   <Trash className="h-4 w-4" />
                 </button>
@@ -136,9 +148,28 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 text-center py-4 border border-dashed border-gray-300 rounded-md">
-            No options added yet. Click "Add Option" to add your first option.
-          </p>
+          <div className="text-center py-8 border border-dashed border-indigo-300 rounded-md bg-indigo-50">
+            <div className="bg-indigo-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+              <Circle className="h-6 w-6 text-indigo-600" />
+            </div>
+            <p className="text-sm text-indigo-700 font-medium mb-2">
+              No options added yet
+            </p>
+            <p className="text-xs text-indigo-500 mb-4">
+              Add options for users to choose from
+            </p>
+            <QuestionButton
+              icon={Plus}
+              label="Add Your First Option"
+              onClick={addOption}
+              color="#4F46E5"
+              bgColor="bg-indigo-50"
+              hoverColor="hover:bg-indigo-100"
+              textColor="text-indigo-700"
+              size="sm"
+              variant="outline"
+            />
+          </div>
         )}
       </div>
     </div>

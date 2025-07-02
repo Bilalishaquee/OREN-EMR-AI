@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash } from 'lucide-react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface AllergiesQuestionProps {
   item: {
@@ -190,14 +191,17 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
   };
   
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-lg rounded-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-300">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Question Type</h2>
+          <div className="flex items-center">
+            <ExclamationTriangleIcon className="h-6 w-6 text-red-500 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900">Allergies Question</h2>
+          </div>
           <div className="flex items-center">
             <button
               type="button"
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
             >
               Question Options
             </button>
@@ -208,7 +212,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
           <select
             value="matrix"
             disabled
-            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md transition-colors duration-200"
           >
             <option value="matrix">Matrix</option>
           </select>
@@ -227,7 +231,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
               name="isRequired"
               checked={item.isRequired}
               onChange={(e) => onChange({ ...item, isRequired: e.target.checked })}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded transition-colors duration-200"
             />
             <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
               Is Required
@@ -240,13 +244,13 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
           value={item.questionText}
           onChange={handleChange}
           rows={3}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
           placeholder="Please enter the details of any allergies"
         />
       </div>
       
       <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Matrix</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Allergies Matrix</h3>
         
         <div className="mb-4">
           <label htmlFor="rowHeader" className="block text-sm font-medium text-gray-700 mb-1">
@@ -257,7 +261,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
             id="rowHeader"
             value={item.matrix?.rowHeader || ''}
             onChange={(e) => handleMatrixChange('rowHeader', e.target.value)}
-            className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            className="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
             placeholder="Row Header (optional)"
           />
         </div>
@@ -276,7 +280,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                         type="text"
                         value={header}
                         onChange={(e) => handleColumnHeaderChange(index, e.target.value)}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                         placeholder="Column Header"
                       />
                       <button
@@ -291,7 +295,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                       <select
                         value={item.matrix?.columnTypes[index] || 'text'}
                         onChange={(e) => handleColumnTypeChange(index, e.target.value)}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                       >
                         <option value="text">Text</option>
                         <option value="dropdown">Dropdown</option>
@@ -302,7 +306,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                         <button
                           type="button"
                           onClick={() => setShowColumnOptions(showColumnOptions === index ? null : index)}
-                          className="text-xs text-blue-600 hover:text-blue-800"
+                          className="text-xs text-red-600 hover:text-red-800 transition-colors duration-200"
                         >
                           {showColumnOptions === index ? 'Hide Options' : 'Edit Options'}
                         </button>
@@ -315,7 +319,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                                   type="text"
                                   id={`new-dropdown-option-${index}`}
                                   placeholder="Add option"
-                                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-l-md"
+                                  className="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-l-md transition-colors duration-200"
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
                                       addDropdownOption(index, (e.target as HTMLInputElement).value.trim());
@@ -332,7 +336,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                                       input.value = '';
                                     }
                                   }}
-                                  className="inline-flex items-center px-2 py-1 border border-l-0 border-gray-300 shadow-sm text-xs font-medium rounded-r-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                  className="inline-flex items-center px-2 py-1 border border-l-0 border-gray-300 shadow-sm text-xs font-medium rounded-r-md text-gray-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                 >
                                   Add
                                 </button>
@@ -363,7 +367,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                   <button
                     type="button"
                     onClick={addColumn}
-                    className="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                   >
                     <Plus className="h-3 w-3" />
                   </button>
@@ -379,7 +383,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
                         type="text"
                         value={row}
                         onChange={(e) => handleRowChange(rowIndex, e.target.value)}
-                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        className="shadow-sm focus:ring-red-500 focus:border-red-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                       />
                       <button
                         type="button"
@@ -406,7 +410,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
           <button
             type="button"
             onClick={addRow}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
           >
             <Plus className="mr-1 h-4 w-4" />
             Add Row
@@ -425,7 +429,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
               id="displayTextBox"
               checked={item.matrix?.displayTextBox || false}
               onChange={(e) => handleMatrixChange('displayTextBox', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded transition-colors duration-200"
             />
             <label htmlFor="displayTextBox" className="ml-2 block text-sm text-gray-900">
               Display text box at the end for further explanation
@@ -437,7 +441,7 @@ const AllergiesQuestionEditor: React.FC<AllergiesQuestionProps> = ({ item, onCha
       <div className="flex justify-end space-x-2 mt-6">
         <button
           type="button"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
         >
           Duplicate
         </button>

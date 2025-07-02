@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Trash } from 'lucide-react';
+import { Plus, Trash, Settings, Type, List, Calendar } from 'lucide-react';
+import { AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
+import QuestionButton from '../QuestionButton';
+import QuestionControl from '../QuestionControl';
 
 interface MixedControlsQuestionProps {
   item: {
@@ -138,10 +141,13 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
   };
   
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-lg rounded-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-300">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Mixed Controls Question</h2>
+          <div className="flex items-center">
+            <AdjustmentsHorizontalIcon className="h-6 w-6 text-purple-500 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900">Mixed Controls Question</h2>
+          </div>
         </div>
       </div>
       
@@ -157,7 +163,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
               name="isRequired"
               checked={item.isRequired}
               onChange={handleChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-colors duration-200"
             />
             <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
               Is Required
@@ -170,7 +176,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
           value={item.questionText}
           onChange={handleChange}
           rows={3}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
           placeholder="Type your question text here"
         />
       </div>
@@ -185,7 +191,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
           value={item.instructions || ''}
           onChange={handleChange}
           rows={2}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
           placeholder="Add instructions for this question"
         />
       </div>
@@ -193,26 +199,39 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-md font-medium text-gray-900">Controls</h3>
-          <button
-            type="button"
+          <QuestionButton
+            icon={Plus}
+            label="Add Control"
             onClick={addControl}
-            className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Control
-          </button>
+            color="#8B5CF6"
+            bgColor="bg-purple-50"
+            hoverColor="hover:bg-purple-100"
+            textColor="text-purple-700"
+            size="md"
+            variant="solid"
+          />
         </div>
         
         {item.mixedControlsConfig && item.mixedControlsConfig.length > 0 ? (
           <div className="space-y-4">
             {item.mixedControlsConfig.map((control, index) => (
-              <div key={index} className="border border-gray-200 rounded-md p-4">
+              <div key={index} className="border border-gray-200 rounded-md p-4 shadow-sm hover:shadow-md transition-all duration-200 bg-white">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-medium text-gray-900">Control {index + 1}</h4>
+                  <div className="flex items-center">
+                    <div className="bg-purple-100 p-1.5 rounded-md mr-2">
+                      {control.controlType === 'text' && <Type className="h-3.5 w-3.5 text-purple-600" />}
+                      {control.controlType === 'textarea' && <Type className="h-3.5 w-3.5 text-purple-600" />}
+                      {control.controlType === 'dropdown' && <List className="h-3.5 w-3.5 text-purple-600" />}
+                      {control.controlType === 'radio' && <List className="h-3.5 w-3.5 text-purple-600" />}
+                      {control.controlType === 'checkbox' && <List className="h-3.5 w-3.5 text-purple-600" />}
+                      {control.controlType === 'date' && <Calendar className="h-3.5 w-3.5 text-purple-600" />}
+                    </div>
+                    <h4 className="text-sm font-medium text-gray-900">Control {index + 1}: {control.label}</h4>
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeControl(index)}
-                    className="text-red-600 hover:text-red-800"
+                    className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors duration-200"
                   >
                     <Trash className="h-4 w-4" />
                   </button>
@@ -226,7 +245,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
                     <select
                       value={control.controlType}
                       onChange={(e) => handleControlChange(index, 'controlType', e.target.value)}
-                      className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                      className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm rounded-md transition-colors duration-200 bg-white"
                     >
                       <option value="text">Text</option>
                       <option value="textarea">Text Area</option>
@@ -245,7 +264,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
                       type="text"
                       value={control.label}
                       onChange={(e) => handleControlChange(index, 'label', e.target.value)}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200 bg-white"
                       placeholder="Field Label"
                     />
                   </div>
@@ -257,7 +276,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
                     id={`control-${index}-required`}
                     checked={control.required}
                     onChange={(e) => handleControlChange(index, 'required', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-colors duration-200"
                   />
                   <label htmlFor={`control-${index}-required`} className="ml-2 block text-sm text-gray-900">
                     Required
@@ -273,7 +292,7 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
                       type="text"
                       value={control.placeholder || ''}
                       onChange={(e) => handleControlChange(index, 'placeholder', e.target.value)}
-                      className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                      className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200 bg-white"
                       placeholder="Placeholder text"
                     />
                   </div>
@@ -285,31 +304,37 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
                       <label className="block text-sm font-medium text-gray-700">
                         Options
                       </label>
-                      <button
-                        type="button"
+                      <QuestionButton
+                        icon={Plus}
+                        label="Add Option"
                         onClick={() => addOption(index)}
-                        className="inline-flex items-center px-2 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add Option
-                      </button>
+                        color="#8B5CF6"
+                        bgColor="bg-purple-50"
+                        hoverColor="hover:bg-purple-100"
+                        textColor="text-purple-700"
+                        size="sm"
+                        variant="outline"
+                      />
                     </div>
                     
                     {control.options && control.options.length > 0 ? (
                       <div className="space-y-2">
                         {control.options.map((option, optionIndex) => (
-                          <div key={optionIndex} className="flex items-center">
+                          <div key={optionIndex} className="flex items-center bg-gray-50 p-1.5 rounded-md hover:bg-gray-100 transition-colors duration-200">
+                            <div className="bg-purple-100 rounded-full w-5 h-5 flex items-center justify-center mr-2">
+                              <span className="text-xs font-medium text-purple-700">{optionIndex + 1}</span>
+                            </div>
                             <input
                               type="text"
                               value={option}
                               onChange={(e) => updateOption(index, optionIndex, e.target.value)}
-                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                              className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md bg-white"
                               placeholder={`Option ${optionIndex + 1}`}
                             />
                             <button
                               type="button"
                               onClick={() => removeOption(index, optionIndex)}
-                              className="ml-2 text-red-600 hover:text-red-800"
+                              className="ml-2 text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors duration-200"
                             >
                               <Trash className="h-4 w-4" />
                             </button>
@@ -325,9 +350,28 @@ const MixedControlsQuestionEditor: React.FC<MixedControlsQuestionProps> = ({ ite
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 text-center py-4 border border-dashed border-gray-300 rounded-md">
-            No controls added yet. Click "Add Control" to add your first control.
-          </p>
+          <div className="text-center py-8 border border-dashed border-purple-300 rounded-md bg-purple-50">
+            <div className="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+              <AdjustmentsHorizontalIcon className="h-6 w-6 text-purple-600" />
+            </div>
+            <p className="text-sm text-purple-700 font-medium mb-2">
+              No controls added yet
+            </p>
+            <p className="text-xs text-purple-500 mb-4">
+              Add controls to create form fields for users to fill out
+            </p>
+            <QuestionButton
+              icon={Plus}
+              label="Add Your First Control"
+              onClick={addControl}
+              color="#8B5CF6"
+              bgColor="bg-purple-50"
+              hoverColor="hover:bg-purple-100"
+              textColor="text-purple-700"
+              size="sm"
+              variant="outline"
+            />
+          </div>
         )}
       </div>
     </div>

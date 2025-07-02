@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash } from 'lucide-react';
+import { IdentificationIcon } from '@heroicons/react/24/outline';
 
 interface InsuranceField {
   fieldName: string;
@@ -109,14 +110,17 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
   };
   
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-lg rounded-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow duration-300">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Question Type</h2>
+          <div className="flex items-center">
+            <IdentificationIcon className="h-6 w-6 text-blue-500 mr-2" />
+            <h2 className="text-lg font-semibold text-gray-900">Primary Insurance</h2>
+          </div>
           <div className="flex items-center">
             <button
               type="button"
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
             >
               Question Options
             </button>
@@ -127,7 +131,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
           <select
             value="mixed"
             disabled
-            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md transition-colors duration-200"
           >
             <option value="mixed">Mixed Controls</option>
           </select>
@@ -144,22 +148,22 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
           value={item.instructions || ''}
           onChange={handleChange}
           rows={3}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
           placeholder="Primary Insurance"
         />
       </div>
       
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Items</h3>
-          <a href="#" className="text-sm text-blue-600 hover:text-blue-800">
+          <h3 className="text-lg font-medium text-gray-900">Insurance Fields</h3>
+          <a href="#" className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200">
             help
           </a>
         </div>
         
         <div className="space-y-4">
           {item.insuranceFields?.map((field, index) => (
-            <div key={index} className="border border-gray-200 rounded-md p-4 relative">
+            <div key={index} className="border border-gray-200 rounded-md p-4 relative hover:border-blue-200 hover:shadow-md transition-all duration-200">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -169,7 +173,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
                     type="text"
                     value={field.fieldName}
                     onChange={(e) => handleFieldChange(index, 'fieldName', e.target.value)}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                   />
                 </div>
                 
@@ -180,7 +184,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
                   <select
                     value={field.fieldType}
                     onChange={(e) => handleFieldChange(index, 'fieldType', e.target.value)}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                   >
                     <option value="text">Text</option>
                     <option value="dropdown">Dropdown</option>
@@ -194,7 +198,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
                     id={`required-${index}`}
                     checked={field.required}
                     onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-colors duration-200"
                   />
                   <label htmlFor={`required-${index}`} className="ml-2 block text-sm text-gray-900">
                     Required
@@ -212,21 +216,21 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
                     <button
                       type="button"
                       onClick={() => setShowFieldOptions(showFieldOptions === index ? null : index)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
+                      className="text-sm text-blue-600 hover:text-blue-800 transition-colors duration-200"
                     >
                       {showFieldOptions === index ? 'Hide Options' : 'Show Options'}
                     </button>
                   </div>
                   
                   {showFieldOptions === index && (
-                    <div className="border border-gray-200 rounded-md p-3 bg-gray-50">
+                    <div className="border border-gray-200 rounded-md p-3 bg-blue-50">
                       <div className="mb-2">
                         <div className="flex">
                           <input
                             type="text"
                             id={`new-option-${index}`}
                             placeholder="Add new option"
-                            className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-l-md"
+                            className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-l-md transition-colors duration-200"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
                                 addOption(index, (e.target as HTMLInputElement).value.trim());
@@ -243,7 +247,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
                                 input.value = '';
                               }
                             }}
-                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                           >
                             Add
                           </button>
@@ -252,7 +256,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
                       
                       <ul className="space-y-1 max-h-40 overflow-y-auto">
                         {field.options?.map((option, optionIndex) => (
-                          <li key={optionIndex} className="flex justify-between items-center py-1 px-2 hover:bg-gray-100 rounded">
+                          <li key={optionIndex} className="flex justify-between items-center py-1 px-2 hover:bg-blue-100 rounded transition-colors duration-200">
                             <span>{option}</span>
                             <button
                               type="button"
@@ -283,7 +287,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
           <button
             type="button"
             onClick={addField}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Field
@@ -294,7 +298,7 @@ const PrimaryInsuranceQuestionEditor: React.FC<PrimaryInsuranceQuestionProps> = 
       <div className="flex justify-end space-x-2 mt-6">
         <button
           type="button"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
         >
           Duplicate
         </button>

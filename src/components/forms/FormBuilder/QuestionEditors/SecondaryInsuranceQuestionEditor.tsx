@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash } from 'lucide-react';
+import { IdentificationIcon } from '@heroicons/react/24/outline';
 
 interface InsuranceField {
   fieldName: string;
@@ -109,14 +110,18 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
   };
   
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-md hover:shadow-lg transition-shadow duration-300 rounded-lg p-6 border border-gray-100">
+      <div className="flex items-center mb-6">
+        <IdentificationIcon className="h-6 w-6 text-teal-500 mr-2" />
+        <h2 className="text-xl font-semibold text-gray-800">Secondary Insurance</h2>
+      </div>
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Question Type</h2>
+          <h2 className="text-lg font-medium text-gray-800">Question Type</h2>
           <div className="flex items-center">
             <button
               type="button"
-              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
             >
               Question Options
             </button>
@@ -127,7 +132,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
           <select
             value="mixed"
             disabled
-            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm rounded-md transition-colors duration-200"
           >
             <option value="mixed">Mixed Controls</option>
           </select>
@@ -144,15 +149,15 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
           value={item.instructions || ''}
           onChange={handleChange}
           rows={3}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
           placeholder="Secondary Insurance"
         />
       </div>
       
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Items</h3>
-          <a href="#" className="text-sm text-blue-600 hover:text-blue-800">
+          <h3 className="text-lg font-medium text-gray-800">Items</h3>
+          <a href="#" className="text-sm text-teal-600 hover:text-teal-800 transition-colors duration-200">
             help
           </a>
         </div>
@@ -169,7 +174,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
                     type="text"
                     value={field.fieldName}
                     onChange={(e) => handleFieldChange(index, 'fieldName', e.target.value)}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                   />
                 </div>
                 
@@ -180,7 +185,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
                   <select
                     value={field.fieldType}
                     onChange={(e) => handleFieldChange(index, 'fieldType', e.target.value)}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                    className="shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                   >
                     <option value="text">Text</option>
                     <option value="dropdown">Dropdown</option>
@@ -194,7 +199,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
                     id={`required-${index}`}
                     checked={field.required}
                     onChange={(e) => handleFieldChange(index, 'required', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded transition-colors duration-200"
                   />
                   <label htmlFor={`required-${index}`} className="ml-2 block text-sm text-gray-900">
                     Required
@@ -212,7 +217,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
                     <button
                       type="button"
                       onClick={() => setShowFieldOptions(showFieldOptions === index ? null : index)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
+                      className="text-sm text-teal-600 hover:text-teal-800 transition-colors duration-200"
                     >
                       {showFieldOptions === index ? 'Hide Options' : 'Show Options'}
                     </button>
@@ -226,7 +231,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
                             type="text"
                             id={`new-option-${index}`}
                             placeholder="Add new option"
-                            className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-l-md"
+                            className="shadow-sm focus:ring-teal-500 focus:border-teal-500 block w-full sm:text-sm border-gray-300 rounded-l-md transition-colors duration-200"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
                                 addOption(index, (e.target as HTMLInputElement).value.trim());
@@ -243,7 +248,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
                                 input.value = '';
                               }
                             }}
-                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 shadow-sm text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
                           >
                             Add
                           </button>
@@ -283,7 +288,7 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
           <button
             type="button"
             onClick={addField}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Field
@@ -294,13 +299,13 @@ const SecondaryInsuranceQuestionEditor: React.FC<SecondaryInsuranceQuestionProps
       <div className="flex justify-end space-x-2 mt-6">
         <button
           type="button"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors duration-200"
         >
           Duplicate
         </button>
         <button
           type="button"
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
         >
           Delete
         </button>

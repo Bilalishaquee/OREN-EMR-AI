@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Save, ArrowLeft, Plus, Copy, Trash } from 'lucide-react';
+import { Save, ArrowLeft, Plus, Copy, Trash, AlignLeft } from 'lucide-react';
+import QuestionButton from './QuestionButton';
 import QuestionTypeSelector from './QuestionTypeSelector';
 import BlankQuestionEditor from './QuestionEditors/BlankQuestionEditor';
 import DemographicsQuestionEditor from './QuestionEditors/DemographicsQuestionEditor';
@@ -473,19 +474,202 @@ const FormBuilder: React.FC = () => {
     }
   };
   
+  // State to track the type of question being previewed without adding to the list
+  const [previewQuestionType, setPreviewQuestionType] = useState<string | null>(null);
+
+  // Function to handle selecting an item
+  const handleSelectItem = (index: number, questionType?: string) => {
+    if (index === -1 && questionType) {
+      // Special case: just display the form without adding to list
+      // We'll handle this in renderQuestionEditor
+      setCurrentItemIndex(null);
+      setPreviewQuestionType(questionType);
+    } else {
+      setCurrentItemIndex(index);
+      setPreviewQuestionType(null);
+    }
+  };
+
   const renderQuestionEditor = () => {
+    // If we have a preview question type, render that editor without adding to the list
+    if (previewQuestionType) {
+      const previewItem = {
+        type: previewQuestionType,
+        questionText: 'Type your question text here',
+        isRequired: false,
+        placeholder: 'Enter your answer here',
+        multipleLines: false
+      };
+
+      // Render the appropriate editor based on the preview type
+      switch (previewQuestionType) {
+        case 'openAnswer':
+          return (
+            <OpenAnswerQuestionEditor
+              item={previewItem}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'mixedControls':
+          return (
+            <MixedControlsQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'mixedControls',
+                instructions: 'Please fill out all fields below.',
+                mixedControlsConfig: [
+                  { controlType: 'text', label: 'Text Field', required: false, placeholder: 'Enter text here' },
+                  { controlType: 'dropdown', label: 'Dropdown Field', required: false, options: ['Option 1', 'Option 2', 'Option 3'] }
+                ]
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'multipleChoiceSingle':
+          return (
+            <MultipleChoiceSingleQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'multipleChoiceSingle',
+                options: ['Option 1', 'Option 2', 'Option 3']
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'multipleChoiceMultiple':
+          return (
+            <MultipleChoiceMultipleQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'multipleChoiceMultiple',
+                options: ['Option 1', 'Option 2', 'Option 3']
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'matrix':
+          return (
+            <MatrixQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'matrix',
+                matrix: {
+                  rowHeader: 'Questions',
+                  columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+                  columnTypes: ['checkbox', 'checkbox', 'checkbox'],
+                  rows: ['Row 1', 'Row 2', 'Row 3'],
+                  dropdownOptions: [[], [], []],
+                  displayTextBox: false,
+                  allowMultipleAnswers: true
+                }
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'matrixSingleAnswer':
+          return (
+            <MatrixSingleAnswerQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'matrixSingleAnswer',
+                matrix: {
+                  rowHeader: 'Questions',
+                  columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+                  columnTypes: ['radio', 'radio', 'radio'],
+                  rows: ['Row 1', 'Row 2', 'Row 3'],
+                  dropdownOptions: [[], [], []],
+                  displayTextBox: false,
+                  allowMultipleAnswers: false
+                }
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'sectionTitle':
+          return (
+            <SectionTitleQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'sectionTitle',
+                sectionContent: 'Add additional information or instructions here.'
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'fileAttachment':
+          return (
+            <FileAttachmentQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'fileAttachment',
+                fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
+                maxFileSize: 5 * 1024 * 1024 // 5MB
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'eSignature':
+          return (
+            <ESignatureQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'eSignature',
+                signaturePrompt: 'Please sign below to confirm your agreement.'
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'smartEditor':
+          return (
+            <SmartEditorQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'smartEditor',
+                editorContent: '<p>Enter your formatted text here.</p>'
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        case 'bodyMap':
+          return (
+            <BodyMapQuestionEditor
+              item={{
+                ...previewItem,
+                type: 'bodyMap',
+                bodyMapType: 'fullBody',
+                allowPatientMarkings: true
+              }}
+              onChange={() => {}} // No-op since we're just previewing
+            />
+          );
+        default:
+          return (
+            <div className="flex items-center justify-center h-64 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-center">
+                <p className="text-gray-500 mb-4">Preview not available for this question type</p>
+                <p className="text-sm text-gray-400">Click the plus icon to add this question to your form</p>
+              </div>
+            </div>
+          );
+      }
+    }
+
     if (currentItemIndex === null || !formTemplate.items[currentItemIndex]) {
       return (
         <div className="flex items-center justify-center h-64 bg-gray-50 border border-gray-200 rounded-lg">
           <div className="text-center">
             <p className="text-gray-500 mb-4">No question selected</p>
-            <button
+            <QuestionButton
+              icon={AlignLeft}
+              label="Add Open Answer Question"
               onClick={() => addNewQuestion('openAnswer')}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-            >
-              <Plus className="inline-block mr-2 h-4 w-4" />
-              Add Question
-            </button>
+              color="#10B981"
+              bgColor="bg-green-50"
+              hoverColor="hover:bg-green-100"
+              textColor="text-green-700"
+              size="lg"
+              variant="solid"
+            />
           </div>
         </div>
       );
@@ -741,7 +925,7 @@ const FormBuilder: React.FC = () => {
           <QuestionSidebar
             items={formTemplate.items}
             currentItemIndex={currentItemIndex}
-            onSelectItem={setCurrentItemIndex}
+            onSelectItem={handleSelectItem}
             onAddItem={addNewQuestion}
             onDuplicateItem={duplicateQuestion}
             onDeleteItem={deleteQuestion}

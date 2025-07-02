@@ -1,5 +1,7 @@
 import React from 'react';
-import { Plus, Trash } from 'lucide-react';
+import { Plus, Trash, CheckSquare, Square } from 'lucide-react';
+import QuestionButton from "../QuestionButton";
+import QuestionControl from "../QuestionControl";
 
 interface MultipleChoiceMultipleQuestionProps {
   item: {
@@ -61,10 +63,15 @@ const MultipleChoiceMultipleQuestionEditor: React.FC<MultipleChoiceMultipleQuest
   };
   
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
+    <div className="bg-white shadow-lg rounded-lg p-6 border-l-4 border-purple-500">
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Multiple Choice - Multiple Answers</h2>
+          <div className="flex items-center">
+            <div className="bg-purple-100 p-2 rounded-md mr-3">
+              <CheckSquare className="h-5 w-5 text-purple-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Multiple Choice - Multiple Answers</h2>
+          </div>
         </div>
       </div>
       
@@ -80,7 +87,7 @@ const MultipleChoiceMultipleQuestionEditor: React.FC<MultipleChoiceMultipleQuest
               name="isRequired"
               checked={item.isRequired}
               onChange={handleChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded transition-colors duration-200"
             />
             <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
               Is Required
@@ -93,7 +100,7 @@ const MultipleChoiceMultipleQuestionEditor: React.FC<MultipleChoiceMultipleQuest
           value={item.questionText}
           onChange={handleChange}
           rows={3}
-          className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+          className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
           placeholder="Type your question text here"
         />
       </div>
@@ -101,34 +108,37 @@ const MultipleChoiceMultipleQuestionEditor: React.FC<MultipleChoiceMultipleQuest
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-md font-medium text-gray-900">Answer Options (Select Multiple)</h3>
-          <button
-            type="button"
+          <QuestionButton
+            icon={Plus}
+            label="Add Option"
             onClick={addOption}
-            className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add Option
-          </button>
+            color="#9333EA"
+            bgColor="bg-purple-50"
+            hoverColor="hover:bg-purple-100"
+            textColor="text-purple-700"
+            size="md"
+            variant="solid"
+          />
         </div>
         
         {item.options && item.options.length > 0 ? (
           <div className="space-y-3">
             {item.options.map((option, index) => (
-              <div key={index} className="flex items-center">
+              <div key={index} className="flex items-center bg-gray-50 p-2 rounded-md hover:bg-purple-50 transition-colors duration-200">
                 <div className="flex-shrink-0 mr-2">
-                  <div className="h-5 w-5 border border-gray-300 rounded"></div>
+                  <div className="h-5 w-5 border border-purple-300 rounded"></div>
                 </div>
                 <input
                   type="text"
                   value={option}
                   onChange={(e) => updateOption(index, e.target.value)}
-                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className="shadow-sm focus:ring-purple-500 focus:border-purple-500 block w-full sm:text-sm border-gray-300 rounded-md transition-colors duration-200"
                   placeholder={`Option ${index + 1}`}
                 />
                 <button
                   type="button"
                   onClick={() => removeOption(index)}
-                  className="ml-2 text-red-600 hover:text-red-800"
+                  className="ml-2 text-red-600 hover:text-red-800 transition-colors duration-200"
                 >
                   <Trash className="h-4 w-4" />
                 </button>
