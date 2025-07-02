@@ -27,6 +27,7 @@ import OpenAnswerQuestionEditor from './QuestionEditors/OpenAnswerQuestionEditor
 
 interface FormItem {
   _id?: string;
+  id?: string; // Added id field to match PatientIntakeFormPreview expectations
   type: string;
   questionText: string;
   isRequired: boolean;
@@ -145,13 +146,22 @@ const FormBuilder: React.FC = () => {
     }
   };
   
+  // Helper function to generate a unique ID
+  const generateUniqueId = () => {
+    return 'q_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  };
+
   const addNewQuestion = (questionType: string) => {
     let newItem: FormItem;
+    
+    // Generate a unique ID for the new question
+    const uniqueId = generateUniqueId();
     
     switch (questionType) {
       case 'blank': // Keep for backward compatibility
       case 'openAnswer':
         newItem = {
+          id: uniqueId,
           type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
@@ -161,6 +171,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'demographics':
         newItem = {
+          id: uniqueId,
           type: 'demographics',
           questionText: 'Demographics Information',
           isRequired: false,
@@ -188,6 +199,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'primaryInsurance':
         newItem = {
+          id: uniqueId,
           type: 'primaryInsurance',
           questionText: 'Primary Insurance Information',
           isRequired: false,
@@ -210,6 +222,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'secondaryInsurance':
         newItem = {
+          id: uniqueId,
           type: 'secondaryInsurance',
           questionText: 'Secondary Insurance Information',
           isRequired: false,
@@ -232,6 +245,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'allergies':
         newItem = {
+          id: uniqueId,
           type: 'allergies',
           questionText: 'Please enter the details of any allergies',
           isRequired: false,
@@ -254,6 +268,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'mixedControls':
         newItem = {
+          id: uniqueId,
           type: 'mixedControls',
           questionText: 'Mixed Controls Question',
           isRequired: false,
@@ -266,6 +281,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'openAnswer':
         newItem = {
+          id: uniqueId,
           type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
@@ -275,6 +291,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'multipleChoiceSingle':
         newItem = {
+          id: uniqueId,
           type: 'multipleChoiceSingle',
           questionText: 'Multiple Choice Question',
           isRequired: false,
@@ -283,6 +300,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'multipleChoiceMultiple':
         newItem = {
+          id: uniqueId,
           type: 'multipleChoiceMultiple',
           questionText: 'Multiple Choice Question (Select all that apply)',
           isRequired: false,
@@ -291,6 +309,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'matrix':
         newItem = {
+          id: uniqueId,
           type: 'matrix',
           questionText: 'Matrix Question',
           isRequired: false,
@@ -307,6 +326,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'matrixSingleAnswer':
         newItem = {
+          id: uniqueId,
           type: 'matrixSingleAnswer',
           questionText: 'Matrix Question (Single Answer per Row)',
           isRequired: false,
@@ -323,6 +343,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'sectionTitle':
         newItem = {
+          id: uniqueId,
           type: 'sectionTitle',
           questionText: 'Section Title',
           isRequired: false,
@@ -331,6 +352,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'fileAttachment':
         newItem = {
+          id: uniqueId,
           type: 'fileAttachment',
           questionText: 'File Attachment',
           isRequired: false,
@@ -340,6 +362,7 @@ const FormBuilder: React.FC = () => {
         break;
       case 'eSignature':
         newItem = {
+          id: uniqueId,
           type: 'eSignature',
           questionText: 'Signature',
           isRequired: false,
@@ -348,14 +371,16 @@ const FormBuilder: React.FC = () => {
         break;
       case 'smartEditor':
         newItem = {
+          id: uniqueId,
           type: 'smartEditor',
           questionText: 'Smart Editor',
           isRequired: false,
-          editorContent: '<p>Enter your formatted text here.</p>'
+          editorContent: '<p>Enter your content here...</p>'
         };
         break;
       case 'bodyMap':
         newItem = {
+          id: uniqueId,
           type: 'bodyMap',
           questionText: 'Body Map / Drawing',
           isRequired: false,
@@ -365,6 +390,7 @@ const FormBuilder: React.FC = () => {
         break;
       default:
         newItem = {
+          id: uniqueId,
           type: 'openAnswer',
           questionText: 'Type your question text here',
           isRequired: false,
@@ -397,6 +423,8 @@ const FormBuilder: React.FC = () => {
     const itemToDuplicate = { ...formTemplate.items[index] };
     // Remove _id if it exists to ensure a new one is generated
     if (itemToDuplicate._id) delete itemToDuplicate._id;
+    // Generate a new id for the duplicated question
+    itemToDuplicate.id = generateUniqueId();
     
     const updatedItems = [
       ...formTemplate.items.slice(0, index + 1),
@@ -494,6 +522,7 @@ const FormBuilder: React.FC = () => {
     // If we have a preview question type, render that editor without adding to the list
     if (previewQuestionType) {
       const previewItem = {
+        id: generateUniqueId(),
         type: previewQuestionType,
         questionText: 'Type your question text here',
         isRequired: false,

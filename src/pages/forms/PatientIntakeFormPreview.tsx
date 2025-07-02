@@ -78,7 +78,23 @@ const PatientIntakeFormPreview: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await axios.get(`/api/form-templates/${id}`);
-      setFormTemplate(response.data);
+      
+      // Ensure all form items have IDs
+      const formData = response.data;
+      if (formData && formData.items) {
+        formData.items = formData.items.map(item => {
+          // If item is missing an ID, generate one
+          if (!item.id) {
+            return {
+              ...item,
+              id: 'q_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+            };
+          }
+          return item;
+        });
+      }
+      
+      setFormTemplate(formData);
     } catch (error) {
       console.error('Error fetching form template:', error);
     } finally {
@@ -86,15 +102,47 @@ const PatientIntakeFormPreview: React.FC = () => {
     }
   };
   
-  const handleInputChange = (questionId: string, value: any, fieldName?: string) => {
+  const handleInputChange = (questionId: string, value: any, fieldName?: string, rowIndex?: number, columnIndex?: number) => {
     if (fieldName) {
       // For demographic and insurance fields, store with field name
       setResponses(prev => ({
         ...prev,
         [`${questionId}_${fieldName}`]: value
       }));
+    } else if (rowIndex !== undefined && columnIndex !== undefined) {
+      // For matrix questions (like allergies)
+      const responseKey = `${questionId}_${rowIndex}_${columnIndex}`;
+      
+      setResponses(prev => {
+        // Create a new object to avoid mutation
+        const newResponses = { ...prev };
+        
+        // Store the individual cell value
+        newResponses[responseKey] = value;
+        
+        // Also store matrix responses in a format suitable for the API
+        // First, get existing matrix responses or initialize an empty array
+        const existingMatrixResponses = Array.isArray(newResponses[questionId]) 
+          ? newResponses[questionId].filter((item: any) => 
+              !(item.rowIndex === rowIndex && item.columnIndex === columnIndex))
+          : [];
+        
+        // Add the new response
+        newResponses[questionId] = [
+          ...existingMatrixResponses,
+          { rowIndex, columnIndex, value }
+        ];
+        
+        return newResponses;
+      });
+    } else if (Array.isArray(value)) {
+      // For multiple choice with multiple answers
+      setResponses(prev => ({
+        ...prev,
+        [questionId]: value
+      }));
     } else {
-      // For regular questions
+      // For regular questions (text, single choice, etc.)
       setResponses(prev => ({
         ...prev,
         [questionId]: value
@@ -174,15 +222,118 @@ const PatientIntakeFormPreview: React.FC = () => {
     
     try {
       // Format responses for submission
-      const formattedResponses = Object.keys(responses).map(questionId => {
-        const question = formTemplate.items.find(item => item.id === questionId);
-        return {
+      const formattedResponses = [];
+      
+      // First, ensure all questions from the form template are included in formattedResponses
+      // This ensures we don't miss any questions, even if they're unanswered
+      for (const question of formTemplate.items) {
+        const questionId = question.id;
+        if (!questionId) {
+          console.error('Question is missing ID:', question);
+          continue; // Skip questions without ID
+        }
+        
+        const questionType = question.type;
+        const questionText = question.questionText;
+        
+        // Skip language selection question
+        if (questionText.includes('Language Preference')) {
+          continue;
+        }
+        
+        // Initialize response object based on question type
+        let responseObj = {
           questionId,
-          questionType: question?.type || 'openAnswer',
-          questionText: question?.questionText || '',
-          answer: responses[questionId]
+          questionType,
+          questionText
         };
-      });
+        
+        // Set default values based on question type
+        if (questionType === 'blank' || questionType === 'openAnswer') {
+          responseObj.answer = responses[questionId] || '';
+        } else if (questionType === 'demographics') {
+          responseObj.answer = {};
+          
+          // Add all demographic fields to the answer object
+          if (question.demographicFields) {
+            for (const field of question.demographicFields) {
+              const fieldName = field.fieldName;
+              const responseKey = `${questionId}_${fieldName}`;
+              if (responses[responseKey]) {
+                responseObj.answer[fieldName] = responses[responseKey];
+              }
+            }
+            
+            // Add assigned doctor
+            if (responses[`${questionId}_assignedDoctor`] || responses['assignedDoctor']) {
+              responseObj.answer['assignedDoctor'] = responses[`${questionId}_assignedDoctor`] || responses['assignedDoctor'];
+            }
+          }
+        } else if (questionType === 'primaryInsurance' || questionType === 'secondaryInsurance') {
+          responseObj.answer = {};
+          
+          // Add all insurance fields to the answer object
+          if (question.insuranceFields) {
+            for (const field of question.insuranceFields) {
+              const fieldName = field.fieldName;
+              const responseKey = `${questionId}_${fieldName}`;
+              if (responses[responseKey]) {
+                responseObj.answer[fieldName] = responses[responseKey];
+              }
+            }
+          }
+        } else if (questionType === 'allergies') {
+          // For allergies (matrix), collect all cell values
+          if (Array.isArray(responses[questionId]) && responses[questionId].length > 0) {
+            // Ensure each matrix response has the required fields
+            const validMatrixResponses = responses[questionId].filter(item => {
+              return item && typeof item.rowIndex === 'number' && 
+                     typeof item.columnIndex === 'number' && 
+                     item.value !== undefined;
+            });
+            
+            responseObj.matrixResponses = validMatrixResponses;
+          } else {
+            responseObj.matrixResponses = [];
+          }
+        } else if (questionType === 'multipleChoiceSingle') {
+          responseObj.answer = responses[questionId] || '';
+        } else if (questionType === 'multipleChoiceMultiple') {
+          responseObj.answer = Array.isArray(responses[questionId]) ? responses[questionId] : [];
+        } else if (questionType === 'date') {
+          responseObj.answer = responses[questionId] || '';
+        } else if (questionType === 'fileAttachment') {
+          if (responses[questionId]) {
+            responseObj.fileAttachments = responses[questionId];
+          } else {
+            responseObj.fileAttachments = [];
+          }
+        } else if (questionType === 'eSignature') {
+          if (responses[questionId]) {
+            responseObj.signature = responses[questionId];
+          } else {
+            responseObj.signature = null;
+          }
+        } else if (questionType === 'bodyMap') {
+          if (responses[questionId]) {
+            responseObj.bodyMapMarkings = responses[questionId];
+          } else {
+            responseObj.bodyMapMarkings = [];
+          }
+        } else if (questionType === 'mixedControls') {
+          if (responses[questionId]) {
+            responseObj.mixedControlsResponses = responses[questionId];
+          } else {
+            responseObj.mixedControlsResponses = [];
+          }
+        } else {
+          // For any other question type, always include it
+          responseObj.answer = responses[questionId] || '';
+        }
+        
+        // Add the response object to formattedResponses
+        formattedResponses.push(responseObj);
+      }
       
       // Create a new patient record from demographic information if available
       let patientId = null;
@@ -207,9 +358,42 @@ const PatientIntakeFormPreview: React.FC = () => {
           assignedDoctor: responses[`${demographicQuestion.id}_assignedDoctor`] || responses['assignedDoctor'] || ''
         };
         
-        // Create new patient
-        const patientResponse = await axios.post('/api/patients', patientData);
-        patientId = patientResponse.data.patient._id;
+        // Check if required fields are present
+        if (!patientData.assignedDoctor) {
+          alert('Assigned Doctor is required');
+          return;
+        }
+        
+        // Check if we have enough data to create a patient
+        // We'll proceed with patient creation if we have at least the assignedDoctor
+        if (patientData.assignedDoctor) {
+          try {
+            // Create new patient with whatever data we have
+            const patientResponse = await axios.post('/api/patients', patientData);
+            patientId = patientResponse.data.patient._id;
+          } catch (patientError) {
+            console.error('Error creating patient:', patientError);
+            alert('Error creating patient record. Please check the form and try again.');
+            // Continue with form submission even if patient creation fails
+          }
+        } else {
+          // Not enough data to create a patient
+          console.log('Not enough data to create a patient record');
+        }
+      }
+      
+      // Validate formattedResponses before submission
+      if (formattedResponses.length === 0) {
+        alert('No responses to submit. Please fill out at least one question.');
+        return;
+      }
+      
+      // Check that all responses have questionId
+      const invalidResponses = formattedResponses.filter(response => !response.questionId);
+      if (invalidResponses.length > 0) {
+        console.error('Invalid responses found:', invalidResponses);
+        alert('Some responses are invalid. Please check your answers and try again.');
+        return;
       }
       
       // Submit form response
@@ -462,18 +646,7 @@ const PatientIntakeFormPreview: React.FC = () => {
                               <select
                                 className="w-full p-1 border border-gray-300 rounded-md text-sm"
                                 value={responses[`${currentQuestion.id}_${rowIndex}_${colIndex}`] || ''}
-                                onChange={(e) => {
-                                  const matrixValue = e.target.value;
-                                  setResponses(prev => ({
-                                    ...prev,
-                                    [`${currentQuestion.id}_${rowIndex}_${colIndex}`]: matrixValue,
-                                    // Also store in a format suitable for the API
-                                    [currentQuestion.id]: [
-                                      ...(Array.isArray(prev[currentQuestion.id]) ? prev[currentQuestion.id] : []),
-                                      { rowIndex, columnIndex: colIndex, value: matrixValue }
-                                    ]
-                                  }));
-                                }}
+                                onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, rowIndex, colIndex)}
                               >
                                 <option value="">Select</option>
                                 {currentQuestion.matrix?.dropdownOptions[colIndex]?.map((option, i) => (
@@ -485,18 +658,7 @@ const PatientIntakeFormPreview: React.FC = () => {
                                 type="text"
                                 className="w-full p-1 border border-gray-300 rounded-md text-sm"
                                 value={responses[`${currentQuestion.id}_${rowIndex}_${colIndex}`] || ''}
-                                onChange={(e) => {
-                                  const matrixValue = e.target.value;
-                                  setResponses(prev => ({
-                                    ...prev,
-                                    [`${currentQuestion.id}_${rowIndex}_${colIndex}`]: matrixValue,
-                                    // Also store in a format suitable for the API
-                                    [currentQuestion.id]: [
-                                      ...(Array.isArray(prev[currentQuestion.id]) ? prev[currentQuestion.id] : []),
-                                      { rowIndex, columnIndex: colIndex, value: matrixValue }
-                                    ]
-                                  }));
-                                }}
+                                onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, rowIndex, colIndex)}
                               />
                             )}
                           </td>
