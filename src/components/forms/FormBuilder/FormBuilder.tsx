@@ -481,13 +481,49 @@ const FormBuilder: React.FC = () => {
     setIsSaving(true);
     
     try {
+      // Process form items to remove client-side id field and ensure all values are of correct type
+      const processedTemplate = {
+        ...formTemplate,
+        items: formTemplate.items.map(item => {
+          // Create a new object with processed values
+          const processedItem = { ...item };
+          
+          // Remove the client-side id field to prevent conflicts with MongoDB's _id
+          if (processedItem.id) {
+            delete processedItem.id;
+          }
+          
+          // Ensure all string fields are actually strings
+          if (processedItem.questionText !== undefined && typeof processedItem.questionText !== 'string') {
+            processedItem.questionText = String(processedItem.questionText);
+          }
+          
+          if (processedItem.placeholder !== undefined && typeof processedItem.placeholder !== 'string') {
+            processedItem.placeholder = String(processedItem.placeholder);
+          }
+          
+          if (processedItem.instructions !== undefined && typeof processedItem.instructions !== 'string') {
+            processedItem.instructions = String(processedItem.instructions);
+          }
+          
+          // Handle nested objects like matrix
+          if (processedItem.matrix) {
+            if (processedItem.matrix.rowHeader !== undefined && typeof processedItem.matrix.rowHeader !== 'string') {
+              processedItem.matrix.rowHeader = String(processedItem.matrix.rowHeader);
+            }
+          }
+          
+          return processedItem;
+        })
+      };
+      
       let response;
       
       if (isEditMode) {
-        response = await axios.put(`/api/form-templates/${id}`, formTemplate);
+        response = await axios.put(`/api/form-templates/${id}`, processedTemplate);
         toast.success('Form template updated successfully');
       } else {
-        response = await axios.post('/api/form-templates', formTemplate);
+        response = await axios.post('/api/form-templates', processedTemplate);
         toast.success('Form template created successfully');
       }
       
@@ -495,7 +531,7 @@ const FormBuilder: React.FC = () => {
       navigate('/forms/templates');
     } catch (error) {
       console.error('Error saving form template:', error);
-      toast.error('Failed to save form template');
+      toast.error(`Failed to save form template: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -503,6 +539,9 @@ const FormBuilder: React.FC = () => {
   
   // State to track the type of question being previewed without adding to the list
   const [previewQuestionType, setPreviewQuestionType] = useState<string | null>(null);
+  
+  // State to track the current preview item that's being edited
+  const [currentPreviewItem, setCurrentPreviewItem] = useState<FormItem | null>(null);
 
   // Function to handle selecting an item
   const handleSelectItem = (index: number, questionType?: string) => {
@@ -511,16 +550,50 @@ const FormBuilder: React.FC = () => {
       // We'll handle this in renderQuestionEditor
       setCurrentItemIndex(null);
       setPreviewQuestionType(questionType);
+      setCurrentPreviewItem(null); // Reset the current preview item
     } else {
       setCurrentItemIndex(index);
       setPreviewQuestionType(null);
+      setCurrentPreviewItem(null); // Reset the current preview item
+    }
+  };
+  
+  // Function to add the current preview item to the form
+  const addPreviewItemToForm = () => {
+    if (currentPreviewItem) {
+      const updatedItems = [...formTemplate.items, currentPreviewItem];
+      setFormTemplate(prev => ({
+        ...prev,
+        items: updatedItems
+      }));
+      
+      // Select the newly added item
+      setCurrentItemIndex(updatedItems.length - 1);
+      setPreviewQuestionType(null);
+      setCurrentPreviewItem(null);
+      
+      toast.success('Question added to form');
     }
   };
 
   const renderQuestionEditor = () => {
     // If we have a preview question type, render that editor without adding to the list
     if (previewQuestionType) {
-      const previewItem = {
+      // Initialize the preview item if currentPreviewItem is null
+      if (!currentPreviewItem) {
+        const initialPreviewItem = {
+          id: generateUniqueId(),
+          type: previewQuestionType,
+          questionText: 'Type your question text here',
+          isRequired: false,
+          placeholder: 'Enter your answer here',
+          multipleLines: false
+        };
+        setCurrentPreviewItem(initialPreviewItem);
+      }
+      
+      // Use the current preview item or a default one
+      const previewItem = currentPreviewItem || {
         id: generateUniqueId(),
         type: previewQuestionType,
         questionText: 'Type your question text here',
@@ -533,149 +606,325 @@ const FormBuilder: React.FC = () => {
       switch (previewQuestionType) {
         case 'openAnswer':
           return (
-            <OpenAnswerQuestionEditor
-              item={previewItem}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <OpenAnswerQuestionEditor
+                item={previewItem}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'mixedControls':
           return (
-            <MixedControlsQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'mixedControls',
-                instructions: 'Please fill out all fields below.',
-                mixedControlsConfig: [
-                  { controlType: 'text', label: 'Text Field', required: false, placeholder: 'Enter text here' },
-                  { controlType: 'dropdown', label: 'Dropdown Field', required: false, options: ['Option 1', 'Option 2', 'Option 3'] }
-                ]
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <MixedControlsQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'mixedControls',
+                  instructions: 'Please fill out all fields below.',
+                  mixedControlsConfig: [
+                    { controlType: 'text', label: 'Text Field', required: false, placeholder: 'Enter text here' },
+                    { controlType: 'dropdown', label: 'Dropdown Field', required: false, options: ['Option 1', 'Option 2', 'Option 3'] }
+                  ]
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'multipleChoiceSingle':
           return (
-            <MultipleChoiceSingleQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'multipleChoiceSingle',
-                options: ['Option 1', 'Option 2', 'Option 3']
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <MultipleChoiceSingleQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'multipleChoiceSingle',
+                  options: ['Option 1', 'Option 2', 'Option 3']
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'multipleChoiceMultiple':
           return (
-            <MultipleChoiceMultipleQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'multipleChoiceMultiple',
-                options: ['Option 1', 'Option 2', 'Option 3']
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <MultipleChoiceMultipleQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'multipleChoiceMultiple',
+                  options: ['Option 1', 'Option 2', 'Option 3']
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'matrix':
           return (
-            <MatrixQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'matrix',
-                matrix: {
-                  rowHeader: 'Questions',
-                  columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
-                  columnTypes: ['checkbox', 'checkbox', 'checkbox'],
-                  rows: ['Row 1', 'Row 2', 'Row 3'],
-                  dropdownOptions: [[], [], []],
-                  displayTextBox: false,
-                  allowMultipleAnswers: true
-                }
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <MatrixQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'matrix',
+                  matrix: {
+                    rowHeader: 'Questions',
+                    columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+                    columnTypes: ['checkbox', 'checkbox', 'checkbox'],
+                    rows: ['Row 1', 'Row 2', 'Row 3'],
+                    dropdownOptions: [[], [], []],
+                    displayTextBox: false,
+                    allowMultipleAnswers: true
+                  }
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'matrixSingleAnswer':
           return (
-            <MatrixSingleAnswerQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'matrixSingleAnswer',
-                matrix: {
-                  rowHeader: 'Questions',
-                  columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
-                  columnTypes: ['radio', 'radio', 'radio'],
-                  rows: ['Row 1', 'Row 2', 'Row 3'],
-                  dropdownOptions: [[], [], []],
-                  displayTextBox: false,
-                  allowMultipleAnswers: false
-                }
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <MatrixSingleAnswerQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'matrixSingleAnswer',
+                  matrix: {
+                    rowHeader: 'Questions',
+                    columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+                    columnTypes: ['radio', 'radio', 'radio'],
+                    rows: ['Row 1', 'Row 2', 'Row 3'],
+                    dropdownOptions: [[], [], []],
+                    displayTextBox: false,
+                    allowMultipleAnswers: false
+                  }
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'sectionTitle':
           return (
-            <SectionTitleQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'sectionTitle',
-                sectionContent: 'Add additional information or instructions here.'
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <SectionTitleQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'sectionTitle',
+                  sectionContent: 'Add additional information or instructions here.'
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'fileAttachment':
           return (
-            <FileAttachmentQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'fileAttachment',
-                fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
-                maxFileSize: 5 * 1024 * 1024 // 5MB
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <FileAttachmentQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'fileAttachment',
+                  fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
+                  maxFileSize: 5 * 1024 * 1024 // 5MB
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'eSignature':
           return (
-            <ESignatureQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'eSignature',
-                signaturePrompt: 'Please sign below to confirm your agreement.'
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <ESignatureQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'eSignature',
+                  signaturePrompt: 'Please sign below to confirm your agreement.'
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'smartEditor':
           return (
-            <SmartEditorQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'smartEditor',
-                editorContent: '<p>Enter your formatted text here.</p>'
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <SmartEditorQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'smartEditor',
+                  editorContent: '<p>Enter your formatted text here.</p>'
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         case 'bodyMap':
           return (
-            <BodyMapQuestionEditor
-              item={{
-                ...previewItem,
-                type: 'bodyMap',
-                bodyMapType: 'fullBody',
-                allowPatientMarkings: true
-              }}
-              onChange={() => {}} // No-op since we're just previewing
-            />
+            <div className="flex flex-col">
+              <BodyMapQuestionEditor
+                item={{
+                  ...previewItem,
+                  type: 'bodyMap',
+                  bodyMapType: 'fullBody',
+                  allowPatientMarkings: true
+                }}
+                onChange={(updatedItem) => {
+                  // Update the current preview item
+                  setCurrentPreviewItem(updatedItem);
+                  console.log('Preview item updated:', updatedItem);
+                }}
+              />
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
+              </div>
+            </div>
           );
         default:
           return (
-            <div className="flex items-center justify-center h-64 bg-gray-50 border border-gray-200 rounded-lg">
-              <div className="text-center">
-                <p className="text-gray-500 mb-4">Preview not available for this question type</p>
-                <p className="text-sm text-gray-400">Click the plus icon to add this question to your form</p>
+            <div className="flex flex-col">
+              <div className="flex items-center justify-center h-64 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-center">
+                  <p className="text-gray-500 mb-4">Preview not available for this question type</p>
+                  <p className="text-sm text-gray-400">Click the plus icon to add this question to your form</p>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  onClick={addPreviewItemToForm}
+                >
+                  Add to Form
+                </button>
               </div>
             </div>
           );
@@ -852,7 +1101,7 @@ const FormBuilder: React.FC = () => {
         >
           {isSaving ? (
             <>
-              <div className="animate-spin mr-2 h-4 w-4 border-t-2 border-b-2 border-white rounded-full"></div>
+              <div className="animate-spin mr-2 h-4 w-4"></div>
               Saving...
             </>
           ) : (

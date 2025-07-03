@@ -174,6 +174,16 @@ router.post('/', authenticateToken, async (req, res) => {
         patientDoc.dynamicData.set('symptoms', extractedData.symptoms);
       }
       
+      // Store primary insurance data if available
+      if (extractedData.primaryInsurance && Object.keys(extractedData.primaryInsurance).length > 0) {
+        patientDoc.dynamicData.set('primaryInsurance', extractedData.primaryInsurance);
+      }
+      
+      // Store secondary insurance data if available
+      if (extractedData.secondaryInsurance && Object.keys(extractedData.secondaryInsurance).length > 0) {
+        patientDoc.dynamicData.set('secondaryInsurance', extractedData.secondaryInsurance);
+      }
+      
       // Store the complete form data
       const formEntry = {
         formType: 'intake',

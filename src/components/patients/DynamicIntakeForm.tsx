@@ -89,6 +89,86 @@ const DynamicIntakeForm: React.FC = () => {
       ]
     },
     {
+      sectionId: 'primaryInsurance',
+      sectionName: 'Primary Insurance',
+      fields: [
+        {
+          fieldName: 'insuranceProvider',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'policyNumber',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'groupNumber',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'policyHolderName',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'policyHolderRelationship',
+          fieldType: 'dropdown',
+          fieldValue: '',
+          options: ['Self', 'Spouse', 'Parent', 'Other']
+        },
+        {
+          fieldName: 'policyHolderDateOfBirth',
+          fieldType: 'text',
+          fieldValue: ''
+        }
+      ]
+    },
+    {
+      sectionId: 'secondaryInsurance',
+      sectionName: 'Secondary Insurance',
+      fields: [
+        {
+          fieldName: 'hasSecondaryInsurance',
+          fieldType: 'radio',
+          fieldValue: '',
+          options: ['Yes', 'No']
+        },
+        {
+          fieldName: 'insuranceProvider',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'policyNumber',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'groupNumber',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'policyHolderName',
+          fieldType: 'text',
+          fieldValue: ''
+        },
+        {
+          fieldName: 'policyHolderRelationship',
+          fieldType: 'dropdown',
+          fieldValue: '',
+          options: ['Self', 'Spouse', 'Parent', 'Other']
+        },
+        {
+          fieldName: 'policyHolderDateOfBirth',
+          fieldType: 'text',
+          fieldValue: ''
+        }
+      ]
+    },
+    {
       sectionId: 'medicalHistory',
       sectionName: 'Medical History',
       fields: [

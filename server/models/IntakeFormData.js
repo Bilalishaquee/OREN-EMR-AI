@@ -93,7 +93,9 @@ intakeFormDataSchema.methods.extractPatientData = function() {
     familyHistory: [],
     bodyParts: [],
     painData: {},
-    symptoms: []
+    symptoms: [],
+    primaryInsurance: {},
+    secondaryInsurance: {}
   };
   
   // Process each section to extract relevant data
@@ -243,6 +245,22 @@ intakeFormDataSchema.methods.extractPatientData = function() {
         } else if (field.fieldValue && typeof field.fieldValue === 'string') {
           patientData.symptoms.push(field.fieldValue);
         }
+      }
+      
+      // Extract primary insurance information
+      if (section.sectionName.toLowerCase().includes('primary insurance') || 
+          fieldKey.includes('primary insurance') || 
+          fieldKey.includes('primaryinsurance')) {
+        // Store the field in the primary insurance object
+        patientData.primaryInsurance[field.fieldName] = field.fieldValue;
+      }
+      
+      // Extract secondary insurance information
+      if (section.sectionName.toLowerCase().includes('secondary insurance') || 
+          fieldKey.includes('secondary insurance') || 
+          fieldKey.includes('secondaryinsurance')) {
+        // Store the field in the secondary insurance object
+        patientData.secondaryInsurance[field.fieldName] = field.fieldValue;
       }
     });
     

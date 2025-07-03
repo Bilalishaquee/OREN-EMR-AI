@@ -705,6 +705,69 @@ const PatientIntakeFormPreview: React.FC = () => {
                 )}
               </div>
             )}
+            
+            {/* Multiple Choice - Single Answer */}
+            {currentQuestion.type === 'multipleChoiceSingle' && (
+              <div className="space-y-3">
+                {currentQuestion.options?.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id={`${currentQuestion.id}_option_${index}`}
+                      name={`${currentQuestion.id}_options`}
+                      value={option}
+                      checked={responses[currentQuestion.id] === option}
+                      onChange={() => handleInputChange(currentQuestion.id, option)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor={`${currentQuestion.id}_option_${index}`} className="text-gray-700">
+                      {option}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Multiple Choice - Multiple Answer */}
+            {currentQuestion.type === 'multipleChoiceMultiple' && (
+              <div className="space-y-3">
+                {currentQuestion.options?.map((option, index) => {
+                  const selectedOptions = responses[currentQuestion.id] || [];
+                  const isChecked = Array.isArray(selectedOptions) && selectedOptions.includes(option);
+                  
+                  return (
+                    <div key={index} className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id={`${currentQuestion.id}_option_${index}`}
+                        value={option}
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const currentSelections = Array.isArray(responses[currentQuestion.id]) 
+                            ? [...responses[currentQuestion.id]] 
+                            : [];
+                          
+                          if (e.target.checked) {
+                            // Add option if checked
+                            handleInputChange(currentQuestion.id, [...currentSelections, option]);
+                          } else {
+                            // Remove option if unchecked
+                            handleInputChange(
+                              currentQuestion.id, 
+                              currentSelections.filter(item => item !== option)
+                            );
+                          }
+                        }}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor={`${currentQuestion.id}_option_${index}`} className="text-gray-700">
+                        {option}
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Special handling for language preference question */}
             {currentStep === 0 && currentQuestion.questionText.includes('Language Preference') && (

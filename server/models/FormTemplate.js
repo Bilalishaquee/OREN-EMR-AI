@@ -6,7 +6,7 @@ const formItemSchema = new mongoose.Schema({
     type: String,
     required: true,
     // 'blank' is kept for backward compatibility, use 'openAnswer' for new forms
-    enum: ['blank', 'demographics', 'primaryInsurance', 'secondaryInsurance', 'allergies', 'text', 'dropdown', 'checkbox', 'radio', 'date', 'matrix', 'mixedControls', 'openAnswer', 'multipleChoiceSingle', 'multipleChoiceMultiple', 'matrix', 'matrixSingleAnswer', 'sectionTitle', 'fileAttachment', 'eSignature', 'smartEditor', 'bodyMap']
+    enum: ['blank', 'demographics', 'primaryInsurance', 'secondaryInsurance', 'allergies', 'text', 'dropdown', 'checkbox', 'radio', 'date', 'mixedControls', 'openAnswer', 'multipleChoiceSingle', 'multipleChoiceMultiple', 'matrix', 'matrixSingleAnswer', 'sectionTitle', 'fileAttachment', 'eSignature', 'smartEditor', 'bodyMap']
   },
   questionText: {
     type: String,

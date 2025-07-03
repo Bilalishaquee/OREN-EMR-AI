@@ -1,7 +1,5 @@
-import React from 'react';
-import { Plus, Trash, CheckCircle, Circle } from 'lucide-react';
-import QuestionButton from '../QuestionButton';
-import QuestionControl from '../QuestionControl';
+import React, { useState } from 'react';
+import { Plus, Trash, Circle } from 'lucide-react';
 
 interface MultipleChoiceSingleQuestionProps {
   item: {
@@ -11,54 +9,63 @@ interface MultipleChoiceSingleQuestionProps {
     options?: string[];
   };
   onChange: (updatedItem: any) => void;
+  onAddToForm?: () => void;
+  isPreview?: boolean;
 }
 
-const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionProps> = ({ item, onChange }) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      onChange({
-        ...item,
-        [name]: checked
-      });
-    } else {
-      onChange({
-        ...item,
-        [name]: value
-      });
-    }
+const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionProps> = ({ 
+  item, 
+  onChange,
+  onAddToForm,
+  isPreview = false 
+}) => {
+  const [question, setQuestion] = useState<string>(item.questionText || '');
+  const [options, setOptions] = useState<string[]>(item.options || ['Option 1', 'Option 2', 'Option 3']);
+  const [isRequired, setIsRequired] = useState<boolean>(item.isRequired || false);
+
+  const handleQuestionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newQuestion = e.target.value;
+    setQuestion(newQuestion);
+    onChange({
+      ...item,
+      questionText: newQuestion,
+    });
   };
 
   const addOption = () => {
-    const newOptions = [...(item.options || []), `Option ${(item.options?.length || 0) + 1}`];
+    const newOptions = [...options, `Option ${options.length + 1}`];
+    setOptions(newOptions);
     onChange({
       ...item,
-      options: newOptions
+      options: newOptions,
     });
   };
 
   const updateOption = (index: number, value: string) => {
-    if (!item.options) return;
-    
-    const updatedOptions = [...item.options];
-    updatedOptions[index] = value;
-    
+    const newOptions = [...options];
+    newOptions[index] = value;
+    setOptions(newOptions);
     onChange({
       ...item,
-      options: updatedOptions
+      options: newOptions,
     });
   };
 
   const removeOption = (index: number) => {
-    if (!item.options) return;
-    
-    const updatedOptions = item.options.filter((_, i) => i !== index);
-    
+    const newOptions = options.filter((_, i) => i !== index);
+    setOptions(newOptions);
     onChange({
       ...item,
-      options: updatedOptions
+      options: newOptions,
+    });
+  };
+
+  const toggleRequired = () => {
+    const newIsRequired = !isRequired;
+    setIsRequired(newIsRequired);
+    onChange({
+      ...item,
+      isRequired: newIsRequired,
     });
   };
   
@@ -77,28 +84,28 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
       
       <div className="mb-6">
         <div className="flex justify-between items-center mb-1">
-          <label htmlFor="questionText" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="question" className="block text-sm font-medium text-gray-700">
             Question
           </label>
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="isRequired"
-              name="isRequired"
-              checked={item.isRequired}
-              onChange={handleChange}
+              id="required"
+              name="required"
+              checked={isRequired}
+              onChange={toggleRequired}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition-colors duration-200"
             />
-            <label htmlFor="isRequired" className="ml-2 block text-sm text-gray-900">
+            <label htmlFor="required" className="ml-2 block text-sm text-gray-900">
               Is Required
             </label>
           </div>
         </div>
         <textarea
-          id="questionText"
-          name="questionText"
-          value={item.questionText}
-          onChange={handleChange}
+          id="question"
+          name="question"
+          value={question}
+          onChange={handleQuestionChange}
           rows={3}
           className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-white transition-colors duration-200"
           placeholder="Type your question text here"
@@ -108,22 +115,19 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-md font-medium text-gray-900">Answer Options</h3>
-          <QuestionButton
-            icon={Plus}
-            label="Add Option"
+          <button
+            type="button"
             onClick={addOption}
-            color="#4F46E5"
-            bgColor="bg-indigo-50"
-            hoverColor="hover:bg-indigo-100"
-            textColor="text-indigo-700"
-            size="md"
-            variant="solid"
-          />
+            className="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition-colors duration-200"
+          >
+            <Plus className="-ml-0.5 mr-1 h-4 w-4" aria-hidden="true" />
+            Add Option
+          </button>
         </div>
         
-        {item.options && item.options.length > 0 ? (
+        {options.length > 0 ? (
           <div className="space-y-3">
-            {item.options.map((option, index) => (
+            {options.map((option, index) => (
               <div key={index} className="flex items-center bg-gray-50 p-1.5 rounded-md hover:bg-indigo-50 transition-colors duration-200">
                 <div className="flex-shrink-0 mr-2">
                   <div className="h-5 w-5 border-2 border-indigo-500 rounded-full flex items-center justify-center bg-white">
@@ -134,7 +138,7 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
                   type="text"
                   value={option}
                   onChange={(e) => updateOption(index, e.target.value)}
-                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md bg-white transition-colors duration-200"
+                  className="border border-gray-300 rounded px-3 py-2 w-full"
                   placeholder={`Option ${index + 1}`}
                 />
                 <button
@@ -158,20 +162,29 @@ const MultipleChoiceSingleQuestionEditor: React.FC<MultipleChoiceSingleQuestionP
             <p className="text-xs text-indigo-500 mb-4">
               Add options for users to choose from
             </p>
-            <QuestionButton
-              icon={Plus}
-              label="Add Your First Option"
+            <button
+              type="button"
               onClick={addOption}
-              color="#4F46E5"
-              bgColor="bg-indigo-50"
-              hoverColor="hover:bg-indigo-100"
-              textColor="text-indigo-700"
-              size="sm"
-              variant="outline"
-            />
+              className="inline-flex items-center px-3 py-1.5 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors duration-200"
+            >
+              <Plus className="-ml-0.5 mr-1 h-4 w-4" aria-hidden="true" />
+              Add Your First Option
+            </button>
           </div>
         )}
       </div>
+
+      {onAddToForm && (
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onAddToForm}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+          >
+            Add to Form
+          </button>
+        </div>
+      )}
     </div>
   );
 };
