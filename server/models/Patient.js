@@ -1,55 +1,24 @@
 import mongoose from 'mongoose';
 
 const PatientSchema = new mongoose.Schema({
-  firstName: String,
-  lastName: String,
-  dateOfBirth: String,
-  gender: String,
-  email: String,
-  phone: String,
-  address: {
-    street: String,
-    city: String,
-    state: String,
-    zipCode: String,
-    country: String
+  // All patient information is now stored in dynamicData
+  
+  // Dynamic data storage - replaces hardcoded fields
+  dynamicData: {
+    type: Object,
+    default: {}
   },
-  medicalHistory: {
-    allergies: [String],
-    medications: [String],
-    conditions: [String],
-    surgeries: [String],
-    familyHistory: [String]
-  },
-  subjective: {
-    bodyPart: [{ part: String, side: String }],
-    severity: String,
-    quality: [String],
-    timing: String,
-    context: String,
-    exacerbatedBy: [String],
-    symptoms: [String],
-    notes: String,
-    radiatingTo: String,
-    radiatingRight: Boolean,
-    radiatingLeft: Boolean,
-    sciaticaRight: Boolean,
-    sciaticaLeft: Boolean
-  },
-  attorney: {
-    name: String,
-    firm: String,
-    phone: String,
-    email: String,
-    caseNumber: String,
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      zipCode: String,
-      country: String
+  
+  // Store structured data from forms
+  formData: [
+    {
+      formType: String, // Type of form (e.g., 'intake', 'medical-history', 'subjective')
+      formId: String,   // Identifier for the specific form
+      data: Object,     // Dynamic data from the form as a plain object
+      createdAt: { type: Date, default: Date.now },
+      updatedAt: { type: Date, default: Date.now }
     }
-  },
+  ],
   assignedDoctor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -59,7 +28,17 @@ const PatientSchema = new mongoose.Schema({
     type: String,
     enum: ['active', 'discharged'],
     default: 'active'
-  }
+  },
+  // Add this field to store form responses
+  formResponses: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FormResponse'
+  }],
+  // Add this field to store dynamic intake form data
+  intakeFormData: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'IntakeFormData'
+  }]
 }, {
   timestamps: true
 });

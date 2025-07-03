@@ -243,10 +243,27 @@ const PatientIntakeFormPreview: React.FC = () => {
         
         // Initialize response object based on question type
         let responseObj = {
-          questionId,
+          questionId: questionId, // Ensure questionId is explicitly set
           questionType,
           questionText
         };
+        
+        // Skip questions with no responses unless they're required for the schema
+        if (!responses[questionId] && 
+            questionType !== 'demographics' && 
+            questionType !== 'allergies' && 
+            questionType !== 'bodyMap' && 
+            questionType !== 'fileAttachment' && 
+            questionType !== 'eSignature' && 
+            questionType !== 'mixedControls' && 
+            !responses[`${questionId}_firstName`] && 
+            !responses[`${questionId}_lastName`] && 
+            !responses[`${questionId}_dateOfBirth`] && 
+            !responses[`${questionId}_gender`] && 
+            !responses[`${questionId}_email`] && 
+            !responses[`${questionId}_phone`]) {
+          continue; // Skip this question if no response and not a special type
+        }
         
         // Set default values based on question type
         if (questionType === 'blank' || questionType === 'openAnswer') {
@@ -396,7 +413,11 @@ const PatientIntakeFormPreview: React.FC = () => {
         return;
       }
       
+      // Log the formatted responses for debugging
+      console.log('Submitting form responses:', formattedResponses);
+      
       // Submit form response
+      console.log('Submitting form responses:', formattedResponses);
       await axios.post('/api/form-responses', {
         formTemplate: id,
         patient: patientId,

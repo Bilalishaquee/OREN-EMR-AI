@@ -22,6 +22,7 @@ import PatientWizardForm from './pages/patients/PatientWizardForm';
 import PatientDetails from './pages/patients/PatientDetails';
 import PatientFormPublic from './pages/patients/PatientFormPublic';
 import ThankYouPage from './pages/patients/ThankYouPage';
+import IntakeFormPage from './pages/patients/IntakeFormPage';
 
 // Notes Pages
 import NotesPage from './pages/notes/NotesPage';
@@ -96,6 +97,7 @@ function App() {
               <Route path="patients/new" element={<PatientWizardForm />} />
               <Route path="patients/:id" element={<PatientDetails />} />
               <Route path="patients/:id/edit" element={<PatientForm />} />
+              <Route path="patients/:patientId/intake-form" element={<IntakeFormPage />} />
 
               {/* Notes Routes */}
               <Route path="notes" element={<NotesPage />} />

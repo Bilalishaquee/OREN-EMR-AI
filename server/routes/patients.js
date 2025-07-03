@@ -61,7 +61,14 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id)
-      .populate('assignedDoctor', 'firstName lastName');
+      .populate('assignedDoctor', 'firstName lastName')
+      .populate({
+        path: 'formResponses',
+        populate: {
+          path: 'formTemplate',
+          select: 'title'
+        }
+      });
 
     if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
@@ -97,11 +104,46 @@ router.post('/', authenticateToken, async (req, res) => {
       const formattedCaseNumber = `P-${String(counter.value).padStart(3, '0')}`;
       patientData.attorney.caseNumber = formattedCaseNumber;
     }
+    
+    // Extract any form data to store in dynamicData
+    const dynamicData = new Map();
+    
+    // Store any form data that was previously in medicalHistory or subjective
+    if (patientData.medicalHistory) {
+      if (patientData.medicalHistory.allergies) dynamicData.set('allergies', patientData.medicalHistory.allergies);
+      if (patientData.medicalHistory.medications) dynamicData.set('medications', patientData.medicalHistory.medications);
+      if (patientData.medicalHistory.conditions) dynamicData.set('conditions', patientData.medicalHistory.conditions);
+      if (patientData.medicalHistory.surgeries) dynamicData.set('surgeries', patientData.medicalHistory.surgeries);
+      if (patientData.medicalHistory.familyHistory) dynamicData.set('familyHistory', patientData.medicalHistory.familyHistory);
+    }
+    
+    if (patientData.subjective) {
+      if (patientData.subjective.bodyPart) dynamicData.set('bodyParts', patientData.subjective.bodyPart);
+      if (patientData.subjective.severity) dynamicData.set('severity', patientData.subjective.severity);
+      if (patientData.subjective.quality) dynamicData.set('quality', patientData.subjective.quality);
+      if (patientData.subjective.symptoms) dynamicData.set('symptoms', patientData.subjective.symptoms);
+    }
+    
+    // Store form data if available
+    const formEntries = [];
+    if (patientData.formData) {
+      formEntries.push({
+        formType: 'intake',
+        formId: 'initial-intake',
+        data: patientData.formData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
 
-    // 🎯 Create and save patient
+    // 🎯 Create and save patient with dynamic data structure
     const patient = new Patient({
       ...patientData,
-      subjective: patientData.subjective || {}
+      dynamicData,
+      formData: formEntries,
+      // Remove these fields as they're now stored in dynamicData
+      medicalHistory: undefined,
+      subjective: undefined
     });
 
     await patient.save();
@@ -125,12 +167,58 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (req.user.role === 'doctor' && patient.assignedDoctor.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    
+    // Create update object
+    const updateData = { ...req.body };
+    
+    // Extract any form data to store in dynamicData
+    const dynamicDataUpdates = {};
+    
+    // Store any form data that was previously in medicalHistory or subjective
+    if (req.body.medicalHistory) {
+      if (req.body.medicalHistory.allergies) dynamicDataUpdates['dynamicData.allergies'] = req.body.medicalHistory.allergies;
+      if (req.body.medicalHistory.medications) dynamicDataUpdates['dynamicData.medications'] = req.body.medicalHistory.medications;
+      if (req.body.medicalHistory.conditions) dynamicDataUpdates['dynamicData.conditions'] = req.body.medicalHistory.conditions;
+      if (req.body.medicalHistory.surgeries) dynamicDataUpdates['dynamicData.surgeries'] = req.body.medicalHistory.surgeries;
+      if (req.body.medicalHistory.familyHistory) dynamicDataUpdates['dynamicData.familyHistory'] = req.body.medicalHistory.familyHistory;
+      
+      // Remove medicalHistory from the update object
+      delete updateData.medicalHistory;
+    }
+    
+    if (req.body.subjective) {
+      if (req.body.subjective.bodyPart) dynamicDataUpdates['dynamicData.bodyParts'] = req.body.subjective.bodyPart;
+      if (req.body.subjective.severity) dynamicDataUpdates['dynamicData.severity'] = req.body.subjective.severity;
+      if (req.body.subjective.quality) dynamicDataUpdates['dynamicData.quality'] = req.body.subjective.quality;
+      if (req.body.subjective.symptoms) dynamicDataUpdates['dynamicData.symptoms'] = req.body.subjective.symptoms;
+      
+      // Remove subjective from the update object
+      delete updateData.subjective;
+    }
+    
+    // Store form data if available
+    if (req.body.formData) {
+      const formEntry = {
+        formType: 'intake',
+        formId: 'update-intake',
+        data: req.body.formData,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Add to formData array
+      updateData.$push = { formData: formEntry };
+      
+      // Remove formData from the update object
+      delete updateData.formData;
+    }
 
+    // Merge dynamicDataUpdates into the update object
     const updatedPatient = await Patient.findByIdAndUpdate(
       req.params.id,
       {
-        ...req.body,
-        subjective: req.body.subjective || {}
+        ...updateData,
+        ...dynamicDataUpdates
       },
       { new: true, runValidators: true }
     );
@@ -453,14 +541,47 @@ router.post('/form-submission/:token', async (req, res) => {
       });
     }
     
-    // Create and save patient
+    // Extract any form data to store in dynamicData
+    const dynamicData = new Map();
+    
+    // Store any form data that was previously in medicalHistory or subjective
+    if (patientData.medicalHistory) {
+      if (patientData.medicalHistory.allergies) dynamicData.set('allergies', patientData.medicalHistory.allergies);
+      if (patientData.medicalHistory.medications) dynamicData.set('medications', patientData.medicalHistory.medications);
+      if (patientData.medicalHistory.conditions) dynamicData.set('conditions', patientData.medicalHistory.conditions);
+      if (patientData.medicalHistory.surgeries) dynamicData.set('surgeries', patientData.medicalHistory.surgeries);
+      if (patientData.medicalHistory.familyHistory) dynamicData.set('familyHistory', patientData.medicalHistory.familyHistory);
+    }
+    
+    if (patientData.subjective) {
+      if (patientData.subjective.bodyPart) dynamicData.set('bodyParts', patientData.subjective.bodyPart);
+      if (patientData.subjective.severity) dynamicData.set('severity', patientData.subjective.severity);
+      if (patientData.subjective.quality) dynamicData.set('quality', patientData.subjective.quality);
+      if (patientData.subjective.symptoms) dynamicData.set('symptoms', patientData.subjective.symptoms);
+    }
+    
+    // Store form data if available
+    const formEntries = [];
+    formEntries.push({
+      formType: 'intake',
+      formId: 'public-form-submission',
+      data: new Map(Object.entries(patientData)),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    // Create and save patient with dynamic data structure
     const patient = new Patient({
       ...patientData,
-      subjective: patientData.subjective || {},
+      dynamicData,
+      formData: formEntries,
       createdVia: 'public_form',
       formToken: token,
       status: 'pending', // Set initial status to pending for review
-      submittedAt: new Date()
+      submittedAt: new Date(),
+      // Remove these fields as they're now stored in dynamicData
+      medicalHistory: undefined,
+      subjective: undefined
     });
     
     await patient.save();

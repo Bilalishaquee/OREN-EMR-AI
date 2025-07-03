@@ -389,13 +389,12 @@ const FormBuilder: React.FC = () => {
         };
         break;
       default:
+        // Handle unknown question types
         newItem = {
           id: uniqueId,
-          type: 'openAnswer',
+          type: questionType as FormItemType, // Use the provided type
           questionText: 'Type your question text here',
-          isRequired: false,
-          placeholder: 'Enter your answer here',
-          multipleLines: false
+          isRequired: false
         };
     }
     
