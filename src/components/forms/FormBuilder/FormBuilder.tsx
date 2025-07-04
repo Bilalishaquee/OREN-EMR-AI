@@ -630,17 +630,8 @@ const FormBuilder: React.FC = () => {
           return (
             <div className="flex flex-col">
               <MixedControlsQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'mixedControls',
-                  instructions: 'Please fill out all fields below.',
-                  mixedControlsConfig: [
-                    { controlType: 'text', label: 'Text Field', required: false, placeholder: 'Enter text here' },
-                    { controlType: 'dropdown', label: 'Dropdown Field', required: false, options: ['Option 1', 'Option 2', 'Option 3'] }
-                  ]
-                }}
+                item={previewItem}
                 onChange={(updatedItem) => {
-                  // Update the current preview item
                   setCurrentPreviewItem(updatedItem);
                   console.log('Preview item updated:', updatedItem);
                 }}
