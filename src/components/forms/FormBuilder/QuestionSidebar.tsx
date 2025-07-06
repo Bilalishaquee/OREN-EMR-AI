@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Plus, Copy, Trash, ChevronRight, ChevronDown, FileText, AlignLeft, CheckSquare, CheckCircle, Grid, Table, Heading, FileUp, Edit3, PenTool, Layout, Users, CreditCard, Shield, Thermometer } from 'lucide-react';
+import { Plus, Copy, Trash, ChevronRight, ChevronDown, FileText, AlignLeft, CheckSquare, CheckCircle, Grid, Table, Heading, FileUp, Edit3, PenTool, Layout, Users, CreditCard, Shield, Thermometer, Menu } from 'lucide-react';
+import { Droppable, Draggable } from 'react-beautiful-dnd';
 import QuestionButton from './QuestionButton';
 
 interface FormItem {
   _id?: string;
+  id?: string;
   type: string;
   questionText: string;
   isRequired: boolean;
@@ -124,99 +126,124 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
       {/* Question list */}
       <div className="max-h-[calc(100vh-400px)] overflow-y-auto">
         {items.length > 0 ? (
-          <ul>
-            {items.map((item, index) => (
-              <li 
-                key={index}
-                className={`relative border-b border-gray-100 last:border-b-0 ${
-                  currentItemIndex === index ? 'bg-blue-50' : ''
-                }`}
+          <Droppable droppableId="question-list">
+            {(provided) => (
+              <ul
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="question-list"
               >
-                <button
-                  onClick={() => onSelectItem(index)}
-                  className="w-full text-left px-4 py-3 pr-20 hover:bg-gray-50"
-                >
-                  <div className="font-medium text-sm truncate">
-                    {item.questionText || `Question ${index + 1}`}
-                  </div>
-                  <div className="flex items-center text-xs mt-1">
-                  {(() => {
-                    // Find the matching question type to get its color and icon
-                    const matchType = [...questionTypes, ...questionSubtypes].find(t => 
-                      t.type === item.type || 
-                      (item.type === 'blank' && t.type === 'openAnswer')
-                    );
-                    
-                    const typeLabel = 
-                      item.type === 'demographics' ? 'Demographics' :
-                      item.type === 'primaryInsurance' ? 'Primary Insurance' :
-                      item.type === 'secondaryInsurance' ? 'Secondary Insurance' :
-                      item.type === 'allergies' ? 'Allergies' :
-                      item.type === 'mixedControls' ? 'Mixed Controls' :
-                      item.type === 'openAnswer' ? 'Open Answer' :
-                      item.type === 'blank' ? 'Open Answer' :
-                      item.type === 'multipleChoiceSingle' ? 'Multiple Choice - Single Answer' :
-                      item.type === 'multipleChoiceMultiple' ? 'Multiple Choice - Multiple Answer' :
-                      item.type === 'matrix' ? 'Matrix' :
-                      item.type === 'matrixSingleAnswer' ? 'Matrix - Single Answer per Line' :
-                      item.type === 'sectionTitle' ? 'Section Title / Note' :
-                      item.type === 'fileAttachment' ? 'File Attachment' :
-                      item.type === 'eSignature' ? 'e-Signature' :
-                      item.type === 'smartEditor' ? 'Smart Editor' :
-                      item.type === 'bodyMap' ? 'Body Map / Drawing' :
-                      item.type;
-                    
-                    if (matchType) {
-                      return (
-                        <>
-                          {React.createElement(matchType.icon, { 
-                            className: "h-3 w-3 mr-1", 
-                            style: { color: matchType.color } 
-                          })}
-                          <span className={matchType.textColor}>
-                            {typeLabel}
-                            {item.isRequired && ' (Required)'}
-                          </span>
-                        </>
-                      );
-                    }
-                    
-                    return (
-                      <span className="text-gray-500">
-                        {typeLabel}
-                        {item.isRequired && ' (Required)'}
-                      </span>
-                    );
-                  })()} 
-                </div>
-                </button>
-                
-                {/* Action buttons */}
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDuplicateItem(index);
-                    }}
-                    className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                    title="Duplicate"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteItem(index);
-                    }}
-                    className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                    title="Delete"
-                  >
-                    <Trash className="h-4 w-4" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                {items.map((item, index) => (
+                  <Draggable key={item.id || `item-${index}`} draggableId={item.id || `item-${index}`} index={index}>
+                    {(provided, snapshot) => (
+                      <li 
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={`relative border-b border-gray-100 last:border-b-0 ${
+                          currentItemIndex === index ? 'bg-blue-50' : ''
+                        } ${snapshot.isDragging ? 'shadow-lg' : ''}`}
+                      >
+                        <div className="flex items-center">
+                          {/* Drag handle */}
+                          <div 
+                            {...provided.dragHandleProps}
+                            className="p-2 text-gray-500 hover:text-gray-700 cursor-grab active:cursor-grabbing"
+                            title="Drag to reorder"
+                          >
+                            <Menu className="h-5 w-5" />
+                          </div>
+                          
+                          <button
+                            onClick={() => onSelectItem(index)}
+                            className="w-full text-left px-2 py-3 pr-20 hover:bg-gray-50"
+                          >
+                            <div className="font-medium text-sm truncate">
+                              {item.questionText || `Question ${index + 1}`}
+                            </div>
+                            <div className="flex items-center text-xs mt-1">
+                            {(() => {
+                              // Find the matching question type to get its color and icon
+                              const matchType = [...questionTypes, ...questionSubtypes].find(t => 
+                                t.type === item.type || 
+                                (item.type === 'blank' && t.type === 'openAnswer')
+                              );
+                              
+                              const typeLabel = 
+                                item.type === 'demographics' ? 'Demographics' :
+                                item.type === 'primaryInsurance' ? 'Primary Insurance' :
+                                item.type === 'secondaryInsurance' ? 'Secondary Insurance' :
+                                item.type === 'allergies' ? 'Allergies' :
+                                item.type === 'mixedControls' ? 'Mixed Controls' :
+                                item.type === 'openAnswer' ? 'Open Answer' :
+                                item.type === 'blank' ? 'Open Answer' :
+                                item.type === 'multipleChoiceSingle' ? 'Multiple Choice - Single Answer' :
+                                item.type === 'multipleChoiceMultiple' ? 'Multiple Choice - Multiple Answer' :
+                                item.type === 'matrix' ? 'Matrix' :
+                                item.type === 'matrixSingleAnswer' ? 'Matrix - Single Answer per Line' :
+                                item.type === 'sectionTitle' ? 'Section Title / Note' :
+                                item.type === 'fileAttachment' ? 'File Attachment' :
+                                item.type === 'eSignature' ? 'e-Signature' :
+                                item.type === 'smartEditor' ? 'Smart Editor' :
+                                item.type === 'bodyMap' ? 'Body Map / Drawing' :
+                                item.type;
+                              
+                              if (matchType) {
+                                return (
+                                  <>
+                                    {React.createElement(matchType.icon, { 
+                                      className: "h-3 w-3 mr-1", 
+                                      style: { color: matchType.color } 
+                                    })}
+                                    <span className={matchType.textColor}>
+                                      {typeLabel}
+                                      {item.isRequired && ' (Required)'}
+                                    </span>
+                                  </>
+                                );
+                              }
+                              
+                              return (
+                                <span className="text-gray-500">
+                                  {typeLabel}
+                                  {item.isRequired && ' (Required)'}
+                                </span>
+                              );
+                            })()} 
+                          </div>
+                          </button>
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDuplicateItem(index);
+                            }}
+                            className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="Duplicate"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteItem(index);
+                            }}
+                            className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Delete"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </li>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </ul>
+            )}
+          </Droppable>
         ) : (
           <div className="p-4 text-center text-gray-500">
             <p>No questions added yet</p>

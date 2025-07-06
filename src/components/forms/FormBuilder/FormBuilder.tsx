@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { Save, ArrowLeft, Plus, Copy, Trash, AlignLeft } from 'lucide-react';
+import { Save, ArrowLeft, Plus, Copy, Trash, AlignLeft, Menu } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import QuestionButton from './QuestionButton';
 import QuestionTypeSelector from './QuestionTypeSelector';
 import BlankQuestionEditor from './QuestionEditors/BlankQuestionEditor';
@@ -463,6 +464,46 @@ const FormBuilder: React.FC = () => {
       } else if (currentItemIndex !== null && currentItemIndex > index) {
         setCurrentItemIndex(currentItemIndex - 1);
       }
+    }
+  };
+
+  // Handle drag end event for reordering questions
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source } = result;
+
+    // If there's no destination or the item is dropped in the same place, do nothing
+    if (!destination || 
+        (destination.droppableId === source.droppableId && 
+         destination.index === source.index)) {
+      return;
+    }
+
+    // Create a copy of the items array
+    const items = Array.from(formTemplate.items);
+    
+    // Remove the dragged item from its original position
+    const [removed] = items.splice(source.index, 1);
+    
+    // Insert the dragged item at its new position
+    items.splice(destination.index, 0, removed);
+
+    // Update the form template with the new order of items
+    setFormTemplate(prev => ({
+      ...prev,
+      items
+    }));
+
+    // Update the current item index if it was affected by the reordering
+    if (currentItemIndex === source.index) {
+      setCurrentItemIndex(destination.index);
+    } else if (
+      currentItemIndex !== null &&
+      ((source.index < currentItemIndex && destination.index >= currentItemIndex) ||
+       (source.index > currentItemIndex && destination.index <= currentItemIndex))
+    ) {
+      // Adjust the current item index if the dragged item moved past it
+      const offset = source.index < currentItemIndex ? 1 : -1;
+      setCurrentItemIndex(currentItemIndex + offset);
     }
   };
   
@@ -1072,140 +1113,142 @@ const FormBuilder: React.FC = () => {
   }
   
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <button
-            onClick={() => navigate('/forms/templates')}
-            className="mr-4 p-2 rounded-full hover:bg-gray-200"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
-          </button>
-          <h1 className="text-xl font-semibold text-gray-900">
-            {isEditMode ? 'Edit Form Template' : 'Create Form Template'}
-          </h1>
-        </div>
-        <button
-          onClick={saveFormTemplate}
-          disabled={isSaving}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
-        >
-          {isSaving ? (
-            <>
-              <div className="animate-spin mr-2 h-4 w-4"></div>
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Save Template
-            </>
-          )}
-        </button>
-      </div>
-      
-      {/* Form Details */}
-      <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Form Title*
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formTemplate.title}
-              onChange={handleFormChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter form title"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Language
-            </label>
-            <select
-              name="language"
-              value={formTemplate.language}
-              onChange={handleFormChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center">
+            <button
+              onClick={() => navigate('/forms/templates')}
+              className="mr-4 p-2 rounded-full hover:bg-gray-200"
             >
-              <option value="english">English</option>
-              <option value="spanish">Spanish</option>
-              <option value="bilingual">Bilingual (English & Spanish)</option>
-            </select>
+              <ArrowLeft className="h-5 w-5 text-gray-600" />
+            </button>
+            <h1 className="text-xl font-semibold text-gray-900">
+              {isEditMode ? 'Edit Form Template' : 'Create Form Template'}
+            </h1>
           </div>
-          
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formTemplate.description}
-              onChange={handleFormChange}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter form description"
-            />
-          </div>
-          
-          <div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isActive"
-                name="isActive"
-                checked={formTemplate.isActive}
-                onChange={(e) => setFormTemplate(prev => ({ ...prev, isActive: e.target.checked }))}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
-                Active
-              </label>
-            </div>
-          </div>
-          
-          <div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isPublic"
-                name="isPublic"
-                checked={formTemplate.isPublic}
-                onChange={(e) => setFormTemplate(prev => ({ ...prev, isPublic: e.target.checked }))}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-900">
-                Public (visible to all users)
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Form Builder */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Question Sidebar */}
-        <div className="md:col-span-1">
-          <QuestionSidebar
-            items={formTemplate.items}
-            currentItemIndex={currentItemIndex}
-            onSelectItem={handleSelectItem}
-            onAddItem={addNewQuestion}
-            onDuplicateItem={duplicateQuestion}
-            onDeleteItem={deleteQuestion}
-          />
+          <button
+            onClick={saveFormTemplate}
+            disabled={isSaving}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
+          >
+            {isSaving ? (
+              <>
+                <div className="animate-spin mr-2 h-4 w-4"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Template
+              </>
+            )}
+          </button>
         </div>
         
-        {/* Question Editor */}
-        <div className="md:col-span-3">
-          {renderQuestionEditor()}
+        {/* Form Details */}
+        <div className="bg-white shadow-md rounded-lg p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Form Title*
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formTemplate.title}
+                onChange={handleFormChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter form title"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Language
+              </label>
+              <select
+                name="language"
+                value={formTemplate.language}
+                onChange={handleFormChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="english">English</option>
+                <option value="spanish">Spanish</option>
+                <option value="bilingual">Bilingual (English & Spanish)</option>
+              </select>
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={formTemplate.description}
+                onChange={handleFormChange}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter form description"
+              />
+            </div>
+            
+            <div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  name="isActive"
+                  checked={formTemplate.isActive}
+                  onChange={(e) => setFormTemplate(prev => ({ ...prev, isActive: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
+                  Active
+                </label>
+              </div>
+            </div>
+            
+            <div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  name="isPublic"
+                  checked={formTemplate.isPublic}
+                  onChange={(e) => setFormTemplate(prev => ({ ...prev, isPublic: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-900">
+                  Public (visible to all users)
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Form Builder */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* Question Sidebar */}
+          <div className="md:col-span-1">
+            <QuestionSidebar
+              items={formTemplate.items}
+              currentItemIndex={currentItemIndex}
+              onSelectItem={handleSelectItem}
+              onAddItem={addNewQuestion}
+              onDuplicateItem={duplicateQuestion}
+              onDeleteItem={deleteQuestion}
+            />
+          </div>
+          
+          {/* Question Editor */}
+          <div className="md:col-span-3">
+            {renderQuestionEditor()}
+          </div>
         </div>
       </div>
-    </div>
+    </DragDropContext>
   );
 };
 
