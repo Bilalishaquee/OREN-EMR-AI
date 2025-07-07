@@ -5,10 +5,16 @@ import QuestionButton from './QuestionButton';
 
 interface FormItem {
   _id?: string;
-  id?: string;
+  id: string; // Make id required for drag and drop functionality
   type: string;
   questionText: string;
   isRequired: boolean;
+  // Add other possible properties that might be used
+  placeholder?: string;
+  instructions?: string;
+  multipleLines?: boolean;
+  options?: string[];
+  // Add any other properties that might be needed
 }
 
 interface QuestionSidebarProps {
@@ -86,37 +92,59 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
             {/* Subtypes dropdown when expanded */}
             {expandedType === qType.type && (
               <div className="bg-gray-50">
-                {questionSubtypes.map((subtype) => (
-                  <div key={`${qType.type}-${subtype.type}`} className="px-2 py-1 border-b border-gray-100 last:border-b-0">
+                <Droppable droppableId={`question-type-${qType.type}`} isDropDisabled={true}>
+                  {(provided) => (
                     <div
-                      className={`question-subtype-button ${subtype.hoverColor} text-sm ${subtype.textColor}`}
-                      style={{
-                        borderLeft: `3px solid ${subtype.color}`
-                      }}
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
                     >
-                      <div className="flex items-center w-full">
-                        <button
-                          onClick={() => {
-                            // Set the preview question type and display the form without adding to list
-                            onSelectItem(-1, subtype.type);
-                          }}
-                          className="flex items-center flex-1"
-                        >
-                          {React.createElement(subtype.icon, { className: "h-4 w-4 mr-2", style: { color: subtype.color } })}
-                          <span className="flex-1">{subtype.label}</span>
-                        </button>
-                        <button
-                          onClick={() => onAddItem(subtype.type)}
-                          className="flex items-center justify-center h-5 w-5 rounded-full bg-white shadow-sm"
-                          style={{ border: `1px solid ${subtype.color}` }}
-                          title="Add to list"
-                        >
-                          <Plus className="h-3 w-3" style={{ color: subtype.color }} />
-                        </button>
-                      </div>
+                      {questionSubtypes.map((subtype, subtypeIndex) => (
+                        <div key={`${qType.type}-${subtype.type}`} className="px-2 py-1 border-b border-gray-100 last:border-b-0">
+                          <div
+                            className={`question-subtype-button ${subtype.hoverColor} text-sm ${subtype.textColor}`}
+                            style={{
+                              borderLeft: `3px solid ${subtype.color}`
+                            }}
+                          >
+                            <div className="flex items-center w-full">
+                              <Draggable
+                                draggableId={`preview_${subtype.type}`}
+                                index={subtypeIndex}
+                                key={`preview_${subtype.type}`}
+                                isDragDisabled={false}
+                              >
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className="flex items-center flex-1 cursor-grab active:cursor-grabbing"
+                                    onClick={() => {
+                                      // Set the preview question type and display the form without adding to list
+                                      onSelectItem(-1, subtype.type);
+                                    }}
+                                  >
+                                    {React.createElement(subtype.icon, { className: "h-4 w-4 mr-2", style: { color: subtype.color } })}
+                                    <span className="flex-1">{subtype.label}</span>
+                                  </div>
+                                )}
+                              </Draggable>
+                              <button
+                                onClick={() => onAddItem(subtype.type)}
+                                className="flex items-center justify-center h-5 w-5 rounded-full bg-white shadow-sm"
+                                style={{ border: `1px solid ${subtype.color}` }}
+                                title="Add to list"
+                              >
+                                <Plus className="h-3 w-3" style={{ color: subtype.color }} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {provided.placeholder}
                     </div>
-                  </div>
-                ))}
+                  )}
+                </Droppable>
               </div>
             )}
           </div>
@@ -125,16 +153,36 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
       
       {/* Question list */}
       <div className="max-h-[calc(100vh-400px)] overflow-y-auto">
-        {items.length > 0 ? (
-          <Droppable droppableId="question-list">
-            {(provided) => (
-              <ul
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="question-list"
-              >
-                {items.map((item, index) => (
-                  <Draggable key={item.id || `item-${index}`} draggableId={item.id || `item-${index}`} index={index}>
+        <Droppable droppableId="question-list">
+          {(provided) => (
+            <ul
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              className="question-list"
+            >
+              {items.length > 0 ? (
+                items.map((item, index) => {
+                  // Enhanced logging for draggable items
+                  console.log(`Rendering Draggable for item ${index}:`, { 
+                    id: item.id, 
+                    _id: item._id,
+                    type: item.type, 
+                    text: item.questionText?.substring(0, 20) + (item.questionText?.length > 20 ? '...' : '')
+                  });
+                  // Ensure item has a valid ID
+                  if (!item.id) {
+                    console.error(`ERROR: Item at index ${index} has no id property!`, item);
+                    return null; // Skip rendering this item to prevent errors
+                  }
+                  // Convert ID to string if it's not already
+                  const itemId = String(item.id);
+                  return (
+                  <Draggable
+                    key={itemId}
+                    draggableId={itemId}
+                    index={index}
+                    isDragDisabled={false}
+                  >
                     {(provided, snapshot) => (
                       <li 
                         ref={provided.innerRef}
@@ -152,7 +200,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                           >
                             <Menu className="h-5 w-5" />
                           </div>
-                          
                           <button
                             onClick={() => onSelectItem(index)}
                             className="w-full text-left px-2 py-3 pr-20 hover:bg-gray-50"
@@ -167,7 +214,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                                 t.type === item.type || 
                                 (item.type === 'blank' && t.type === 'openAnswer')
                               );
-                              
                               const typeLabel = 
                                 item.type === 'demographics' ? 'Demographics' :
                                 item.type === 'primaryInsurance' ? 'Primary Insurance' :
@@ -186,7 +232,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                                 item.type === 'smartEditor' ? 'Smart Editor' :
                                 item.type === 'bodyMap' ? 'Body Map / Drawing' :
                                 item.type;
-                              
                               if (matchType) {
                                 return (
                                   <>
@@ -201,7 +246,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                                   </>
                                 );
                               }
-                              
                               return (
                                 <span className="text-gray-500">
                                   {typeLabel}
@@ -212,7 +256,6 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                           </div>
                           </button>
                         </div>
-                        
                         {/* Action buttons */}
                         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
                           <button
@@ -239,17 +282,18 @@ const QuestionSidebar: React.FC<QuestionSidebarProps> = ({
                       </li>
                     )}
                   </Draggable>
-                ))}
-                {provided.placeholder}
-              </ul>
-            )}
-          </Droppable>
-        ) : (
-          <div className="p-4 text-center text-gray-500">
-            <p>No questions added yet</p>
-            <p className="text-sm mt-2">Click on a question type above to add one</p>
-          </div>
-        )}
+                  );
+                })
+              ) : (
+                <div className="p-4 text-center text-gray-500">
+                  <p>No questions added yet</p>
+                  <p className="text-sm mt-2">Click on a question type above to add one</p>
+                </div>
+              )}
+              {provided.placeholder}
+            </ul>
+          )}
+        </Droppable>
       </div>
     </div>
   );

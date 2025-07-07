@@ -111,11 +111,134 @@ const FormBuilder: React.FC = () => {
     }
   }, [id]);
   
+  // Ensure all form items have valid string IDs
+  useEffect(() => {
+    // Skip if no items yet or if items array is not properly initialized
+    if (!formTemplate.items || formTemplate.items.length === 0) return;
+    
+    console.log('Validating item IDs:', formTemplate.items);
+    
+    // Create a Set to track used IDs and ensure uniqueness
+    const usedIds = new Set();
+    let hasChanges = false;
+    
+    // Create a copy of the items array and ensure all items have valid string IDs
+    const updatedItems = formTemplate.items.map((item, index) => {
+      // Handle null or undefined items (shouldn't happen, but just in case)
+      if (!item) {
+        console.error('Found null or undefined item in formTemplate.items at index', index);
+        hasChanges = true;
+        const newItem = {
+          id: generateUniqueId(),
+          type: 'blank',
+          questionText: '',
+          isRequired: false
+        };
+        usedIds.add(newItem.id);
+        return newItem;
+      }
+      
+      if (!item.id) {
+        // Generate a new ID for items without an ID
+        const newId = generateUniqueId();
+        console.log(`Missing ID - Assigning new ID ${newId} to item at index ${index}:`, item);
+        usedIds.add(newId);
+        hasChanges = true;
+        return { ...item, id: newId };
+      } else if (typeof item.id !== 'string') {
+        // Convert non-string IDs to strings
+        const stringId = String(item.id);
+        console.log(`Non-string ID - Converting ID ${item.id} to string for item at index ${index}:`, item);
+        
+        // Check if the string ID is already used
+        if (usedIds.has(stringId)) {
+          const newId = generateUniqueId();
+          console.log(`Duplicate ID after conversion - Assigning new ID ${newId} to item at index ${index}:`, item);
+          usedIds.add(newId);
+          hasChanges = true;
+          return { ...item, id: newId };
+        }
+        
+        usedIds.add(stringId);
+        hasChanges = true;
+        return { ...item, id: stringId };
+      } else if (usedIds.has(item.id)) {
+        // Handle duplicate IDs
+        const newId = generateUniqueId();
+        console.log(`Duplicate ID - Assigning new ID ${newId} to item at index ${index}:`, item);
+        usedIds.add(newId);
+        hasChanges = true;
+        return { ...item, id: newId };
+      }
+      
+      // Add the existing ID to the used IDs set
+      usedIds.add(item.id);
+      return item;
+    });
+    
+    // Only update if changes were made
+    if (hasChanges) {
+      console.log('Updating items with valid string IDs:', updatedItems);
+      setFormTemplate(prev => ({
+        ...prev,
+        items: updatedItems
+      }));
+    }
+  }, [formTemplate.items]);  // Run when items array changes (not just length)
+  
   const fetchFormTemplate = async () => {
     setIsLoading(true);
     try {
       const response = await axios.get(`/api/form-templates/${id}`);
-      setFormTemplate(response.data);
+      
+      console.log('Original items from API:', response.data.items);
+      
+      // Create a Set to track used IDs and ensure uniqueness
+      const usedIds = new Set();
+      
+      // Ensure each item has a client-side id for drag and drop functionality
+      const itemsWithIds = response.data.items.map((item, index) => {
+        // If item has no id or id is already used (duplicate), generate a new one
+        if (!item.id || usedIds.has(item.id)) {
+          const newId = generateUniqueId();
+          console.log(`${!item.id ? 'Missing ID' : 'Duplicate ID'} - Assigning new ID ${newId} to item at index ${index}:`, item);
+          
+          // Add the new ID to the used IDs set
+          usedIds.add(newId);
+          
+          return {
+            ...item,
+            id: newId
+          };
+        }
+        
+        // Add the existing ID to the used IDs set
+        usedIds.add(item.id);
+        console.log(`Item at index ${index} already has ID ${item.id}:`, item);
+        return item;
+      });
+      
+      // Verify all items have valid IDs
+      const allItemsHaveIds = itemsWithIds.every((item, index) => {
+        if (!item.id) {
+          console.error(`ERROR: Item at index ${index} still has no ID after processing:`, item);
+          return false;
+        }
+        return true;
+      });
+      
+      if (!allItemsHaveIds) {
+        console.error('Some items are missing IDs after processing!');
+        toast.error('Error processing form items');
+      }
+      
+      console.log('Items with IDs:', itemsWithIds);
+      console.log('Used IDs:', Array.from(usedIds));
+      
+      setFormTemplate({
+        ...response.data,
+        items: itemsWithIds
+      });
       
       // Select the first item if there are any
       if (response.data.items.length > 0) {
@@ -149,7 +272,211 @@ const FormBuilder: React.FC = () => {
   
   // Helper function to generate a unique ID
   const generateUniqueId = () => {
-    return 'q_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const uniqueId = 'q_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    console.log('Generated new unique ID:', uniqueId);
+    return uniqueId;
+  };
+  
+  // Function to create a new question item without adding it to the form
+  const createNewQuestion = (questionType: string): FormItem => {
+    const uniqueId = generateUniqueId();
+    let newItem: FormItem;
+    
+    switch (questionType) {
+      case 'blank':
+      case 'openAnswer':
+        newItem = {
+          id: uniqueId,
+          type: 'openAnswer',
+          questionText: 'Type your question text here',
+          isRequired: false,
+          placeholder: 'Enter your answer here',
+          multipleLines: false
+        };
+        break;
+      case 'demographics':
+        newItem = {
+          id: uniqueId,
+          type: 'demographics',
+          questionText: 'Demographics',
+          isRequired: false,
+          demographicFields: [
+            { fieldName: 'First Name', fieldType: 'text', required: true },
+            { fieldName: 'Last Name', fieldType: 'text', required: true },
+            { fieldName: 'Date of Birth', fieldType: 'date', required: true },
+            { fieldName: 'Gender', fieldType: 'select', required: true, options: ['Male', 'Female', 'Non-binary', 'Prefer not to say'] },
+            { fieldName: 'Phone', fieldType: 'phone', required: true },
+            { fieldName: 'Email', fieldType: 'email', required: true },
+            { fieldName: 'Address', fieldType: 'text', required: true },
+            { fieldName: 'City', fieldType: 'text', required: true },
+            { fieldName: 'State', fieldType: 'select', required: true, options: ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'] },
+            { fieldName: 'ZIP Code', fieldType: 'text', required: true }
+          ]
+        };
+        break;
+      case 'primaryInsurance':
+        newItem = {
+          id: uniqueId,
+          type: 'primaryInsurance',
+          questionText: 'Primary Insurance',
+          isRequired: false,
+          insuranceFields: [
+            { fieldName: 'Insurance Provider', fieldType: 'text', required: true },
+            { fieldName: 'Member ID', fieldType: 'text', required: true },
+            { fieldName: 'Group Number', fieldType: 'text', required: false },
+            { fieldName: 'Plan Type', fieldType: 'select', required: true, options: ['HMO', 'PPO', 'EPO', 'POS', 'HDHP', 'Other'] },
+            { fieldName: 'Policyholder Name', fieldType: 'text', required: true },
+            { fieldName: 'Relationship to Policyholder', fieldType: 'select', required: true, options: ['Self', 'Spouse', 'Child', 'Other'] },
+            { fieldName: 'Policyholder Date of Birth', fieldType: 'date', required: true }
+          ]
+        };
+        break;
+      case 'secondaryInsurance':
+        newItem = {
+          id: uniqueId,
+          type: 'secondaryInsurance',
+          questionText: 'Secondary Insurance',
+          isRequired: false,
+          insuranceFields: [
+            { fieldName: 'Insurance Provider', fieldType: 'text', required: true },
+            { fieldName: 'Member ID', fieldType: 'text', required: true },
+            { fieldName: 'Group Number', fieldType: 'text', required: false },
+            { fieldName: 'Plan Type', fieldType: 'select', required: true, options: ['HMO', 'PPO', 'EPO', 'POS', 'HDHP', 'Other'] },
+            { fieldName: 'Policyholder Name', fieldType: 'text', required: true },
+            { fieldName: 'Relationship to Policyholder', fieldType: 'select', required: true, options: ['Self', 'Spouse', 'Child', 'Other'] },
+            { fieldName: 'Policyholder Date of Birth', fieldType: 'date', required: true }
+          ]
+        };
+        break;
+      case 'allergies':
+        newItem = {
+          id: uniqueId,
+          type: 'allergies',
+          questionText: 'Allergies',
+          isRequired: false
+        };
+        break;
+      case 'mixedControls':
+        newItem = {
+          id: uniqueId,
+          type: 'mixedControls',
+          questionText: 'Mixed Controls Question',
+          isRequired: false,
+          mixedControlsConfig: [
+            { controlType: 'text', label: 'Text Field', required: false, placeholder: 'Enter text here' },
+            { controlType: 'select', label: 'Dropdown', required: false, options: ['Option 1', 'Option 2', 'Option 3'] }
+          ]
+        };
+        break;
+      case 'multipleChoiceSingle':
+        newItem = {
+          id: uniqueId,
+          type: 'multipleChoiceSingle',
+          questionText: 'Multiple Choice Question',
+          isRequired: false,
+          options: ['Option 1', 'Option 2', 'Option 3']
+        };
+        break;
+      case 'multipleChoiceMultiple':
+        newItem = {
+          id: uniqueId,
+          type: 'multipleChoiceMultiple',
+          questionText: 'Multiple Choice Question (Select Multiple)',
+          isRequired: false,
+          options: ['Option 1', 'Option 2', 'Option 3']
+        };
+        break;
+      case 'matrix':
+        newItem = {
+          id: uniqueId,
+          type: 'matrix',
+          questionText: 'Matrix Question',
+          isRequired: false,
+          matrix: {
+            rowHeader: 'Questions',
+            columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+            columnTypes: ['radio', 'radio', 'radio'],
+            rows: ['Row 1', 'Row 2', 'Row 3'],
+            dropdownOptions: [[], [], []],
+            displayTextBox: false
+          }
+        };
+        break;
+      case 'matrixSingleAnswer':
+        newItem = {
+          id: uniqueId,
+          type: 'matrixSingleAnswer',
+          questionText: 'Matrix Question (Single Answer per Row)',
+          isRequired: false,
+          matrix: {
+            rowHeader: 'Questions',
+            columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
+            columnTypes: ['radio', 'radio', 'radio'],
+            rows: ['Row 1', 'Row 2', 'Row 3'],
+            dropdownOptions: [[], [], []],
+            displayTextBox: false,
+            allowMultipleAnswers: false
+          }
+        };
+        break;
+      case 'sectionTitle':
+        newItem = {
+          id: uniqueId,
+          type: 'sectionTitle',
+          questionText: 'Section Title',
+          isRequired: false,
+          sectionContent: '<p>Add section description or instructions here...</p>'
+        };
+        break;
+      case 'fileAttachment':
+        newItem = {
+          id: uniqueId,
+          type: 'fileAttachment',
+          questionText: 'File Attachment',
+          isRequired: false,
+          fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
+          maxFileSize: 5
+        };
+        break;
+      case 'eSignature':
+        newItem = {
+          id: uniqueId,
+          type: 'eSignature',
+          questionText: 'Signature',
+          isRequired: false,
+          signaturePrompt: 'Please sign below to confirm your agreement.'
+        };
+        break;
+      case 'smartEditor':
+        newItem = {
+          id: uniqueId,
+          type: 'smartEditor',
+          questionText: 'Smart Editor',
+          isRequired: false,
+          editorContent: '<p>Enter your content here...</p>'
+        };
+        break;
+      case 'bodyMap':
+        newItem = {
+          id: uniqueId,
+          type: 'bodyMap',
+          questionText: 'Body Map / Drawing',
+          isRequired: false,
+          bodyMapType: 'fullBody',
+          allowPatientMarkings: true
+        };
+        break;
+      default:
+        // Handle unknown question types
+        newItem = {
+          id: uniqueId,
+          type: questionType, // Use the provided type
+          questionText: 'Type your question text here',
+          isRequired: false
+        };
+    }
+    
+    return newItem;
   };
 
   const addNewQuestion = (questionType: string) => {
@@ -157,6 +484,16 @@ const FormBuilder: React.FC = () => {
     
     // Generate a unique ID for the new question
     const uniqueId = generateUniqueId();
+    console.log(`Adding new question of type '${questionType}' with ID: ${uniqueId}`);
+    
+    // Verify the ID doesn't already exist in the form items
+    const idExists = formTemplate.items.some(item => item.id === uniqueId);
+    if (idExists) {
+      console.error(`Generated ID ${uniqueId} already exists in form items! Generating a new one.`);
+      // Generate a new ID if there's a collision (extremely unlikely but possible)
+      const newUniqueId = generateUniqueId();
+      console.log(`New ID generated: ${newUniqueId}`);
+    }
     
     switch (questionType) {
       case 'blank': // Keep for backward compatibility
@@ -469,41 +806,170 @@ const FormBuilder: React.FC = () => {
 
   // Handle drag end event for reordering questions
   const handleDragEnd = (result: DropResult) => {
-    const { destination, source } = result;
-
-    // If there's no destination or the item is dropped in the same place, do nothing
-    if (!destination || 
-        (destination.droppableId === source.droppableId && 
-         destination.index === source.index)) {
+    const { destination, source, draggableId } = result;
+    
+    console.log('Drag end event:', result);
+    console.log('Draggable ID:', draggableId);
+    console.log('Source index:', source.index, 'Destination index:', destination?.index);
+    console.log('Source droppableId:', source.droppableId, 'Destination droppableId:', destination?.droppableId);
+    
+    // If there's no destination, do nothing
+    if (!destination) {
+      console.log('No destination, no changes made');
       return;
     }
-
-    // Create a copy of the items array
-    const items = Array.from(formTemplate.items);
     
-    // Remove the dragged item from its original position
-    const [removed] = items.splice(source.index, 1);
-    
-    // Insert the dragged item at its new position
-    items.splice(destination.index, 0, removed);
+    try {
+      // Handle case where draggableId starts with 'preview_'
+      // This indicates a new item being dragged from the question type selector
+      if (draggableId.startsWith('preview_')) {
+        console.log('Handling preview item drag with ID:', draggableId);
+        // Extract the question type from the draggableId
+        const questionType = draggableId.replace('preview_', '');
+        if (questionType) {
+          // Add a new question of this type at the destination index if possible
+          const newItem = createNewQuestion(questionType);
+          const updatedItems = [...formTemplate.items];
+          
+          // Insert the new item at the destination index
+          if (destination.droppableId === 'question-list') {
+            updatedItems.splice(destination.index, 0, newItem);
+            setFormTemplate(prev => ({
+              ...prev,
+              items: updatedItems
+            }));
+            
+            // Select the newly added item
+            setCurrentItemIndex(destination.index);
+          } else {
+            // Fallback to just adding at the end if not dropped in the question list
+            addNewQuestion(questionType);
+          }
+          return;
+        }
+      }
+      
+      // If the item is dropped in the same place, do nothing
+      if (destination.droppableId === source.droppableId && destination.index === source.index) {
+        console.log('Same position, no changes made');
+        return;
+      }
+      
+      // Verify source index is valid
+      if (source.index >= formTemplate.items.length) {
+        console.error(`ERROR: Source index ${source.index} is out of bounds (items length: ${formTemplate.items.length})`);
+        return; // Exit early to prevent errors
+      }
+      
+      // Create a copy of the items array
+      const items = Array.from(formTemplate.items);
+      
+      // Get the item at the source index
+      const sourceItem = items[source.index];
+      if (!sourceItem) {
+        console.error(`ERROR: No item found at source index ${source.index}`);
+        return; // Exit early to prevent errors
+      }
+      
+      // Check if the draggableId exists in our items
+      // Make sure to convert all IDs to strings for comparison
+      let itemToMove = null;
+      let itemIndex = -1;
+      
+      // First try to find the item by draggableId
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].id && String(items[i].id) === String(draggableId)) {
+          itemToMove = items[i];
+          itemIndex = i;
+          break;
+        }
+      }
+      
+      // If we couldn't find the item by draggableId, use the source index as a fallback
+      if (!itemToMove) {
+        console.error(`ERROR: Cannot find draggable with id: ${draggableId} in form items!`);
+        console.log('Available IDs:', items.map(item => String(item.id)));
+        console.log('Attempting to recover using item at source index', source.index);
+        
+        // Use the item at the source index as a fallback
+        itemToMove = sourceItem;
+        itemIndex = source.index;
+        
+        // Update the item's id to match the draggableId to prevent future issues
+        // Only do this if the draggableId is not a preview item
+        if (itemToMove && draggableId && !draggableId.startsWith('preview_')) {
+          console.log(`Updating item id from ${itemToMove.id} to ${draggableId} to match draggableId`);
+          itemToMove.id = String(draggableId);
+        }
+      }
+      
+      // If we still don't have an item to move, exit
+      if (!itemToMove) {
+        console.error('Cannot recover, exiting drag operation');
+        return; // Exit early to prevent errors
+      }
+      
+      // Ensure the item has a valid ID
+      if (!itemToMove.id) {
+        itemToMove.id = generateUniqueId();
+        console.log(`Generated new ID ${itemToMove.id} for item with missing ID`);
+      } else if (typeof itemToMove.id !== 'string') {
+        itemToMove.id = String(itemToMove.id);
+        console.log(`Converted ID ${itemToMove.id} to string`);
+      }
+      
+      // Additional logging to help diagnose issues
+      console.log('Item to move:', { 
+        id: itemToMove.id, 
+        _id: itemToMove._id, 
+        type: itemToMove.type, 
+        text: itemToMove.questionText?.substring(0, 20) 
+      });
+      
+      // Log all current items with their IDs for debugging
+      console.log('Current items before reordering:');
+      items.forEach((item, index) => {
+        console.log(`Item ${index}:`, { id: item.id, _id: item._id, type: item.type, text: item.questionText });
+      });
+      
+      // Remove the item from its original position
+      items.splice(itemIndex, 1);
+      
+      // Log the removed item
+      console.log('Moved item:', { id: itemToMove.id, _id: itemToMove._id, type: itemToMove.type });
+      
+      // Insert the item at its new position
+      items.splice(destination.index, 0, itemToMove);
 
-    // Update the form template with the new order of items
-    setFormTemplate(prev => ({
-      ...prev,
-      items
-    }));
+      // Log all items after reordering
+      console.log('Items after reordering:');
+      items.forEach((item, index) => {
+        console.log(`Item ${index}:`, { id: item.id, _id: item._id, type: item.type });
+      });
 
-    // Update the current item index if it was affected by the reordering
-    if (currentItemIndex === source.index) {
-      setCurrentItemIndex(destination.index);
-    } else if (
-      currentItemIndex !== null &&
-      ((source.index < currentItemIndex && destination.index >= currentItemIndex) ||
-       (source.index > currentItemIndex && destination.index <= currentItemIndex))
-    ) {
-      // Adjust the current item index if the dragged item moved past it
-      const offset = source.index < currentItemIndex ? 1 : -1;
-      setCurrentItemIndex(currentItemIndex + offset);
+      // Update the form template with the new order of items
+      setFormTemplate(prev => ({
+        ...prev,
+        items
+      }));
+      
+      console.log('Form template updated with reordered items');
+
+      // Update the current item index if it was affected by the reordering
+      if (currentItemIndex === source.index) {
+        setCurrentItemIndex(destination.index);
+      } else if (
+        currentItemIndex !== null &&
+        ((source.index < currentItemIndex && destination.index >= currentItemIndex) ||
+         (source.index > currentItemIndex && destination.index <= currentItemIndex))
+      ) {
+        // Adjust the current item index if the dragged item moved past it
+        const offset = source.index < currentItemIndex ? 1 : -1;
+        setCurrentItemIndex(currentItemIndex + offset);
+      }
+    } catch (error) {
+      console.error('Error in handleDragEnd:', error);
+      // Don't rethrow the error to prevent the component from crashing
     }
   };
   
@@ -1111,6 +1577,10 @@ const FormBuilder: React.FC = () => {
       </div>
     );
   }
+  
+  // Ensure all items have string IDs before rendering
+  // This useEffect is merged with the one above to prevent hooks inconsistency
+  // The dependency array is set to match the other useEffect to ensure consistent hook calls
   
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
