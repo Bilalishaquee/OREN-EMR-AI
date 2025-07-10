@@ -35,6 +35,8 @@ import notificationRoutes from './routes/notifications.js';
 import formTemplateRoutes from './routes/formTemplates.js';
 import formResponseRoutes from './routes/formResponses.js';
 import intakeFormDataRoutes from './routes/intakeFormData.js';
+import quickbooksRoutes from './routes/quickbooks.js';
+import emailRoutes from './routes/email.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001; // Changed port to 5001 to avoid conflict
@@ -79,6 +81,8 @@ app.use('/api/notifications', authenticateToken, notificationRoutes);
 app.use('/api/form-templates', authenticateToken, formTemplateRoutes);
 app.use('/api/form-responses', authenticateToken, formResponseRoutes);
 app.use('/api/intake-form-data', authenticateToken, intakeFormDataRoutes);
+app.use('/api/quickbooks', authenticateToken, quickbooksRoutes);
+app.use('/api/email', authenticateToken, emailRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Printer, Download, Edit, Send, DollarSign } from 'lucide-react';
+import { ArrowLeft, Printer, Download, Edit, Send, DollarSign, CreditCard, Mail } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { jsPDF } from 'jspdf';
 
@@ -65,6 +65,12 @@ interface Invoice {
     notes: string;
   }[];
   notes: string;
+  quickbooksInvoiceId?: string;
+  quickbooksCustomerId?: string;
+  paymentLink?: string;
+  emailSent?: boolean;
+  emailSentAt?: string;
+  lastReminderSent?: string;
 }
 
 const InvoiceDetails: React.FC = () => {
@@ -81,6 +87,10 @@ const InvoiceDetails: React.FC = () => {
     reference: '',
     notes: ''
   });
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [quickbooksStatus, setQuickbooksStatus] = useState<any>(null);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -105,83 +115,41 @@ const InvoiceDetails: React.FC = () => {
     fetchInvoice();
   }, [id]);
 
+  // Fetch QuickBooks status when invoice loads
+  useEffect(() => {
+    if (invoice && invoice.quickbooksInvoiceId) {
+      getQuickBooksStatus();
+    }
+  }, [invoice]);
+
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
     documentTitle: `Invoice_${invoice?.invoiceNumber}`,
   });
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     if (!invoice) return;
     
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(20);
-    doc.text('INVOICE', 105, 15, { align: 'center' });
-    
-    // Add invoice number
-    doc.setFontSize(12);
-    doc.text(`Invoice #: ${invoice.invoiceNumber}`, 20, 30);
-    
-    // Add dates
-    doc.text(`Date Issued: ${new Date(invoice.dateIssued).toLocaleDateString()}`, 20, 40);
-    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 50);
-    
-    // Add patient info
-    doc.text('Bill To:', 20, 70);
-    doc.text(`${invoice.patient.firstName} ${invoice.patient.lastName}`, 20, 80);
-    if (invoice.patient.address.street) {
-      doc.text(invoice.patient.address.street, 20, 90);
-      doc.text(`${invoice.patient.address.city}, ${invoice.patient.address.state} ${invoice.patient.address.zipCode}`, 20, 100);
+    try {
+      // Use server-side PDF generation
+      const response = await axios.get(`http://localhost:5000/api/billing/${id}/download`, {
+        responseType: 'blob'
+      });
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoice_${invoice.invoiceNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      alert('Failed to download PDF. Please try again.');
     }
-    
-    // Add items header
-    doc.setFillColor(240, 240, 240);
-    doc.rect(20, 120, 170, 10, 'F');
-    doc.text('Description', 25, 127);
-    doc.text('Qty', 120, 127);
-    doc.text('Price', 140, 127);
-    doc.text('Total', 170, 127);
-    
-    // Add items
-    let yPos = 140;
-    invoice.items.forEach((item, index) => {
-      doc.text(item.description, 25, yPos);
-      doc.text(item.quantity.toString(), 120, yPos);
-      doc.text(`$${item.unitPrice.toFixed(2)}`, 140, yPos);
-      doc.text(`$${item.total.toFixed(2)}`, 170, yPos);
-      yPos += 10;
-    });
-    
-    // Add totals
-    yPos += 10;
-    doc.text('Subtotal:', 140, yPos);
-    doc.text(`$${invoice.subtotal.toFixed(2)}`, 170, yPos);
-    
-    yPos += 10;
-    if (invoice.tax > 0) {
-      doc.text('Tax:', 140, yPos);
-      doc.text(`$${invoice.tax.toFixed(2)}`, 170, yPos);
-      yPos += 10;
-    }
-    
-    if (invoice.discount > 0) {
-      doc.text('Discount:', 140, yPos);
-      doc.text(`-$${invoice.discount.toFixed(2)}`, 170, yPos);
-      yPos += 10;
-    }
-    
-    doc.setFontSize(14);
-    doc.text('Total:', 140, yPos);
-    doc.text(`$${invoice.total.toFixed(2)}`, 170, yPos);
-    
-    // Add payment status
-    yPos += 20;
-    doc.setFontSize(12);
-    doc.text(`Status: ${invoice.status.toUpperCase()}`, 20, yPos);
-    
-    // Save the PDF
-    doc.save(`Invoice_${invoice.invoiceNumber}.pdf`);
   };
 
   const handlePaymentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -211,6 +179,69 @@ const InvoiceDetails: React.FC = () => {
     if (!invoice) return 0;
     const totalPaid = calculateTotalPaid();
     return invoice.total - totalPaid;
+  };
+
+  // QuickBooks integration functions
+  const sendInvoiceEmail = async () => {
+    if (!emailAddress) {
+      alert('Please enter an email address');
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-invoice-email/${id}`, {
+        recipientEmail: emailAddress
+      });
+      
+      if (response.data.success) {
+        setShowEmailModal(false);
+        alert('Invoice email sent successfully!');
+        // Refresh QuickBooks status to show the payment link
+        await getQuickBooksStatus();
+      }
+    } catch (error) {
+      console.error('Error sending invoice email:', error);
+      alert('Failed to send invoice email. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const sendPaymentReminder = async () => {
+    if (!emailAddress) {
+      alert('Please enter an email address');
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-reminder/${id}`, {
+        recipientEmail: emailAddress
+      });
+      
+      if (response.data.success) {
+        setShowEmailModal(false);
+        alert('Payment reminder sent successfully!');
+      }
+    } catch (error) {
+      console.error('Error sending payment reminder:', error);
+      alert('Failed to send payment reminder. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const getQuickBooksStatus = async () => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/quickbooks/invoice-status/${id}`);
+      if (response.data.success) {
+        setQuickbooksStatus(response.data.data);
+        console.log('QuickBooks Status:', response.data.data);
+      }
+    } catch (error) {
+      console.error('Error getting QuickBooks status:', error);
+    }
   };
 
   if (isLoading) {
@@ -319,6 +350,53 @@ const InvoiceDetails: React.FC = () => {
                 <DollarSign className="mr-2 h-4 w-4" />
                 Record Payment
               </button>
+              <button
+                onClick={() => setShowEmailModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Send Invoice
+              </button>
+              <button
+                onClick={getQuickBooksStatus}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                QuickBooks Status
+              </button>
+              {quickbooksStatus?.paymentLink && (
+                <a
+                  href={quickbooksStatus.paymentLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pay Now
+                </a>
+              )}
+              {!quickbooksStatus?.paymentLink && invoice.status !== 'paid' && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await axios.post(`http://localhost:5000/api/quickbooks/create-invoice/${id}`, {
+                        recipientEmail: invoice.patient?.email || 'test@example.com'
+                      });
+                      if (response.data.success) {
+                        alert('Payment link generated! Click "QuickBooks Status" to see it.');
+                        await getQuickBooksStatus();
+                      }
+                    } catch (error) {
+                      console.error('Error generating payment link:', error);
+                      alert('Failed to generate payment link. Check console for details.');
+                    }
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Generate Payment Link
+                </button>
+              )}
             </>
           )}
         </div>
@@ -335,11 +413,11 @@ const InvoiceDetails: React.FC = () => {
               </div>
               <div className="mt-4 md:mt-0 text-right">
                 <div className="text-gray-700">
-                  <p className="font-medium">The Wellness Studio</p>
+                  <p className="font-medium">Oren EMR</p>
                   <p>3605 Long Beach Blvd Suite 101</p>
                   <p>Long Beach, CA 90807, USA</p>
-                  <p>Phone: (562) 980-0555</p>
-                  <p>Email: billing@wellness-studio.com</p>
+                  <p>Phone: (123) 456-789 </p>
+                  <p>Email: billing@emr-studio.com</p>
                 </div>
               </div>
             </div>
@@ -682,6 +760,85 @@ const InvoiceDetails: React.FC = () => {
                   type="button"
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   onClick={() => setShowPaymentModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QuickBooks Status Display */}
+      {quickbooksStatus && (
+        <div className="mt-6 p-4 bg-gray-50 rounded-md">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">QuickBooks Status</h3>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium">Status:</span> {quickbooksStatus.quickbooksStatus}
+            </div>
+            {quickbooksStatus.balance !== undefined && (
+              <div>
+                <span className="font-medium">Balance:</span> ${quickbooksStatus.balance}
+              </div>
+            )}
+            <div>
+              <span className="font-medium">Email Sent:</span> {quickbooksStatus.emailSent ? 'Yes' : 'No'}
+            </div>
+            {quickbooksStatus.paymentLink && (
+              <div className="col-span-2">
+                <span className="font-medium">Payment Link:</span>
+                <a 
+                  href={quickbooksStatus.paymentLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="ml-2 text-blue-600 hover:text-blue-800 underline"
+                >
+                  View Payment Link
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Send Invoice Email</h3>
+              <div className="mb-4">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipient Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={sendInvoiceEmail}
+                  disabled={isSendingEmail}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSendingEmail ? 'Sending...' : 'Send Invoice'}
+                </button>
+                <button
+                  onClick={sendPaymentReminder}
+                  disabled={isSendingEmail}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {isSendingEmail ? 'Sending...' : 'Send Reminder'}
+                </button>
+                <button
+                  onClick={() => setShowEmailModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
                 >
                   Cancel
                 </button>

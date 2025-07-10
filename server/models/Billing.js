@@ -79,6 +79,16 @@ const billingSchema = new mongoose.Schema({
     notes: String
   }],
   notes: String,
+  // QuickBooks integration fields
+  quickbooksInvoiceId: String,
+  quickbooksCustomerId: String,
+  paymentLink: String,
+  emailSent: {
+    type: Boolean,
+    default: false
+  },
+  emailSentAt: Date,
+  lastReminderSent: Date,
   createdAt: {
     type: Date,
     default: Date.now

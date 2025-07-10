@@ -617,16 +617,16 @@ const FormBuilder: React.FC = () => {
           ]
         };
         break;
-      case 'openAnswer':
-        newItem = {
-          id: uniqueId,
-          type: 'openAnswer',
-          questionText: 'Type your question text here',
-          isRequired: false,
-          placeholder: 'Enter your answer here',
-          multipleLines: false
-        };
-        break;
+      // case 'openAnswer':
+      //   newItem = {
+      //     id: uniqueId,
+      //     type: 'openAnswer',
+      //     questionText: 'Type your question text here',
+      //     isRequired: false,
+      //     placeholder: 'Enter your answer here',
+      //     multipleLines: false
+      //   };
+      //   break;
       case 'multipleChoiceSingle':
         newItem = {
           id: uniqueId,

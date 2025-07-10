@@ -2,6 +2,9 @@ import express from 'express';
 import Billing from '../models/Billing.js';
 import Patient from '../models/Patient.js';
 import { authenticateToken } from '../middleware/authMiddleware.js'; // make sure this is at the top
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+
 const router = express.Router();
 
 // Get all invoices (with filtering)
@@ -50,7 +53,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
     
     const invoices = await Billing.find(filter)
-      .populate('patient', 'firstName lastName')
+      .populate('patient', 'firstName lastName email phone address dynamicData')
       .populate('visit', 'date visitType')
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -92,13 +95,164 @@ router.get('/count/:patientId', authenticateToken, async (req, res) => {
   }
 });
 
+// Generate and download invoice PDF
+router.get('/:id/download', authenticateToken, async (req, res) => {
+  try {
+    const invoice = await Billing.findById(req.params.id)
+      .populate('patient', 'firstName lastName email phone address dynamicData')
+      .populate('visit', 'date visitType');
+    
+    if (!invoice) {
+      return res.status(404).json({ message: 'Invoice not found' });
+    }
+    
+    // If user is a doctor, check if invoice is for their patient
+    if (req.user.role === 'doctor') {
+      const patient = await Patient.findById(invoice.patient._id);
+      if (patient.assignedDoctor.toString() !== req.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    // Create PDF
+    const doc = new jsPDF();
+    
+    // Add header
+    doc.setFontSize(24);
+    doc.setTextColor(44, 62, 80);
+    doc.text('INVOICE', 105, 20, { align: 'center' });
+    
+    // Add clinic info
+    doc.setFontSize(10);
+    doc.setTextColor(52, 73, 94);
+    doc.text('The Wellness Studio', 20, 35);
+    doc.text('3605 Long Beach Blvd Suite 101', 20, 40);
+    doc.text('Long Beach, CA 90807, USA', 20, 45);
+    doc.text('Phone: (562) 980-0555', 20, 50);
+    doc.text('Email: billing@wellness-studio.com', 20, 55);
+    
+    // Add invoice details
+    doc.setFontSize(12);
+    doc.setTextColor(44, 62, 80);
+    doc.text(`Invoice #: ${invoice.invoiceNumber}`, 120, 35);
+    doc.text(`Date: ${new Date(invoice.dateIssued).toLocaleDateString()}`, 120, 40);
+    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 120, 45);
+    doc.text(`Status: ${invoice.status.toUpperCase()}`, 120, 50);
+    
+    // Add patient info
+    doc.setFontSize(12);
+    doc.setTextColor(44, 62, 80);
+    doc.text('Bill To:', 20, 70);
+    doc.setFontSize(10);
+    doc.text(`${invoice.patient.firstName} ${invoice.patient.lastName}`, 20, 80);
+    
+    if (invoice.patient.address && invoice.patient.address.street) {
+      doc.text(invoice.patient.address.street, 20, 85);
+      const cityStateZip = `${invoice.patient.address.city || ''}, ${invoice.patient.address.state || ''} ${invoice.patient.address.zipCode || ''}`.trim();
+      if (cityStateZip !== ',  ') {
+        doc.text(cityStateZip, 20, 90);
+      }
+    }
+    
+    if (invoice.patient.phone) {
+      doc.text(`Phone: ${invoice.patient.phone}`, 20, 95);
+    }
+    
+    if (invoice.patient.email) {
+      doc.text(`Email: ${invoice.patient.email}`, 20, 100);
+    }
+    
+    // Add items table
+    const tableY = 120;
+    const tableData = invoice.items.map(item => [
+      item.description,
+      item.code || '-',
+      item.quantity.toString(),
+      `$${item.unitPrice.toFixed(2)}`,
+      `$${item.total.toFixed(2)}`
+    ]);
+    
+    doc.autoTable({
+      startY: tableY,
+      head: [['Description', 'Code', 'Qty', 'Unit Price', 'Total']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [52, 73, 94],
+        textColor: 255,
+        fontSize: 10
+      },
+      bodyStyles: {
+        fontSize: 9
+      },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 30 }
+      }
+    });
+    
+    // Add totals
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(10);
+    doc.setTextColor(44, 62, 80);
+    
+    doc.text('Subtotal:', 150, finalY);
+    doc.text(`$${invoice.subtotal.toFixed(2)}`, 170, finalY);
+    
+    if (invoice.tax > 0) {
+      doc.text('Tax:', 150, finalY + 8);
+      doc.text(`$${invoice.tax.toFixed(2)}`, 170, finalY + 8);
+    }
+    
+    if (invoice.discount > 0) {
+      doc.text('Discount:', 150, finalY + 16);
+      doc.text(`-$${invoice.discount.toFixed(2)}`, 170, finalY + 16);
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text('Total:', 150, finalY + 24);
+    doc.text(`$${invoice.total.toFixed(2)}`, 170, finalY + 24);
+    
+    // Add notes if any
+    if (invoice.notes) {
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text('Notes:', 20, finalY + 40);
+      doc.setFontSize(9);
+      const splitNotes = doc.splitTextToSize(invoice.notes, 170);
+      doc.text(splitNotes, 20, finalY + 45);
+    }
+    
+    // Add payment info
+    doc.setFontSize(10);
+    doc.setTextColor(52, 73, 94);
+    doc.text('Payment Terms: Net 30 days', 20, finalY + 60);
+    doc.text('Please make checks payable to: The Wellness Studio', 20, finalY + 65);
+    
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Invoice_${invoice.invoiceNumber}.pdf"`);
+    
+    // Send the PDF
+    res.send(doc.output('arraybuffer'));
+    
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    res.status(500).json({ message: 'Error generating PDF', error: error.message });
+  }
+});
+
 
 // Get invoice by ID
 router.get('/:id', authenticateToken, async (req, res) => {
 
   try {
     const invoice = await Billing.findById(req.params.id)
-      .populate('patient', 'firstName lastName dateOfBirth gender phone email address')
+      .populate('patient', 'firstName lastName dateOfBirth gender phone email address dynamicData')
       .populate('visit', 'date visitType');
     
     if (!invoice) {

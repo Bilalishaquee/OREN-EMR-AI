@@ -11,7 +11,9 @@ import {
   ChevronRight,
   DollarSign,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Send,
+  CreditCard
 } from 'lucide-react';
 
 interface Patient {
@@ -60,6 +62,10 @@ const BillingList: React.FC<BillingListProps> = ({
     collectedThisMonth: 0,
     outstanding: 0
   });
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
  useEffect(() => {
   fetchInvoices();
@@ -161,6 +167,64 @@ const fetchInvoices = async () => {
     }
     
     return invoice.patient._id === patientId;
+  };
+
+  // QuickBooks integration functions
+  const sendInvoiceEmail = async () => {
+    if (!emailAddress || !selectedInvoice) {
+      alert('Please enter an email address');
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-invoice-email/${selectedInvoice._id}`, {
+        recipientEmail: emailAddress
+      });
+      
+      if (response.data.success) {
+        setShowEmailModal(false);
+        setSelectedInvoice(null);
+        setEmailAddress('');
+        alert('Invoice email sent successfully!');
+      }
+    } catch (error) {
+      console.error('Error sending invoice email:', error);
+      alert('Failed to send invoice email. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const sendPaymentReminder = async () => {
+    if (!emailAddress || !selectedInvoice) {
+      alert('Please enter an email address');
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-reminder/${selectedInvoice._id}`, {
+        recipientEmail: emailAddress
+      });
+      
+      if (response.data.success) {
+        setShowEmailModal(false);
+        setSelectedInvoice(null);
+        setEmailAddress('');
+        alert('Payment reminder sent successfully!');
+      }
+    } catch (error) {
+      console.error('Error sending payment reminder:', error);
+      alert('Failed to send payment reminder. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleSendEmail = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setShowEmailModal(true);
   };
 
   return (
@@ -400,15 +464,39 @@ const fetchInvoices = async () => {
                                 <Edit className="w-5 h-5" />
                               </Link>
                             )}
-                            <Link
-                              to={`/billing/${invoice._id}/download`}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const response = await axios.get(`http://localhost:5000/api/billing/${invoice._id}/download`, {
+                                    responseType: 'blob'
+                                  });
+                                  
+                                  const blob = new Blob([response.data], { type: 'application/pdf' });
+                                  const url = window.URL.createObjectURL(blob);
+                                  const link = document.createElement('a');
+                                  link.href = url;
+                                  link.download = `Invoice_${invoice.invoiceNumber}.pdf`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                  window.URL.revokeObjectURL(url);
+                                } catch (error) {
+                                  console.error('Error downloading PDF:', error);
+                                  alert('Failed to download PDF. Please try again.');
+                                }
+                              }}
                               className="text-green-600 hover:text-green-900"
                               title="Download Invoice"
-                              target="_blank"
-                              rel="noopener noreferrer"
                             >
                               <Download className="w-5 h-5" />
-                            </Link>
+                            </button>
+                            <button
+                              onClick={() => handleSendEmail(invoice)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Send Invoice Email"
+                            >
+                              <Send className="w-5 h-5" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -502,6 +590,63 @@ const fetchInvoices = async () => {
             )}
           </div>
         </>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Send Invoice Email
+                {selectedInvoice && (
+                  <span className="block text-sm text-gray-500">
+                    Invoice #{selectedInvoice.invoiceNumber}
+                  </span>
+                )}
+              </h3>
+              <div className="mb-4">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipient Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={emailAddress}
+                  onChange={(e) => setEmailAddress(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={sendInvoiceEmail}
+                  disabled={isSendingEmail}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSendingEmail ? 'Sending...' : 'Send Invoice'}
+                </button>
+                <button
+                  onClick={sendPaymentReminder}
+                  disabled={isSendingEmail}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {isSendingEmail ? 'Sending...' : 'Send Reminder'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setSelectedInvoice(null);
+                    setEmailAddress('');
+                  }}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

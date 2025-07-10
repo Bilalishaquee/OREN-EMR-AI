@@ -43,6 +43,20 @@ const PatientSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Add virtuals for firstName, lastName, and email
+PatientSchema.virtual('firstName').get(function() {
+  return (this.dynamicData && this.dynamicData.firstName) || (this._doc && this._doc.firstName) || '';
+});
+PatientSchema.virtual('lastName').get(function() {
+  return (this.dynamicData && this.dynamicData.lastName) || (this._doc && this._doc.lastName) || '';
+});
+PatientSchema.virtual('email').get(function() {
+  return (this.dynamicData && this.dynamicData.email) || (this._doc && this._doc.email) || '';
+});
+
+// Ensure virtuals are included in toObject and toJSON
+PatientSchema.set('toObject', { virtuals: true });
+PatientSchema.set('toJSON', { virtuals: true });
 
 const Patient = mongoose.model('Patient', PatientSchema);
 export default Patient;
