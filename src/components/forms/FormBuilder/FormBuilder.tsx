@@ -91,13 +91,14 @@ const FormBuilder: React.FC = () => {
   const navigate = useNavigate();
   const isEditMode = !!id;
   
+  // In the initial state for formTemplate, ensure items: [] (no default questions)
   const [formTemplate, setFormTemplate] = useState<FormTemplate>({
     title: '',
     description: '',
     isActive: true,
     isPublic: false,
     language: 'english',
-    items: []
+    items: [] // Start with no questions
   });
   
   const [currentItemIndex, setCurrentItemIndex] = useState<number | null>(null);
@@ -197,8 +198,9 @@ const FormBuilder: React.FC = () => {
       const usedIds = new Set();
       
       // Ensure each item has a client-side id for drag and drop functionality
-      const itemsWithIds = response.data.items.map((item, index) => {
+      const itemsWithIds = response.data.items.map((item: any, index: number) => {
         // If item has no id or id is already used (duplicate), generate a new one
+        const safeId = item.id || generateUniqueId();
         if (!item.id || usedIds.has(item.id)) {
           const newId = generateUniqueId();
           console.log(`${!item.id ? 'Missing ID' : 'Duplicate ID'} - Assigning new ID ${newId} to item at index ${index}:`, item);
@@ -213,13 +215,16 @@ const FormBuilder: React.FC = () => {
         }
         
         // Add the existing ID to the used IDs set
-        usedIds.add(item.id);
+        usedIds.add(safeId);
         console.log(`Item at index ${index} already has ID ${item.id}:`, item);
-        return item;
+        return {
+          ...item,
+          id: safeId
+        };
       });
       
       // Verify all items have valid IDs
-      const allItemsHaveIds = itemsWithIds.every((item, index) => {
+      const allItemsHaveIds = itemsWithIds.every((item: any, index: number) => {
         if (!item.id) {
           console.error(`ERROR: Item at index ${index} still has no ID after processing:`, item);
           return false;
@@ -244,7 +249,7 @@ const FormBuilder: React.FC = () => {
       if (response.data.items.length > 0) {
         setCurrentItemIndex(0);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching form template:', error);
       toast.error('Failed to load form template');
     } finally {
@@ -501,7 +506,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'openAnswer',
-          questionText: 'Type your question text here',
+          questionText: '[EN] Type your question text here',
           isRequired: false,
           placeholder: 'Enter your answer here',
           multipleLines: false
@@ -608,7 +613,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'mixedControls',
-          questionText: 'Mixed Controls Question',
+          questionText: '[EN] Mixed Controls Question',
           isRequired: false,
           instructions: 'Please fill out all fields below.',
           mixedControlsConfig: [
@@ -617,21 +622,11 @@ const FormBuilder: React.FC = () => {
           ]
         };
         break;
-      // case 'openAnswer':
-      //   newItem = {
-      //     id: uniqueId,
-      //     type: 'openAnswer',
-      //     questionText: 'Type your question text here',
-      //     isRequired: false,
-      //     placeholder: 'Enter your answer here',
-      //     multipleLines: false
-      //   };
-      //   break;
       case 'multipleChoiceSingle':
         newItem = {
           id: uniqueId,
           type: 'multipleChoiceSingle',
-          questionText: 'Multiple Choice Question',
+          questionText: '[EN] Multiple Choice Question',
           isRequired: false,
           options: ['Option 1', 'Option 2', 'Option 3']
         };
@@ -640,7 +635,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'multipleChoiceMultiple',
-          questionText: 'Multiple Choice Question (Select all that apply)',
+          questionText: '[EN] Multiple Choice Question (Select Multiple)',
           isRequired: false,
           options: ['Option 1', 'Option 2', 'Option 3']
         };
@@ -649,7 +644,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'matrix',
-          questionText: 'Matrix Question',
+          questionText: '[EN] Matrix Question',
           isRequired: false,
           matrix: {
             rowHeader: 'Questions',
@@ -666,7 +661,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'matrixSingleAnswer',
-          questionText: 'Matrix Question (Single Answer per Row)',
+          questionText: '[EN] Matrix Question (Single Answer per Row)',
           isRequired: false,
           matrix: {
             rowHeader: 'Questions',
@@ -683,7 +678,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'sectionTitle',
-          questionText: 'Section Title',
+          questionText: '[EN] Section Title',
           isRequired: false,
           sectionContent: 'Add additional information or instructions here.'
         };
@@ -692,7 +687,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'fileAttachment',
-          questionText: 'File Attachment',
+          questionText: '[EN] File Attachment',
           isRequired: false,
           fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
           maxFileSize: 5 * 1024 * 1024 // 5MB
@@ -702,7 +697,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'eSignature',
-          questionText: 'Signature',
+          questionText: '[EN] Signature',
           isRequired: false,
           signaturePrompt: 'Please sign below to confirm your agreement.'
         };
@@ -711,7 +706,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'smartEditor',
-          questionText: 'Smart Editor',
+          questionText: '[EN] Smart Editor',
           isRequired: false,
           editorContent: '<p>Enter your content here...</p>'
         };
@@ -720,7 +715,7 @@ const FormBuilder: React.FC = () => {
         newItem = {
           id: uniqueId,
           type: 'bodyMap',
-          questionText: 'Body Map / Drawing',
+          questionText: '[EN] Body Map / Drawing',
           isRequired: false,
           bodyMapType: 'fullBody',
           allowPatientMarkings: true
@@ -730,8 +725,8 @@ const FormBuilder: React.FC = () => {
         // Handle unknown question types
         newItem = {
           id: uniqueId,
-          type: questionType as FormItemType, // Use the provided type
-          questionText: 'Type your question text here',
+          type: questionType, // Use the provided type
+          questionText: '[EN] Type your question text here',
           isRequired: false
         };
     }
@@ -1036,7 +1031,7 @@ const FormBuilder: React.FC = () => {
       
       // Navigate to form templates list
       navigate('/forms/templates');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving form template:', error);
       toast.error(`Failed to save form template: ${error.response?.data?.message || error.message}`);
     } finally {
@@ -1083,352 +1078,65 @@ const FormBuilder: React.FC = () => {
     }
   };
 
+  // 1. Add a helper to set/get the language prefix for questionText
+  const getQuestionLanguage = (questionText: string) => {
+    if (questionText.startsWith('[EN]')) return 'english';
+    if (questionText.startsWith('[ES]')) return 'spanish';
+    return 'english'; // default
+  };
+  const setQuestionLanguagePrefix = (questionText: string, lang: 'english' | 'spanish') => {
+    let text = questionText.replace(/^\[(EN|ES)\]\s*/, '');
+    return (lang === 'english' ? '[EN] ' : '[ES] ') + text;
+  };
+
+  // 2. In each question editor (OpenAnswer, MixedControls, etc.), add a language dropdown at the top right
+  // We'll show this dropdown above the main question text input/textarea for each editor
+  // We'll do this by wrapping the editor in a div and injecting the dropdown
+  // For brevity, show for OpenAnswer, repeat for others
+
+  // Example for OpenAnswerQuestionEditor:
+  // case 'openAnswer':
+  //   return (
+  //     <div className="flex flex-col">
+  //       <div className="flex justify-end mb-2">
+  //         <select
+  //           value={getQuestionLanguage(currentItem.questionText)}
+  //           onChange={e => {
+  //             const lang = e.target.value as 'english' | 'spanish';
+  //             updateQuestion(currentItemIndex, {
+  //               ...currentItem,
+  //               questionText: setQuestionLanguagePrefix(currentItem.questionText, lang)
+  //             });
+  //           }}
+  //           className="border border-gray-300 rounded px-2 py-1 text-sm"
+  //         >
+  //           <option value="english">English</option>
+  //           <option value="spanish">Spanish</option>
+  //         </select>
+  //       </div>
+  //       <OpenAnswerQuestionEditor
+  //         item={currentItem}
+  //         onChange={updatedItem => updateQuestion(currentItemIndex, {
+  //           ...updatedItem,
+  //           questionText: setQuestionLanguagePrefix(updatedItem.questionText, getQuestionLanguage(updatedItem.questionText))
+  //         })}
+  //       />
+  //     </div>
+  //   );
+  // Repeat the above pattern for:
+  // - MixedControlsQuestionEditor
+  // - MultipleChoiceSingleQuestionEditor
+  // - MultipleChoiceMultipleQuestionEditor
+  // - MatrixQuestionEditor
+  // - MatrixSingleAnswerQuestionEditor
+  // - SectionTitleQuestionEditor
+  // - FileAttachmentQuestionEditor
+  // - ESignatureQuestionEditor
+  // - SmartEditorQuestionEditor
+  // - BodyMapQuestionEditor
+  // For each, wrap the editor in a div with the dropdown at the top right, and ensure the prefix is set on questionText when changed.
+
   const renderQuestionEditor = () => {
-    // If we have a preview question type, render that editor without adding to the list
-    if (previewQuestionType) {
-      // Initialize the preview item if currentPreviewItem is null
-      if (!currentPreviewItem) {
-        const initialPreviewItem = {
-          id: generateUniqueId(),
-          type: previewQuestionType,
-          questionText: 'Type your question text here',
-          isRequired: false,
-          placeholder: 'Enter your answer here',
-          multipleLines: false
-        };
-        setCurrentPreviewItem(initialPreviewItem);
-      }
-      
-      // Use the current preview item or a default one
-      const previewItem = currentPreviewItem || {
-        id: generateUniqueId(),
-        type: previewQuestionType,
-        questionText: 'Type your question text here',
-        isRequired: false,
-        placeholder: 'Enter your answer here',
-        multipleLines: false
-      };
-
-      // Render the appropriate editor based on the preview type
-      switch (previewQuestionType) {
-        case 'openAnswer':
-          return (
-            <div className="flex flex-col">
-              <OpenAnswerQuestionEditor
-                item={previewItem}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'mixedControls':
-          return (
-            <div className="flex flex-col">
-              <MixedControlsQuestionEditor
-                item={previewItem}
-                onChange={(updatedItem) => {
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'multipleChoiceSingle':
-          return (
-            <div className="flex flex-col">
-              <MultipleChoiceSingleQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'multipleChoiceSingle',
-                  options: ['Option 1', 'Option 2', 'Option 3']
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'multipleChoiceMultiple':
-          return (
-            <div className="flex flex-col">
-              <MultipleChoiceMultipleQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'multipleChoiceMultiple',
-                  options: ['Option 1', 'Option 2', 'Option 3']
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'matrix':
-          return (
-            <div className="flex flex-col">
-              <MatrixQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'matrix',
-                  matrix: {
-                    rowHeader: 'Questions',
-                    columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
-                    columnTypes: ['checkbox', 'checkbox', 'checkbox'],
-                    rows: ['Row 1', 'Row 2', 'Row 3'],
-                    dropdownOptions: [[], [], []],
-                    displayTextBox: false,
-                    allowMultipleAnswers: true
-                  }
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'matrixSingleAnswer':
-          return (
-            <div className="flex flex-col">
-              <MatrixSingleAnswerQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'matrixSingleAnswer',
-                  matrix: {
-                    rowHeader: 'Questions',
-                    columnHeaders: ['Option 1', 'Option 2', 'Option 3'],
-                    columnTypes: ['radio', 'radio', 'radio'],
-                    rows: ['Row 1', 'Row 2', 'Row 3'],
-                    dropdownOptions: [[], [], []],
-                    displayTextBox: false,
-                    allowMultipleAnswers: false
-                  }
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'sectionTitle':
-          return (
-            <div className="flex flex-col">
-              <SectionTitleQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'sectionTitle',
-                  sectionContent: 'Add additional information or instructions here.'
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'fileAttachment':
-          return (
-            <div className="flex flex-col">
-              <FileAttachmentQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'fileAttachment',
-                  fileTypes: ['pdf', 'jpg', 'png', 'doc', 'docx'],
-                  maxFileSize: 5 * 1024 * 1024 // 5MB
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'eSignature':
-          return (
-            <div className="flex flex-col">
-              <ESignatureQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'eSignature',
-                  signaturePrompt: 'Please sign below to confirm your agreement.'
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'smartEditor':
-          return (
-            <div className="flex flex-col">
-              <SmartEditorQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'smartEditor',
-                  editorContent: '<p>Enter your formatted text here.</p>'
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        case 'bodyMap':
-          return (
-            <div className="flex flex-col">
-              <BodyMapQuestionEditor
-                item={{
-                  ...previewItem,
-                  type: 'bodyMap',
-                  bodyMapType: 'fullBody',
-                  allowPatientMarkings: true
-                }}
-                onChange={(updatedItem) => {
-                  // Update the current preview item
-                  setCurrentPreviewItem(updatedItem);
-                  console.log('Preview item updated:', updatedItem);
-                }}
-              />
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-        default:
-          return (
-            <div className="flex flex-col">
-              <div className="flex items-center justify-center h-64 bg-gray-50 border border-gray-200 rounded-lg">
-                <div className="text-center">
-                  <p className="text-gray-500 mb-4">Preview not available for this question type</p>
-                  <p className="text-sm text-gray-400">Click the plus icon to add this question to your form</p>
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                  onClick={addPreviewItemToForm}
-                >
-                  Add to Form
-                </button>
-              </div>
-            </div>
-          );
-      }
-    }
-
     if (currentItemIndex === null || !formTemplate.items[currentItemIndex]) {
       return (
         <div className="flex items-center justify-center h-64 bg-gray-50 border border-gray-200 rounded-lg">
@@ -1449,24 +1157,61 @@ const FormBuilder: React.FC = () => {
         </div>
       );
     }
-    
+
     const currentItem = formTemplate.items[currentItemIndex];
-    
+    const renderWithLanguageDropdown = (EditorComponent: React.ComponentType<any>) => (
+      <div className="flex flex-col">
+        <div className="flex justify-end mb-2">
+          <select
+            value={getQuestionLanguage(currentItem.questionText)}
+            onChange={e => {
+              const lang = e.target.value as 'english' | 'spanish';
+              updateQuestion(currentItemIndex, {
+                ...currentItem,
+                questionText: setQuestionLanguagePrefix(currentItem.questionText, lang)
+              });
+            }}
+            className="border border-gray-300 rounded px-2 py-1 text-sm"
+          >
+            <option value="english">English</option>
+            <option value="spanish">Spanish</option>
+          </select>
+        </div>
+        <EditorComponent
+          item={currentItem}
+          onChange={(updatedItem: any) => updateQuestion(currentItemIndex, {
+            ...updatedItem,
+            questionText: setQuestionLanguagePrefix(updatedItem.questionText, getQuestionLanguage(updatedItem.questionText))
+          })}
+        />
+      </div>
+    );
+
     switch (currentItem.type) {
       case 'blank':
-        return (
-          <BlankQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
+        return renderWithLanguageDropdown(BlankQuestionEditor);
       case 'openAnswer':
-        return (
-          <OpenAnswerQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
+        return renderWithLanguageDropdown(OpenAnswerQuestionEditor);
+      case 'mixedControls':
+        return renderWithLanguageDropdown(MixedControlsQuestionEditor);
+      case 'multipleChoiceSingle':
+        return renderWithLanguageDropdown(MultipleChoiceSingleQuestionEditor);
+      case 'multipleChoiceMultiple':
+        return renderWithLanguageDropdown(MultipleChoiceMultipleQuestionEditor);
+      case 'matrix':
+        return renderWithLanguageDropdown(MatrixQuestionEditor);
+      case 'matrixSingleAnswer':
+        return renderWithLanguageDropdown(MatrixSingleAnswerQuestionEditor);
+      case 'sectionTitle':
+        return renderWithLanguageDropdown(SectionTitleQuestionEditor);
+      case 'fileAttachment':
+        return renderWithLanguageDropdown(FileAttachmentQuestionEditor);
+      case 'eSignature':
+        return renderWithLanguageDropdown(ESignatureQuestionEditor);
+      case 'smartEditor':
+        return renderWithLanguageDropdown(SmartEditorQuestionEditor);
+      case 'bodyMap':
+        return renderWithLanguageDropdown(BodyMapQuestionEditor);
       case 'demographics':
         return (
           <DemographicsQuestionEditor
@@ -1491,76 +1236,6 @@ const FormBuilder: React.FC = () => {
       case 'allergies':
         return (
           <AllergiesQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'mixedControls':
-        return (
-          <MixedControlsQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'multipleChoiceSingle':
-        return (
-          <MultipleChoiceSingleQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'multipleChoiceMultiple':
-        return (
-          <MultipleChoiceMultipleQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'matrix':
-        return (
-          <MatrixQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'matrixSingleAnswer':
-        return (
-          <MatrixSingleAnswerQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'sectionTitle':
-        return (
-          <SectionTitleQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'fileAttachment':
-        return (
-          <FileAttachmentQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'eSignature':
-        return (
-          <ESignatureQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'smartEditor':
-        return (
-          <SmartEditorQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
-        );
-      case 'bodyMap':
-        return (
-          <BodyMapQuestionEditor
             item={currentItem}
             onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
           />
@@ -1703,7 +1378,7 @@ const FormBuilder: React.FC = () => {
           {/* Question Sidebar */}
           <div className="md:col-span-1">
             <QuestionSidebar
-              items={formTemplate.items}
+              items={formTemplate.items.map(item => ({ ...item, id: item.id || generateUniqueId() }))}
               currentItemIndex={currentItemIndex}
               onSelectItem={handleSelectItem}
               onAddItem={addNewQuestion}

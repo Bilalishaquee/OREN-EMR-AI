@@ -32,6 +32,7 @@ interface FormItem {
     dropdownOptions: string[][];
     displayTextBox: boolean;
   };
+  mixedControlsConfig?: any[];
 }
 
 interface FormTemplate {
@@ -82,7 +83,7 @@ const PatientIntakeFormPreview: React.FC = () => {
       // Ensure all form items have IDs
       const formData = response.data;
       if (formData && formData.items) {
-        formData.items = formData.items.map(item => {
+        formData.items = formData.items.map((item: any, index: number) => {
           // If item is missing an ID, generate one
           if (!item.id) {
             return {
@@ -102,7 +103,14 @@ const PatientIntakeFormPreview: React.FC = () => {
     }
   };
   
-  const handleInputChange = (questionId: string, value: any, fieldName?: string, rowIndex?: number, columnIndex?: number) => {
+  const handleInputChange = (
+    questionId: string,
+    value: any,
+    fieldName?: string,
+    rowIndex?: number,
+    columnIndex?: number,
+    controlIndex?: number // <-- add this
+  ) => {
     if (fieldName) {
       // For demographic and insurance fields, store with field name
       setResponses(prev => ({
@@ -135,6 +143,12 @@ const PatientIntakeFormPreview: React.FC = () => {
         
         return newResponses;
       });
+    } else if (controlIndex !== undefined) {
+      // For mixed controls
+      setResponses(prev => ({
+        ...prev,
+        [`${questionId}_${controlIndex}`]: value
+      }));
     } else if (Array.isArray(value)) {
       // For multiple choice with multiple answers
       setResponses(prev => ({
@@ -242,7 +256,7 @@ const PatientIntakeFormPreview: React.FC = () => {
         }
         
         // Initialize response object based on question type
-        let responseObj = {
+        let responseObj: any = {
           questionId: questionId, // Ensure questionId is explicitly set
           questionType,
           questionText
@@ -491,6 +505,7 @@ const PatientIntakeFormPreview: React.FC = () => {
   
   const progress = ((currentStep + 1) / filteredItems.length) * 100;
   
+  console.log('Current Question', currentQuestion);
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
@@ -794,6 +809,55 @@ const PatientIntakeFormPreview: React.FC = () => {
                   />
                   <label htmlFor="spanish" className="text-gray-700">Mejor puedo responder este formulario en español</label>
                 </div>
+              </div>
+            )}
+
+            {currentQuestion.type === 'mixedControls' && (
+              <div className="space-y-4">
+                {currentQuestion.mixedControlsConfig?.map((control: any, index: number) => (
+                  <div key={index} className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{control.label}{control.required && <span className="text-red-500">*</span>}</label>
+                    {control.controlType === 'text' && (
+                      <input
+                        type="text"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        placeholder={control.placeholder || ''}
+                        value={responses[`${currentQuestion.id}_${index}`] || ''}
+                        onChange={e => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                      />
+                    )}
+                    {control.controlType === 'date' && (
+                      <input
+                        type="date"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        value={responses[`${currentQuestion.id}_${index}`] || ''}
+                        onChange={e => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                      />
+                    )}
+                    {control.controlType === 'textarea' && (
+                      <textarea
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                        placeholder={control.placeholder || ''}
+                        value={responses[`${currentQuestion.id}_${index}`] || ''}
+                        onChange={e => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                      />
+                    )}
+                    {control.controlType === 'dropdown' && (
+                      <select
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        value={responses[`${currentQuestion.id}_${index}`] || ''}
+                        onChange={e => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                      >
+                        <option value="">Select {control.label}</option>
+                        {control.options?.map((option: any, i: number) => (
+                          <option key={i} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    )}
+                    {/* Add more control types as needed */}
+                  </div>
+                ))}
               </div>
             )}
           </div>
