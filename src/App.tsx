@@ -39,6 +39,8 @@ import AppointmentCalendar from './pages/appointments/AppointmentCalendar';
 import BillingList from './pages/billing/BillingList';
 import InvoiceDetails from './pages/billing/InvoiceDetails';
 import InvoiceForm from './pages/billing/InvoiceForm';
+import PaymentSuccess from './pages/billing/PaymentSuccess';
+import PaymentCancel from './pages/billing/PaymentCancel';
 
 // Task Pages
 import TasksPage from './pages/tasks/TasksPage';
@@ -69,6 +71,7 @@ import DebugPage from './pages/debug/DebugPage';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import Payment from './pages/billing/Payment';
 
 // ✅ Initialize the QueryClient
 const queryClient = new QueryClient();
@@ -128,7 +131,10 @@ function App() {
               <Route path="billing" element={<BillingList />} />
               <Route path="billing/new" element={<InvoiceForm />} />
               <Route path="billing/:id" element={<InvoiceDetails />} />
+              <Route path="payment/:id" element={<Payment />} />
               <Route path="billing/:id/edit" element={<InvoiceForm />} />
+              <Route path="billing/success/:id" element={<PaymentSuccess />} />
+              <Route path="billing/cancel/:id" element={<PaymentCancel />} />
 
               {/* Report Routes */}
               <Route path="reports/unsettled-cases" element={<UnsettledCaseReport />} />

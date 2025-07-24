@@ -372,7 +372,7 @@ const PatientDetails: React.FC<{}> = () => {
                 <Calendar className="mr-2 h-4 w-4" />
                 Schedule
               </Link>
-              {visits.length > 0 ? (
+              {/* {visits.length > 0 ? (
                 <>
                   <Link
                     to={`/patients/${id}/visits/followup`}
@@ -398,7 +398,7 @@ const PatientDetails: React.FC<{}> = () => {
                   <FileText className="mr-2 h-4 w-4" />
                   Initial Visit
                 </Link>
-              )}
+              )} */}
             </>
           )}
           <button

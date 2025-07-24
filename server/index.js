@@ -16,7 +16,7 @@ console.log('Loaded MONGODB_URI:', process.env.MONGODB_URI);
 import express from 'express';
 import mongoose from 'mongoose';
 import visitRoutes from './routes/visits.js';
-import cors from 'cors';
+import cors from 'cors'; 
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { authenticateToken } from './middleware/authMiddleware.js';
@@ -37,6 +37,7 @@ import formResponseRoutes from './routes/formResponses.js';
 import intakeFormDataRoutes from './routes/intakeFormData.js';
 import quickbooksRoutes from './routes/quickbooks.js';
 import emailRoutes from './routes/email.js';
+import payment from './routes/payments.js'
 
 const app = express();
 const PORT = process.env.PORT || 5001; // Changed port to 5001 to avoid conflict
@@ -91,6 +92,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/reports', authenticateToken, reportsRoutes);
 app.use('/api/visits', authenticateToken, visitRoutes);
+app.use('/api/payments', authenticateToken, payment)
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
