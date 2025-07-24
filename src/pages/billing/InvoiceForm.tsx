@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ArrowLeft, Save, Plus, Trash2, Send, CreditCard } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-
+import { loadStripe } from '@stripe/stripe-js';
 
 interface Patient {
   _id: string;
@@ -23,9 +23,9 @@ const InvoiceForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: _user } = useAuth(); // Prefix with underscore to indicate it's intentionally unused
+  const { user: _user, token } = useAuth(); // Get both user and token from auth context
   const isEditMode = !!id;
-  
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,23 +34,24 @@ const InvoiceForm: React.FC = () => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [quickbooksStatus, setQuickbooksStatus] = useState<any>(null);
-  
- const [formData, setFormData] = useState({
-  invoiceNumber: '', // ✅ required field
-  patient: '',
-  visit: '',
-  dateIssued: new Date(),
-  dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-  items: [{ description: '', code: '', quantity: 1, unitPrice: 0, total: 0 }],
-  subtotal: 0,
-  tax: 0,
-  discount: 0,
-  total: 0,
-  status: 'draft',
-  notes: ''
-});
+  const [cart, setCart] = useState([]);
 
-  
+  const [formData, setFormData] = useState({
+    invoiceNumber: '', // ✅ required field
+    patient: '',
+    visit: '',
+    dateIssued: new Date(),
+    dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+    items: [{ description: '', code: '', quantity: 1, unitPrice: 0, total: 0 }],
+    subtotal: 0,
+    tax: 0,
+    discount: 0,
+    total: 0,
+    status: 'draft',
+    notes: ''
+  });
+
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -60,28 +61,28 @@ const InvoiceForm: React.FC = () => {
         // Fetch patients
         const patientsResponse = await axios.get('http://localhost:5000/api/patients');
         setPatients(patientsResponse.data.patients);
-        
+
         // If in edit mode, fetch invoice data
         if (isEditMode) {
           const invoiceResponse = await axios.get(`http://localhost:5000/api/billing/${id}`);
           const invoiceData = invoiceResponse.data;
-          
-          setFormData({
-  invoiceNumber: invoiceData.invoiceNumber || '',
-  patient: invoiceData.patient?._id || '',
-  visit: invoiceData.visit?._id || '',
-  dateIssued: new Date(invoiceData.dateIssued),
-  dueDate: new Date(invoiceData.dueDate),
-  items: invoiceData.items || [],
-  subtotal: invoiceData.subtotal || 0,
-  tax: invoiceData.tax || 0,
-  discount: invoiceData.discount || 0,
-  total: invoiceData.total || 0,
-  status: invoiceData.status || 'draft',
-  notes: invoiceData.notes || ''
-});
 
-          
+          setFormData({
+            invoiceNumber: invoiceData.invoiceNumber || '',
+            patient: invoiceData.patient?._id || '',
+            visit: invoiceData.visit?._id || '',
+            dateIssued: new Date(invoiceData.dateIssued),
+            dueDate: new Date(invoiceData.dueDate),
+            items: invoiceData.items || [],
+            subtotal: invoiceData.subtotal || 0,
+            tax: invoiceData.tax || 0,
+            discount: invoiceData.discount || 0,
+            total: invoiceData.total || 0,
+            status: invoiceData.status || 'draft',
+            notes: invoiceData.notes || ''
+          });
+
+
           // Fetch visits for this patient
           if (invoiceData.patient._id) {
             const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${invoiceData.patient._id}/visits`);
@@ -93,7 +94,7 @@ const InvoiceForm: React.FC = () => {
           const patientId = searchParams.get('patient');
           if (patientId) {
             setFormData(prev => ({ ...prev, patient: patientId }));
-            
+
             // Fetch visits for this patient
             const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${patientId}/visits`);
             setVisits(visitsResponse.data);
@@ -105,7 +106,7 @@ const InvoiceForm: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
+
     fetchData();
   }, [id, isEditMode, location.search]);
 
@@ -116,14 +117,14 @@ const InvoiceForm: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
-    
+
     // If patient changes, fetch their visits
     if (name === 'patient' && value) {
       fetchPatientVisits(value);
@@ -151,14 +152,14 @@ const InvoiceForm: React.FC = () => {
       ...updatedItems[index],
       [field]: value
     };
-    
+
     // Calculate item total
     if (field === 'quantity' || field === 'unitPrice') {
       const quantity = field === 'quantity' ? Number(value) : updatedItems[index].quantity;
       const unitPrice = field === 'unitPrice' ? Number(value) : updatedItems[index].unitPrice;
       updatedItems[index].total = quantity * unitPrice;
     }
-    
+
     setFormData(prev => ({
       ...prev,
       items: updatedItems
@@ -175,7 +176,7 @@ const InvoiceForm: React.FC = () => {
   const removeItem = (index: number) => {
     const updatedItems = [...formData.items];
     updatedItems.splice(index, 1);
-    
+
     setFormData(prev => ({
       ...prev,
       items: updatedItems
@@ -185,7 +186,7 @@ const InvoiceForm: React.FC = () => {
   const calculateTotals = () => {
     const subtotal = formData.items.reduce((sum, item) => sum + item.total, 0);
     const total = subtotal + Number(formData.tax) - Number(formData.discount);
-    
+
     setFormData(prev => ({
       ...prev,
       subtotal,
@@ -200,7 +201,7 @@ const InvoiceForm: React.FC = () => {
       const response = await axios.post(`http://localhost:5000/api/quickbooks/create-invoice/${id}`, {
         recipientEmail: emailAddress
       });
-      
+
       if (response.data.success) {
         setQuickbooksStatus(response.data.data);
         setShowEmailModal(false);
@@ -225,7 +226,7 @@ const InvoiceForm: React.FC = () => {
       const response = await axios.post(`http://localhost:5000/api/quickbooks/send-invoice-email/${id}`, {
         recipientEmail: emailAddress
       });
-      
+
       if (response.data.success) {
         setShowEmailModal(false);
         alert('Invoice email sent successfully!');
@@ -249,7 +250,7 @@ const InvoiceForm: React.FC = () => {
       const response = await axios.post(`http://localhost:5000/api/quickbooks/send-reminder/${id}`, {
         recipientEmail: emailAddress
       });
-      
+
       if (response.data.success) {
         setShowEmailModal(false);
         alert('Payment reminder sent successfully!');
@@ -264,7 +265,7 @@ const InvoiceForm: React.FC = () => {
 
   const getQuickBooksStatus = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/quickbooks/invoice-status/${id}`);
+      const response = await axios.get(`/api/quickbooks/invoice-status/${id}`);
       if (response.data.success) {
         setQuickbooksStatus(response.data.data);
       }
@@ -273,56 +274,76 @@ const InvoiceForm: React.FC = () => {
     }
   };
 
+  const handleStripeCheckout = async () => {
+    try {
+      
+      const stripe = await loadStripe("pk_test_51QckoZCKTuZa0kMf9xPQdeYWRunNSt9Y8VLNFMss2BYyUFuFazb8BsjIbQ4rZNLryBxrYi9wIOEX6lFwfxlNennh00i52y6he8");
+      const body = {
+        Products: formData,
+        id: id
+      }
+      
+      const response = await axios.post('/api/payments/checkout-session', body);
+      const session = response.data;
+      const result = await stripe.redirectToCheckout({ sessionId: session.id })
+      if(result.error){
+        console.log(result.error.message)
+      }
+    } catch (error) {
+      console.error('Error processing Stripe checkout:', error);
+    }
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     // Required fields
     if (!formData.patient) newErrors.patient = 'Patient is required';
     if (formData.items.length === 0) newErrors.items = 'At least one item is required';
     if (!formData.invoiceNumber) newErrors.invoiceNumber = 'Invoice number is required';
 
-    
+
     // Validate items
     formData.items.forEach((item, index) => {
       if (!item.description) newErrors[`items[${index}].description`] = 'Description is required';
       if (item.quantity <= 0) newErrors[`items[${index}].quantity`] = 'Quantity must be greater than 0';
       if (item.unitPrice < 0) newErrors[`items[${index}].unitPrice`] = 'Unit price cannot be negative';
     });
-    
+
     // Validate dates
     if (formData.dueDate < formData.dateIssued) {
       newErrors.dueDate = 'Due date must be after issue date';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     try {
       const invoiceData = {
-  ...formData,
-  dateIssued: formData.dateIssued.toISOString(),
-  dueDate: formData.dueDate.toISOString(),
-  visit: formData.visit || undefined, // 👈 ensures empty string is not sent
-  patient: formData.patient || undefined
-};
+        ...formData,
+        dateIssued: formData.dateIssued.toISOString(),
+        dueDate: formData.dueDate.toISOString(),
+        visit: formData.visit || undefined, // 👈 ensures empty string is not sent
+        patient: formData.patient || undefined
+      };
 
-      
+
       if (isEditMode) {
         await axios.put(`http://localhost:5000/api/billing/${id}`, invoiceData);
       } else {
         await axios.post('http://localhost:5000/api/billing', invoiceData);
       }
-      
+
       navigate(`/patients/${formData.patient}`);
 
     } catch (error) {
@@ -366,9 +387,8 @@ const InvoiceForm: React.FC = () => {
               name="patient"
               value={formData.patient}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border ${
-                errors.patient ? 'border-red-500' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full px-3 py-2 border ${errors.patient ? 'border-red-500' : 'border-gray-300'
+                } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
               disabled={isEditMode}
             >
               <option value="">Select a patient</option>
@@ -424,28 +444,27 @@ const InvoiceForm: React.FC = () => {
               selected={formData.dueDate}
               onChange={(date) => handleDateChange(date, 'dueDate')}
               dateFormat="MMMM d, yyyy"
-              className={`w-full px-3 py-2 border ${
-                errors.dueDate ? 'border-red-500' : 'border-gray-300'
-              } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full px-3 py-2 border ${errors.dueDate ? 'border-red-500' : 'border-gray-300'
+                } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
             />
             {errors.dueDate && <p className="mt-1 text-sm text-red-600">{errors.dueDate}</p>}
           </div>
-<div>
-  <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700 mb-1">
-    Invoice Number*
-  </label>
-  <input
-    type="text"
-    id="invoiceNumber"
-    name="invoiceNumber"
-    value={formData.invoiceNumber}
-    onChange={handleChange}
-    className={`w-full px-3 py-2 border ${errors.invoiceNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-  />
-  {errors.invoiceNumber && (
-    <p className="mt-1 text-sm text-red-600">{errors.invoiceNumber}</p>
-  )}
-</div>
+          <div>
+            <label htmlFor="invoiceNumber" className="block text-sm font-medium text-gray-700 mb-1">
+              Invoice Number*
+            </label>
+            <input
+              type="text"
+              id="invoiceNumber"
+              name="invoiceNumber"
+              value={formData.invoiceNumber}
+              onChange={handleChange}
+              className={`w-full px-3 py-2 border ${errors.invoiceNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+            />
+            {errors.invoiceNumber && (
+              <p className="mt-1 text-sm text-red-600">{errors.invoiceNumber}</p>
+            )}
+          </div>
 
           {/* Status (for edit mode) */}
           {isEditMode && (
@@ -482,9 +501,9 @@ const InvoiceForm: React.FC = () => {
               Add Item
             </button>
           </div>
-          
+
           {errors.items && <p className="mt-1 text-sm text-red-600 mb-2">{errors.items}</p>}
-          
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -517,9 +536,8 @@ const InvoiceForm: React.FC = () => {
                         type="text"
                         value={item.description}
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        className={`w-full px-3 py-2 border ${
-                          errors[`items[${index}].description`] ? 'border-red-500' : 'border-gray-300'
-                        } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                        className={`w-full px-3 py-2 border ${errors[`items[${index}].description`] ? 'border-red-500' : 'border-gray-300'
+                          } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                         placeholder="Item description"
                         required
                       />
@@ -542,9 +560,8 @@ const InvoiceForm: React.FC = () => {
                         min="1"
                         value={item.quantity}
                         onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value))}
-                        className={`w-full px-3 py-2 border ${
-                          errors[`items[${index}].quantity`] ? 'border-red-500' : 'border-gray-300'
-                        } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                        className={`w-full px-3 py-2 border ${errors[`items[${index}].quantity`] ? 'border-red-500' : 'border-gray-300'
+                          } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                         required
                       />
                       {errors[`items[${index}].quantity`] && (
@@ -562,9 +579,8 @@ const InvoiceForm: React.FC = () => {
                           step="0.01"
                           value={item.unitPrice}
                           onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value))}
-                          className={`w-full pl-7 px-3 py-2 border ${
-                            errors[`items[${index}].unitPrice`] ? 'border-red-500' : 'border-gray-300'
-                          } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
+                          className={`w-full pl-7 px-3 py-2 border ${errors[`items[${index}].unitPrice`] ? 'border-red-500' : 'border-gray-300'
+                            } rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
                           required
                         />
                       </div>
@@ -704,11 +720,11 @@ const InvoiceForm: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={getQuickBooksStatus}
+                onClick={handleStripeCheckout}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
-                QuickBooks Status
+                Pay Via Stripe
               </button>
             </>
           )}
@@ -733,9 +749,9 @@ const InvoiceForm: React.FC = () => {
               {quickbooksStatus.paymentLink && (
                 <div className="col-span-2">
                   <span className="font-medium">Payment Link:</span>
-                  <a 
-                    href={quickbooksStatus.paymentLink} 
-                    target="_blank" 
+                  <a
+                    href={quickbooksStatus.paymentLink}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="ml-2 text-blue-600 hover:text-blue-800 underline"
                   >

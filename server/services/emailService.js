@@ -25,8 +25,11 @@ class EmailService {
     }
   }
 
+
+
   // Generate HTML email template for invoice
   generateInvoiceEmailHTML(invoiceData, patientData, paymentLink) {
+    
     const itemsHTML = invoiceData.items.map(item => `
       <tr>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.description}</td>
