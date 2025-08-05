@@ -13,7 +13,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 router.post('/checkout-session', async (req, res) => {
   try {
     const { Products, id } = req.body;
-    console.log("Latest Data",Products);
+    console.log(Products);
 
     // Ensure Products is an array; if it's a single object, wrap it in an array
     const productsArray = Array.isArray(Products) ? Products : [Products];

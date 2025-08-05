@@ -585,4 +585,77 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// patient details
+router.get('/patient-details/:patientId', authenticateToken, async (req, res) => {
+  const { patientId } = req.params;
+  const doctorId = req.user?.id;
+  console.log(doctorId)
+  console.log(patientId)
+
+  try {
+    // Validate patientId
+   
+
+    // Verify doctor has access to patient
+    const patient = await Patient.findById(patientId);
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    if (patient.assignedDoctor.toString() !== doctorId) {
+      return res.status(403).json({ error: 'Unauthorized: Doctor not assigned to this patient' });
+    }
+
+    // Fetch form responses for the patient
+    const formResponses = await FormResponse.find({ patient: patientId })
+      .populate('formTemplate')
+      .lean();
+
+    if (!formResponses || formResponses.length === 0) {
+      return res.status(404).json({ error: 'No form responses found for this patient' });
+    }
+
+    // Map responses to include question details
+    const formattedResponses = formResponses.map(response => {
+      const template = response.formTemplate;
+      if (!template || !template.items) {
+        return null; // Skip invalid responses
+      }
+
+      // Match each response with its question
+      const enrichedResponses = response.responses.map(resp => {
+        const question = template.items.find(item => item.id === resp.questionId);
+        return {
+          questionId: resp.questionId,
+          questionType: resp.questionType,
+          questionText: question ? question.questionText : resp.questionText || 'Unknown Question',
+          answer: resp.answer || null,
+          matrixResponses: resp.matrixResponses || [],
+          fileAttachments: resp.fileAttachments || [],
+          signature: resp.signature || null,
+          bodyMapMarkings: resp.bodyMapMarkings || [],
+          mixedControlsResponses: resp.mixedControlsResponses || [],
+        };
+      }).filter(resp => resp !== null); // Remove null responses
+
+      return {
+        _id: response._id,
+        formTemplate: {
+          _id: template._id,
+          title: template.title,
+          description: template.description,
+        },
+        patient: response.patient,
+        status: response.status,
+        completedAt: response.completedAt,
+        responses: enrichedResponses,
+      };
+    }).filter(response => response !== null); // Remove null responses
+
+    // Return the formatted responses
+    res.status(200).json(formattedResponses);
+  } catch (error) {
+    console.error('Error fetching form responses:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 export default router;

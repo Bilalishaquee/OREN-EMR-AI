@@ -276,7 +276,7 @@ const InvoiceForm: React.FC = () => {
 
   const handleStripeCheckout = async () => {
     try {
-      
+      console.log("Clickeds")
       const stripe = await loadStripe("pk_test_51QckoZCKTuZa0kMf9xPQdeYWRunNSt9Y8VLNFMss2BYyUFuFazb8BsjIbQ4rZNLryBxrYi9wIOEX6lFwfxlNennh00i52y6he8");
       const body = {
         Products: formData,

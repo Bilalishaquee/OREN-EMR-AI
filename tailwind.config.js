@@ -5,4 +5,9 @@ export default {
     extend: {},
   },
   plugins: [],
+  "dependencies": {
+  "react-quill": "^2.0.0",
+  "quill": "^2.0.2",
+  "@tailwindcss/typography": "^0.5.15"
+}
 };

@@ -222,7 +222,8 @@ const PatientDetails: React.FC<{}> = () => {
         // Fetch invoice count for the patient using the dedicated endpoint
         const invoiceCountResponse = await axios.get(`http://localhost:5000/api/billing/count/${id}`);
         setInvoiceCount(invoiceCountResponse.data.totalInvoices);
-
+        
+        const patientFormData = await axios.get(`http://localhost:5000/api/form-responses/patient-details/${id}`);
         // We don't need to fetch invoices here anymore as BillingList will handle it
         // setInvoices([]); // Clear the local invoices state
       } catch (error) {
