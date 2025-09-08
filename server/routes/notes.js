@@ -15,7 +15,7 @@ const router = express.Router();
 // Initialize OpenAI client with OpenRouter configuration
 const client = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
-  apiKey: "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", // Store your API key in environment variables
+  apiKey: "", // Store your API key in environment variables
 });
 
 // Get current file directory
