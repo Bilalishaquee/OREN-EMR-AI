@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Add CSS variables for color gradients */
+:root {
+  /* Primary colors */
+  --tw-blue-500: #3B82F6;
+  --tw-blue-600: #2563EB;
+  --tw-blue-700: #1D4ED8;
+  
+  /* Question type colors */
+  --tw-indigo-500: #6366F1;
+  --tw-indigo-600: #4F46E5;
+  --tw-indigo-700: #4338CA;
+  
+  --tw-green-500: #10B981;
+  --tw-green-600: #059669;
+  --tw-green-700: #047857;
+  
+  --tw-amber-500: #F59E0B;
+  --tw-amber-600: #D97706;
+  --tw-amber-700: #B45309;
+  
+  --tw-pink-500: #EC4899;
+  --tw-pink-600: #DB2777;
+  --tw-pink-700: #BE185D;
+  
+  --tw-purple-500: #8B5CF6;
+  --tw-purple-600: #7C3AED;
+  --tw-purple-700: #6D28D9;
+  
+  --tw-sky-500: #0EA5E9;
+  --tw-sky-600: #0284C7;
+  --tw-sky-700: #0369A1;
+  
+  --tw-teal-500: #14B8A6;
+  --tw-teal-600: #0D9488;
+  --tw-teal-700: #0F766E;
+  
+  --tw-red-500: #EF4444;
+  --tw-red-600: #DC2626;
+  --tw-red-700: #B91C1C;
+  
+  --tw-orange-500: #F97316;
+  --tw-orange-600: #EA580C;
+  --tw-orange-700: #C2410C;
+  
+  --tw-cyan-500: #06B6D4;
+  --tw-cyan-600: #0891B2;
+  --tw-cyan-700: #0E7490;
+}
+
+/* Add the spin animation for the loader */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Custom component styles */
+.question-type-button {
+  @apply flex items-center justify-between px-4 py-3 rounded-md transition-all duration-200 ease-in-out;
+}
+
+.question-type-button:hover {
+  @apply shadow-sm transform scale-[1.02];
+}
+
+.question-subtype-button {
+  @apply flex items-center w-full px-4 py-2.5 rounded-md transition-all duration-150 ease-in-out;
+}
+
+.question-subtype-button:hover {
+  @apply shadow-sm;
+}
