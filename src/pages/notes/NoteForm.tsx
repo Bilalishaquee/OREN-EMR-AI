@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FaSave, FaArrowLeft, FaSpinner, FaTrash, FaRobot } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
+import ConsultationNoteDisplay from '../../components/notes/ConsultationNoteDisplay';
 
 // Import React Quill
 import ReactQuill from 'react-quill';
@@ -63,7 +64,7 @@ const NoteForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEditMode = Boolean(id);
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [note, setNote] = useState<Note>({
@@ -94,6 +95,8 @@ const NoteForm: React.FC = () => {
   const [filesToRemove, setFilesToRemove] = useState<string[]>([]);
   const [generatingNote, setGeneratingNote] = useState<boolean>(false);
   const [promptData, setPromptData] = useState<string>('');
+  const [consultationNoteData, setConsultationNoteData] = useState<any>(null);
+  const [showJsonView, setShowJsonView] = useState<boolean>(false);
   
   // Quill editor modules configuration
   const quillModules = {
@@ -110,16 +113,20 @@ const NoteForm: React.FC = () => {
   };
 
   // SOAP Template for Progress Notes
-  const getSOAPTemplate = () => {
+  const getSOAPTemplate = (selectedPatient?: Patient) => {
+    const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '[To be filled from patient selection]';
+    const patientDOB = selectedPatient ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '[To be filled from patient data]';
+    const currentDate = new Date().toLocaleDateString();
+    
     return `
 <h2>SOAP Note - Progress Note</h2>
 
 <p><strong>Patient Information:</strong></p>
 <ul>
-  <li><strong>Patient Name:</strong> [To be filled from patient selection]</li>
-  <li><strong>Patient Date of Birth:</strong> [To be filled from patient data]</li>
+  <li><strong>Patient Name:</strong> ${patientName}</li>
+  <li><strong>Patient Date of Birth:</strong> ${patientDOB}</li>
   <li><strong>Location:</strong> [To be pulled from appointment settings]</li>
-  <li><strong>Date of Service:</strong> [To be pulled from appointment settings]</li>
+  <li><strong>Date of Service:</strong> ${currentDate}</li>
   <li><strong>MRN:</strong> [Internal MRN not hospital MRN]</li>
 </ul>
 
@@ -188,82 +195,54 @@ const NoteForm: React.FC = () => {
   };
 
   // Consult Note Template
-  const getConsultTemplate = () => {
+  const getConsultTemplate = (selectedPatient?: Patient) => {
+    const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '[To be filled from patient selection]';
+    const patientDOB = selectedPatient ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '[To be filled from patient data]';
+    
     return `
-<h2>Consult Note</h2>
-
-<p><strong>Appointment Details:</strong></p>
+<p><strong>Notes</strong></p>
+<p>I expect that the following will be carried over directly from the intake form or EMR</p>
 <ul>
-  <li><strong>Patient Name:</strong> [To be filled from patient selection]</li>
-  <li><strong>Date of Birth:</strong> [To be filled from patient data]</li>
-  <li><strong>Date of Service:</strong> [To be pulled from appointment settings]</li>
-  <li><strong>Location:</strong> [To be pulled from appointment settings]</li>
-  <li><strong>Place of Service:</strong> [To be filled]</li>
-  <li><strong>MRN:</strong> [Internal MRN not hospital MRN]</li>
+  <li>Patient Name: ${patientName}</li>
+  <li>Patient Date of Birth: ${patientDOB}</li>
+  <li>Location: should be pulled from the appointment settings</li>
+  <li>Date of Service: should be pulled from the appointment settings</li>
 </ul>
 
-<h3>Corresponding Form</h3>
+<p><strong>Corresponding Form</strong></p>
 <ul>
-  <li><strong>MRN:</strong> [To be filled]</li>
-  <li><strong>Assessment:</strong> [To be filled]</li>
-  <li><strong>Plan:</strong> [To be filled]</li>
+  <li>MRN: [To be filled]</li>
+  <li>Assessment: [To be filled]</li>
+  <li>Plan: [To be filled]</li>
+  <ul>
+    <li>Medications: None, Ordered Antibiotics, Discontinue antibiotics, other_____</li>
+    <li>Therapy: None, Ordered, Continue, Discontinue, Offered and Declined</li>
+    <li>Outside Imaging or Nerve Study: None, Prescription Provided for ______</li>
+    <li>Splint: Options should be provided, ordered, discontinued or continued
+      <ul>
+        <li>Type________</li>
+      </ul>
+    </li>
+    <li>Injections: None (Default), Fluoroscopy guided, not fluoroscopy guided
+      <ul>
+        <li>Location</li>
+        <li>Medication: Kenalog, Kenalog</li>
+      </ul>
+    </li>
+  </ul>
+  <li>Work/School Status: No Restrictions, One handed duty, 5Lbs restriction, 10lbs restriction, 15lbs Restriction, 20lbs restriction, no gym class</li>
+  <li>Specific Comments: [To be filled]</li>
 </ul>
 
-<h3>Consult Note</h3>
+<p><strong>Chief Complaint:</strong> [Short description of why the consult is conducted]</p>
 
-<h4>Chief Complaint:</h4>
-<p>[Short description of why the consult is conducted]</p>
+<p><strong>HPI (History of Present Illness):</strong> [This is a subjective portion that should always be written in paragraph format. It must include the patient's age and gender, time elapsed since any injury, prehospital care received, care received in the hospital, medical history, surgical history and allergies, pain or sensory complaints, specific laterality of the injury, specific body part involved, and any studies/reports uploaded such as labs, imaging, nerve studies.]</p>
 
-<h4>HPI (History of Present Illness):</h4>
-<p>[This is a subjective portion that should always be written in paragraph format. It must include:]</p>
-<ul>
-  <li>The patient's age and gender</li>
-  <li>The time elapsed since any injury (e.g., "7 days after the patient fell and broke her wrist")</li>
-  <li>Any prehospital care received, how they arrived at the hospital (e.g., Ambulance or if they were driven)</li>
-  <li>Any care received in the hospital before arrival</li>
-  <li>The patient's medical history, surgical history and allergies should be included in this section</li>
-  <li>Any pain or sensory complaints the patient has should be included here as well</li>
-  <li>The specific laterality of the injury should always be mentioned</li>
-  <li>The specific body part should be mentioned when known and possible (e.g., wrist, thumb, or metacarpal). The more specific the better. The laterality should always be mentioned</li>
-  <li>If there are studies/reports uploaded such as labs, imaging, nerve studies please include these here</li>
-</ul>
+<p><strong>Objective:</strong> [A standard exam that would be expected given the information provided. For heart and lungs, describe in terms of things that could be seen without listening. For example: Heart: Regular rate and rhythm (that can be checked by palpating the radial artery), Lungs: Regular respiratory rate and pattern, no respiratory distress. All other things do as normal.]</p>
 
-<h4>Objective:</h4>
-<p>[A standard exam that would be expected given the information provided. For heart and lungs, describe in terms of things that could be seen without listening. For example: Heart: Regular rate and rhythm (that can be checked by palpating the radial artery), Lungs: Regular respiratory rate and pattern, no respiratory distress. All other things do as normal.]</p>
+<p><strong>Assessment:</strong> [Provide a comprehensive summary of the patient's medical condition in sentence format. Follow this with a numbered list of diagnoses, each with the correct ICD-10 codes.]</p>
 
-<h4>Assessment:</h4>
-<p>[Provide a comprehensive summary of the patient's medical condition in sentence format.]</p>
-<p>[Follow this with a numbered list of diagnoses, each with the correct ICD-10 codes.]</p>
-
-<h4>Plan:</h4>
-<p>[For anything that is not applicable put "not applicable"]</p>
-<p>[Structure the plan as a numbered list and sub lists. Divide the plan into services provided during today's visit.]</p>
-
-<ol>
-  <li><strong>Prescriptions Provided:</strong>
-    <ul>
-      <li>Medications: None, Ordered Antibiotics, Discontinue antibiotics, other_____</li>
-      <li>Therapy: None, Ordered, Continue, Discontinue, Offered and Declined</li>
-      <li>Outside Imaging or Nerve Study: None, Prescription Provided for ______</li>
-      <li>Splint: Options should be provided, ordered, discontinued or continued
-        <ul>
-          <li>Type________</li>
-        </ul>
-      </li>
-      <li>Injections: None (Default), Fluoroscopy guided, not fluoroscopy guided
-        <ul>
-          <li>Location: ________</li>
-          <li>Medication: Kenalog, Kenalog</li>
-        </ul>
-      </li>
-    </ul>
-  </li>
-  <li><strong>Dressing or Splint care:</strong> [To be filled]</li>
-  <li><strong>Activity:</strong> Showering, weight limits [To be filled]</li>
-  <li><strong>Work or School Status:</strong> No Restrictions, One handed duty, 5Lbs restriction, 10lbs restriction, 15lbs Restriction, 20lbs restriction, no gym class [To be filled]</li>
-  <li><strong>Follow up:</strong> [To be filled]</li>
-  <li><strong>Specific Comments:</strong> [To be filled]</li>
-</ol>
+<p><strong>Plan:</strong> [For anything that is not applicable put "not applicable". Structure the plan as a numbered list and sub lists. Divide the plan into services provided during today's visit. Include prescriptions provided, dressing or splint care, activity restrictions, work or school status, and follow up.]</p>
 
 <hr>
 <p><em>Note: This is a template for a Consult note. Please fill in all the bracketed sections with the appropriate patient information and clinical details.</em></p>
@@ -271,15 +250,19 @@ const NoteForm: React.FC = () => {
   };
 
   // ER Operative Report Template
-  const getEROperativeTemplate = () => {
+  const getEROperativeTemplate = (selectedPatient?: Patient) => {
+    const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '[To be filled from patient selection]';
+    const patientDOB = selectedPatient ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '[To be filled from patient data]';
+    const currentDate = new Date().toLocaleDateString();
+    
     return `
 <h2>ER Operative Report</h2>
 
 <p><strong>Patient Information:</strong></p>
 <ul>
-  <li><strong>Patient Name:</strong> [To be filled from patient selection]</li>
-  <li><strong>Date of Birth:</strong> [To be filled from patient data]</li>
-  <li><strong>Date of Service:</strong> [To be pulled from appointment settings]</li>
+  <li><strong>Patient Name:</strong> ${patientName}</li>
+  <li><strong>Date of Birth:</strong> ${patientDOB}</li>
+  <li><strong>Date of Service:</strong> ${currentDate}</li>
   <li><strong>Location:</strong> [To be pulled from appointment settings]</li>
   <li><strong>MRN:</strong> [Internal MRN not hospital MRN]</li>
 </ul>
@@ -328,16 +311,20 @@ const NoteForm: React.FC = () => {
   };
 
   // OR Operative Report Template
-  const getOROperativeTemplate = () => {
+  const getOROperativeTemplate = (selectedPatient?: Patient) => {
+    const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '[To be filled from patient selection]';
+    const patientDOB = selectedPatient ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '[To be filled from patient data]';
+    const currentDate = new Date().toLocaleDateString();
+    
     return `
 <h2>New OR Operative Report</h2>
 
 <p><strong>Patient Information:</strong></p>
 <ul>
-  <li><strong>Patient Name:</strong> [To be filled from patient selection]</li>
-  <li><strong>Patient Date of Birth:</strong> [To be filled from patient data]</li>
+  <li><strong>Patient Name:</strong> ${patientName}</li>
+  <li><strong>Patient Date of Birth:</strong> ${patientDOB}</li>
   <li><strong>Location:</strong> [To be pulled from appointment settings]</li>
-  <li><strong>Date of Service:</strong> [To be pulled from appointment settings]</li>
+  <li><strong>Date of Service:</strong> ${currentDate}</li>
 </ul>
 
 <h3>Corresponding Form</h3>
@@ -560,7 +547,7 @@ const NoteForm: React.FC = () => {
             setVisits(visitsResponse.data);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load data');
       } finally {
@@ -581,7 +568,7 @@ const NoteForm: React.FC = () => {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         setVisits(visitsResponse.data);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching patient visits:', error);
         toast.error('Failed to load patient visits');
       }
@@ -594,50 +581,53 @@ const NoteForm: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
+    // Get selected patient for template population
+    const selectedPatient = patients.find(p => p._id === note.patient);
+    
     // If note type is changing to Progress and content is empty, load the SOAP template
     if (name === 'noteType' && value === 'Progress' && !note.content.trim()) {
-      const soapTemplate = getSOAPTemplate();
+      const soapTemplate = getSOAPTemplate(selectedPatient);
       setNote(prev => ({ ...prev, [name]: value, content: soapTemplate }));
     } else if (name === 'noteType' && value === 'Progress' && note.content.trim()) {
       // If changing to Progress and there's existing content, ask user if they want to load template
       if (window.confirm('Would you like to load the SOAP template? This will replace your current content.')) {
-        const soapTemplate = getSOAPTemplate();
+        const soapTemplate = getSOAPTemplate(selectedPatient);
         setNote(prev => ({ ...prev, [name]: value, content: soapTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
       }
     } else if (name === 'noteType' && value === 'Consultation' && !note.content.trim()) {
       // If note type is changing to Consultation and content is empty, load the Consult template
-      const consultTemplate = getConsultTemplate();
+      const consultTemplate = getConsultTemplate(selectedPatient);
       setNote(prev => ({ ...prev, [name]: value, content: consultTemplate }));
     } else if (name === 'noteType' && value === 'Consultation' && note.content.trim()) {
       // If changing to Consultation and there's existing content, ask user if they want to load template
       if (window.confirm('Would you like to load the Consult template? This will replace your current content.')) {
-        const consultTemplate = getConsultTemplate();
+        const consultTemplate = getConsultTemplate(selectedPatient);
         setNote(prev => ({ ...prev, [name]: value, content: consultTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
       }
     } else if (name === 'noteType' && value === 'New ER Operative Report' && !note.content.trim()) {
       // If note type is changing to New ER Operative Report and content is empty, load the ER Operative template
-      const erOperativeTemplate = getEROperativeTemplate();
+      const erOperativeTemplate = getEROperativeTemplate(selectedPatient);
       setNote(prev => ({ ...prev, [name]: value, content: erOperativeTemplate }));
     } else if (name === 'noteType' && value === 'New ER Operative Report' && note.content.trim()) {
       // If changing to New ER Operative Report and there's existing content, ask user if they want to load template
       if (window.confirm('Would you like to load the ER Operative Report template? This will replace your current content.')) {
-        const erOperativeTemplate = getEROperativeTemplate();
+        const erOperativeTemplate = getEROperativeTemplate(selectedPatient);
         setNote(prev => ({ ...prev, [name]: value, content: erOperativeTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
       }
     } else if (name === 'noteType' && value === 'New OR Operative Report' && !note.content.trim()) {
       // If note type is changing to New OR Operative Report and content is empty, load the OR Operative template
-      const orOperativeTemplate = getOROperativeTemplate();
+      const orOperativeTemplate = getOROperativeTemplate(selectedPatient);
       setNote(prev => ({ ...prev, [name]: value, content: orOperativeTemplate }));
     } else if (name === 'noteType' && value === 'New OR Operative Report' && note.content.trim()) {
       // If changing to New OR Operative Report and there's existing content, ask user if they want to load template
       if (window.confirm('Would you like to load the OR Operative Report template? This will replace your current content.')) {
-        const orOperativeTemplate = getOROperativeTemplate();
+        const orOperativeTemplate = getOROperativeTemplate(selectedPatient);
         setNote(prev => ({ ...prev, [name]: value, content: orOperativeTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
@@ -681,7 +671,7 @@ const NoteForm: React.FC = () => {
         setDiagnosisResults(mockResults);
         setSearchingDiagnosis(false);
       }, 500);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error searching diagnosis codes:', error);
       setSearchingDiagnosis(false);
     }
@@ -711,7 +701,7 @@ const NoteForm: React.FC = () => {
         setTreatmentResults(mockResults);
         setSearchingTreatment(false);
       }, 500);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error searching treatment codes:', error);
       setSearchingTreatment(false);
     }
@@ -788,6 +778,12 @@ const NoteForm: React.FC = () => {
     
     setGeneratingNote(true);
     try {
+      console.log('Generating note with AI...');
+      console.log('Patient ID:', note.patient);
+      console.log('Note Type:', note.noteType);
+      console.log('Visit ID:', note.visit);
+      console.log('Prompt Data:', promptData);
+      
       const response = await axios.post('http://localhost:5000/api/notes/generate', {
         patientId: note.patient,
         visitId: note.visit,
@@ -797,15 +793,59 @@ const NoteForm: React.FC = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      if (response.data.success) {
+      console.log('AI Generation Response:', response.data);
+      
+      if (response.data.success && response.data.note) {
         toast.success('Note generated successfully');
-        navigate(`/notes/${response.data.note._id}/edit`);
+        
+        // Populate the form with the generated note instead of navigating
+        const generatedNote = response.data.note;
+        
+        // For consultation notes, try to parse and store JSON data
+        if (note.noteType === 'Consultation') {
+          try {
+            // Try to extract JSON data from the content if it contains structured data
+            const content = generatedNote.content;
+            console.log('Generated content for consultation:', content);
+            
+            // For now, we'll use the formatted content directly
+            // In the future, we could parse the JSON from the AI response
+            setConsultationNoteData(null); // Will be populated when we get JSON response
+          } catch (error) {
+            console.error('Error parsing consultation note data:', error);
+          }
+        }
+        
+        setNote(prev => ({
+          ...prev,
+          _id: generatedNote._id,
+          title: generatedNote.title,
+          content: generatedNote.content,
+          noteType: generatedNote.noteType,
+          colorCode: generatedNote.colorCode || '#FFFFFF',
+          patient: generatedNote.patient._id || generatedNote.patient,
+          visit: generatedNote.visit ? generatedNote.visit._id : null,
+          diagnosisCodes: generatedNote.diagnosisCodes || [],
+          treatmentCodes: generatedNote.treatmentCodes || [],
+          attachments: generatedNote.attachments || [],
+          isAiGenerated: generatedNote.isAiGenerated || true
+        }));
+        
+        // Clear the prompt data since it's been used
+        setPromptData('');
+        
+        console.log('Form populated with generated note');
       } else {
-        toast.error('Failed to generate note');
+        toast.error('Failed to generate note: ' + (response.data.message || 'Unknown error'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating note:', error);
-      toast.error('Failed to generate note');
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        toast.error('Failed to generate note: ' + (error.response.data.message || error.message));
+      } else {
+        toast.error('Failed to generate note: ' + error.message);
+      }
     } finally {
       setGeneratingNote(false);
     }
@@ -863,10 +903,9 @@ const NoteForm: React.FC = () => {
         return;
       }
       
-      let response;
       if (isEditMode && id) {
         // Update existing note
-        response = await axios.put(`http://localhost:5000/api/notes/${id}`, formData, {
+        await axios.put(`http://localhost:5000/api/notes/${id}`, formData, {
           headers: { 
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}` 
@@ -875,7 +914,7 @@ const NoteForm: React.FC = () => {
         toast.success('Note updated successfully');
       } else {
         // Create new note
-        response = await axios.post('http://localhost:5000/api/notes', formData, {
+        await axios.post('http://localhost:5000/api/notes', formData, {
           headers: { 
             'Content-Type': 'multipart/form-data',
             'Authorization': `Bearer ${token}` 
@@ -886,7 +925,7 @@ const NoteForm: React.FC = () => {
       
       // Navigate back to notes list
       navigate('/notes');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving note:', error);
       // Log more detailed error information
       if (error.response) {
@@ -1069,25 +1108,47 @@ const NoteForm: React.FC = () => {
               {note.noteType === 'Progress' && (
                 <button
                   type="button"
-                  onClick={() => setNote(prev => ({ ...prev, content: getSOAPTemplate() }))}
+                  onClick={() => {
+                    const selectedPatient = patients.find(p => p._id === note.patient);
+                    setNote(prev => ({ ...prev, content: getSOAPTemplate(selectedPatient) }));
+                  }}
                   className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
                 >
                   Load SOAP Template
                 </button>
               )}
               {note.noteType === 'Consultation' && (
-                <button
-                  type="button"
-                  onClick={() => setNote(prev => ({ ...prev, content: getConsultTemplate() }))}
-                  className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  Load Consult Template
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedPatient = patients.find(p => p._id === note.patient);
+                      setNote(prev => ({ ...prev, content: getConsultTemplate(selectedPatient) }));
+                    }}
+                    className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                    Load Consult Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowJsonView(!showJsonView)}
+                    className={`px-3 py-1 text-sm rounded ${
+                      showJsonView 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-purple-500 text-white hover:bg-purple-600'
+                    }`}
+                  >
+                    {showJsonView ? 'Show Editor' : 'Show Structured View'}
+                  </button>
+                </>
               )}
               {note.noteType === 'New ER Operative Report' && (
                 <button
                   type="button"
-                  onClick={() => setNote(prev => ({ ...prev, content: getEROperativeTemplate() }))}
+                  onClick={() => {
+                    const selectedPatient = patients.find(p => p._id === note.patient);
+                    setNote(prev => ({ ...prev, content: getEROperativeTemplate(selectedPatient) }));
+                  }}
                   className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
                 >
                   Load ER Operative Template
@@ -1096,7 +1157,10 @@ const NoteForm: React.FC = () => {
               {note.noteType === 'New OR Operative Report' && (
                 <button
                   type="button"
-                  onClick={() => setNote(prev => ({ ...prev, content: getOROperativeTemplate() }))}
+                  onClick={() => {
+                    const selectedPatient = patients.find(p => p._id === note.patient);
+                    setNote(prev => ({ ...prev, content: getOROperativeTemplate(selectedPatient) }));
+                  }}
                   className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
                 >
                   Load OR Operative Template
@@ -1104,13 +1168,20 @@ const NoteForm: React.FC = () => {
               )}
             </div>
           </div>
-          <ReactQuill
-            theme="snow"
-            value={note.content}
-            onChange={handleContentChange}
-            modules={quillModules}
-            className="h-64 mb-12"
-          />
+          
+          {note.noteType === 'Consultation' && showJsonView && consultationNoteData ? (
+            <div className="border rounded-md p-4 bg-gray-50">
+              <ConsultationNoteDisplay noteData={consultationNoteData} />
+            </div>
+          ) : (
+            <ReactQuill
+              theme="snow"
+              value={note.content}
+              onChange={handleContentChange}
+              modules={quillModules}
+              className="h-64 mb-12"
+            />
+          )}
         </div>
 
         {/* Diagnosis and Treatment Codes */}

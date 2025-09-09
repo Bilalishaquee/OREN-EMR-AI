@@ -8,15 +8,9 @@ import Note from '../models/Note.js';
 import Patient from '../models/Patient.js';
 import { Visit } from '../models/Visit.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
-import { OpenAI } from 'openai';
+import aiNoteGenerationService from '../services/aiNoteGenerationService.js';
 
 const router = express.Router();
-
-// Initialize OpenAI client with OpenRouter configuration
-const client = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: "", // Store your API key in environment variables
-});
 
 // Get current file directory
 const __filename = fileURLToPath(import.meta.url);
@@ -521,174 +515,40 @@ router.post('/generate', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Patient ID and note type are required' });
     }
     
+    // Validate note type
+    const supportedNoteTypes = ['Progress', 'Consultation', 'New ER Operative Report', 'New OR Operative Report'];
+    if (!supportedNoteTypes.includes(noteType)) {
+      return res.status(400).json({ 
+        message: `Unsupported note type. Supported types: ${supportedNoteTypes.join(', ')}` 
+      });
+    }
+    
     // Fetch patient data
     const patient = await Patient.findById(patientId);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
     
-    // Fetch visit data if provided
-    let visit = null;
-    if (visitId) {
-      visit = await Visit.findById(visitId)
-        .populate('patient')
-        .populate('doctor');
-      
-      if (!visit) {
-        return res.status(404).json({ message: 'Visit not found' });
-      }
-    }
+    // Generate the note using the AI service
+    console.log('Generating note with Gemini API...');
+    console.log('Patient ID:', patientId);
+    console.log('Visit ID:', visitId);
+    console.log('Note Type:', noteType);
+    console.log('Prompt Data:', promptData);
     
-    // Construct prompt based on note type
-    let prompt = '';
-    let systemPrompt = '';
+    const generatedText = await aiNoteGenerationService.generateNote(patientId, visitId, noteType, promptData);
     
-    switch (noteType) {
-      case 'Progress':
-        systemPrompt = 'You are a medical documentation assistant that helps create professional, accurate progress notes based on provided clinical data.';
-        prompt = `Generate a professional medical progress note based on the following patient data:\n\n`;
-        break;
-      case 'Consultation':
-        systemPrompt = 'You are a medical documentation assistant that helps create professional, accurate consultation notes based on provided clinical data.';
-        prompt = `Generate a professional medical consultation note based on the following patient data:\n\n`;
-        break;
-      case 'Legal':
-        systemPrompt = 'You are a medical-legal documentation assistant that helps create professional, accurate legal narratives based on provided clinical data.';
-        prompt = `Generate a professional medical-legal narrative based on the following patient data:\n\n`;
-        break;
-      case 'Pre-Operative':
-        systemPrompt = 'You are a medical documentation assistant that helps create professional, accurate pre-operative notes based on provided clinical data.';
-        prompt = `Generate a professional pre-operative note based on the following patient data:\n\n`;
-        break;
-      case 'Post-Operative':
-        systemPrompt = 'You are a medical documentation assistant that helps create professional, accurate post-operative notes based on provided clinical data.';
-        prompt = `Generate a professional post-operative note based on the following patient data:\n\n`;
-        break;
-      default:
-        systemPrompt = 'You are a medical documentation assistant that helps create professional, accurate medical notes based on provided clinical data.';
-        prompt = `Generate a professional medical note based on the following patient data:\n\n`;
-    }
-    
-    // Add patient information
-    prompt += `Patient Information:\n`;
-    prompt += `- Name: ${patient.firstName} ${patient.lastName}\n`;
-    prompt += `- DOB: ${new Date(patient.dateOfBirth).toLocaleDateString()}\n`;
-    prompt += `- Gender: ${patient.gender}\n`;
-    
-    // Add medical history if available
-    if (patient.medicalHistory) {
-      prompt += `\nMedical History:\n`;
-      
-      if (patient.medicalHistory.allergies && patient.medicalHistory.allergies.length > 0) {
-        prompt += `- Allergies: ${patient.medicalHistory.allergies.join(', ')}\n`;
-      }
-      
-      if (patient.medicalHistory.medications && patient.medicalHistory.medications.length > 0) {
-        prompt += `- Medications: ${patient.medicalHistory.medications.join(', ')}\n`;
-      }
-      
-      if (patient.medicalHistory.conditions && patient.medicalHistory.conditions.length > 0) {
-        prompt += `- Conditions: ${patient.medicalHistory.conditions.join(', ')}\n`;
-      }
-      
-      if (patient.medicalHistory.surgeries && patient.medicalHistory.surgeries.length > 0) {
-        prompt += `- Surgeries: ${patient.medicalHistory.surgeries.join(', ')}\n`;
-      }
-    }
-    
-    // Add subjective complaints if available
-    if (patient.subjectiveComplaints && patient.subjectiveComplaints.length > 0) {
-      prompt += `\nSubjective Complaints:\n`;
-      
-      patient.subjectiveComplaints.forEach((complaint, index) => {
-        prompt += `- Complaint ${index + 1}: ${complaint.bodyPart} (${complaint.side})\n`;
-        prompt += `  Severity: ${complaint.severity}, Quality: ${complaint.quality}\n`;
-        if (complaint.notes) prompt += `  Notes: ${complaint.notes}\n`;
-      });
-    }
-    
-    // Add visit information if available
-    if (visit) {
-      prompt += `\nVisit Information:\n`;
-      prompt += `- Visit Type: ${visit.visitType}\n`;
-      prompt += `- Date: ${new Date(visit.date).toLocaleDateString()}\n`;
-      
-      // Add visit-specific data based on visit type
-      if (visit.visitType === 'initial') {
-        if (visit.chiefComplaint) prompt += `- Chief Complaint: ${visit.chiefComplaint}\n`;
-        
-        // Add vitals if available
-        if (visit.vitals) {
-          prompt += `\nVitals:\n`;
-          if (visit.vitals.height) prompt += `- Height: ${visit.vitals.height}\n`;
-          if (visit.vitals.weight) prompt += `- Weight: ${visit.vitals.weight}\n`;
-          if (visit.vitals.bp) prompt += `- Blood Pressure: ${visit.vitals.bp}\n`;
-          if (visit.vitals.pulse) prompt += `- Pulse: ${visit.vitals.pulse}\n`;
-        }
-        
-        // Add assessment information
-        if (visit.appearance) prompt += `\nAppearance: ${visit.appearance.join(', ')}\n`;
-        if (visit.painLocation) prompt += `Pain Location: ${visit.painLocation.join(', ')}\n`;
-        if (visit.radiatingTo) prompt += `Radiating To: ${visit.radiatingTo}\n`;
-      } else if (visit.visitType === 'followup') {
-        if (visit.areas) prompt += `- Areas: ${visit.areas}\n`;
-        if (visit.musclePalpation) prompt += `- Muscle Palpation: ${visit.musclePalpation}\n`;
-        if (visit.painRadiating) prompt += `- Pain Radiating: ${visit.painRadiating}\n`;
-        
-        // Add ROM information
-        prompt += `\nRange of Motion: `;
-        if (visit.romWnlNoPain) prompt += `WNL No Pain, `;
-        if (visit.romWnlWithPain) prompt += `WNL With Pain, `;
-        if (visit.romImproved) prompt += `Improved, `;
-        if (visit.romDecreased) prompt += `Decreased, `;
-        if (visit.romSame) prompt += `Same, `;
-        prompt += `\n`;
-        
-        // Add treatment information
-        if (visit.treatmentPlan && visit.treatmentPlan.treatments) {
-          prompt += `\nTreatment Plan: ${visit.treatmentPlan.treatments}\n`;
-        }
-      } else if (visit.visitType === 'discharge') {
-        prompt += `\nDischarge Information:\n`;
-        if (visit.prognosis) prompt += `- Prognosis: ${visit.prognosis}\n`;
-        if (visit.futureMedicalCare) prompt += `- Future Medical Care: ${visit.futureMedicalCare.join(', ')}\n`;
-        if (visit.homeCare) prompt += `- Home Care: ${visit.homeCare.join(', ')}\n`;
-      }
-      
-      // Add notes if available
-      if (visit.notes) prompt += `\nAdditional Notes: ${visit.notes}\n`;
-    }
-    
-    // Add any additional prompt data provided
-    if (promptData) {
-      prompt += `\nAdditional Information:\n${promptData}\n`;
-    }
-    
-    // Add final instructions
-    prompt += `\nPlease generate a well-structured, professional medical ${noteType.toLowerCase()} note in paragraph format that incorporates all relevant information. Include appropriate medical terminology and formatting.`;
-    
-    // Call the AI model
-    const completion = await client.chat.completions.create({
-      model: "deepseek/deepseek-r1:free",
-      messages: [
-        {
-          "role": "system",
-          "content": systemPrompt
-        },
-        {
-          "role": "user",
-          "content": prompt
-        }
-      ],
-      temperature: 0.3, // Lower temperature for more factual responses
-      max_tokens: 1500
-    });
-    
-    const generatedText = completion.choices[0]?.message?.content || "Unable to generate note at this time.";
+    console.log('Generated text length:', generatedText.length);
+    console.log('Generated text preview:', generatedText.substring(0, 200) + '...');
     
     // Generate a title based on the note type and current date
     const currentDate = new Date().toLocaleDateString();
     const title = `${noteType} Note - ${patient.firstName} ${patient.lastName} - ${currentDate}`;
+    
+    console.log('Creating note with title:', title);
+    console.log('Patient ID for note:', patientId);
+    console.log('Doctor ID for note:', req.user.id);
+    console.log('Visit ID for note:', visitId);
     
     // Create a new note with the generated content
     const newNote = new Note({
@@ -702,13 +562,26 @@ router.post('/generate', authenticateToken, async (req, res) => {
       isAiGenerated: true
     });
     
+    console.log('Saving note to database...');
     await newNote.save();
+    console.log('Note saved with ID:', newNote._id);
     
     // Populate references for response
+    console.log('Populating note references...');
     const populatedNote = await Note.findById(newNote._id)
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('doctor', 'firstName lastName')
       .populate('visit', 'visitType date');
+    
+    console.log('Populated note:', {
+      _id: populatedNote._id,
+      title: populatedNote.title,
+      noteType: populatedNote.noteType,
+      patient: populatedNote.patient,
+      doctor: populatedNote.doctor,
+      visit: populatedNote.visit,
+      isAiGenerated: populatedNote.isAiGenerated
+    });
     
     res.status(201).json({
       success: true,
@@ -716,9 +589,24 @@ router.post('/generate', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating note:', error);
-    res.status(500).json({ 
+    
+    let errorMessage = 'Failed to generate note';
+    let statusCode = 500;
+    
+    if (error.message.includes('Gemini API error')) {
+      errorMessage = 'AI service temporarily unavailable. Please try again later.';
+      statusCode = 503;
+    } else if (error.message.includes('Patient not found')) {
+      errorMessage = 'Patient not found';
+      statusCode = 404;
+    } else if (error.message.includes('Unsupported note type')) {
+      errorMessage = error.message;
+      statusCode = 400;
+    }
+    
+    res.status(statusCode).json({ 
       success: false,
-      message: 'Failed to generate note',
+      message: errorMessage,
       error: error.message 
     });
   }
