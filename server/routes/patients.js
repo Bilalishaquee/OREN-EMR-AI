@@ -18,14 +18,44 @@ if (process.env.SENDGRID_API_KEY) {
 
 const router = express.Router();
 
+// Debug endpoint to check database
+router.get('/debug', authenticateToken, async (req, res) => {
+  try {
+    const totalPatients = await Patient.countDocuments({});
+    const samplePatient = await Patient.findOne({});
+    
+    res.json({
+      totalPatients,
+      samplePatient: samplePatient ? {
+        _id: samplePatient._id,
+        hasDynamicData: !!samplePatient.dynamicData,
+        dynamicDataKeys: samplePatient.dynamicData ? Object.keys(samplePatient.dynamicData) : [],
+        hasFirstName: !!samplePatient.firstName,
+        hasLastName: !!samplePatient.lastName,
+        firstName: samplePatient.firstName,
+        lastName: samplePatient.lastName,
+        dynamicDataFirstName: samplePatient.dynamicData?.firstName,
+        dynamicDataLastName: samplePatient.dynamicData?.lastName
+      } : null
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ message: 'Debug error', error: error.message });
+  }
+});
+
 // Get all patients (with pagination)
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '' } = req.query;
 
+    // Try both old and new data structures for search
     const searchQuery = search
       ? {
           $or: [
+            { 'dynamicData.firstName': { $regex: search, $options: 'i' } },
+            { 'dynamicData.lastName': { $regex: search, $options: 'i' } },
+            { 'dynamicData.email': { $regex: search, $options: 'i' } },
             { firstName: { $regex: search, $options: 'i' } },
             { lastName: { $regex: search, $options: 'i' } },
             { email: { $regex: search, $options: 'i' } }
@@ -45,8 +75,58 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const count = await Patient.countDocuments(searchQuery);
 
+    // Map patients to include virtual fields explicitly and handle both data structures
+    const patientsWithVirtuals = patients.map(patient => {
+      const patientObj = patient.toObject({ virtuals: true });
+      
+      // Get names from both possible locations
+      let firstName = '';
+      let lastName = '';
+      let email = '';
+      
+             // Try dynamicData first (new structure)
+       if (patientObj.dynamicData) {
+         // Check for both formats: "firstName" and "First Name"
+         firstName = patientObj.dynamicData.firstName || patientObj.dynamicData['First Name'] || '';
+         lastName = patientObj.dynamicData.lastName || patientObj.dynamicData['Last Name'] || '';
+         email = patientObj.dynamicData.email || patientObj.dynamicData['Email'] || '';
+         
+         // Debug logging
+         console.log('Server extracting names for patient:', patientObj._id);
+         console.log('dynamicData keys:', Object.keys(patientObj.dynamicData));
+         console.log('firstName from dynamicData:', firstName);
+         console.log('lastName from dynamicData:', lastName);
+       }
+      
+      // Fallback to direct properties (old structure)
+      if (!firstName) firstName = patientObj.firstName || '';
+      if (!lastName) lastName = patientObj.lastName || '';
+      if (!email) email = patientObj.email || '';
+      
+      return {
+        ...patientObj,
+        firstName,
+        lastName,
+        email
+      };
+    });
+
+    // Debug logging
+    console.log('Patients found:', count);
+    if (patientsWithVirtuals.length > 0) {
+      console.log('First patient structure:', JSON.stringify(patientsWithVirtuals[0], null, 2));
+      console.log('First patient names:', {
+        firstName: patientsWithVirtuals[0].firstName,
+        lastName: patientsWithVirtuals[0].lastName,
+        dynamicDataFirstName: patientsWithVirtuals[0].dynamicData?.firstName,
+        dynamicDataLastName: patientsWithVirtuals[0].dynamicData?.lastName,
+        dynamicDataFirstSpace: patientsWithVirtuals[0].dynamicData?.['First Name'],
+        dynamicDataLastSpace: patientsWithVirtuals[0].dynamicData?.['Last Name']
+      });
+    }
+
     res.json({
-      patients,
+      patients: patientsWithVirtuals,
       totalPages: Math.ceil(count / limit),
       currentPage: page,
       totalPatients: count
