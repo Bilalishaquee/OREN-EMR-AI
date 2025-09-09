@@ -5,7 +5,7 @@ import { createEmptyConsultationNote, formatConsultationNote } from '../models/C
 import { saveAIResponseToFile, formatConsultationNote as formatNote } from '../utils/noteFormatter.js';
 
 // Gemini API configuration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyAn15wKMeKdUJPQOht9B0JQtzb_BRWAUpI';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 class AINoteGenerationService {
