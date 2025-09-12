@@ -8,6 +8,59 @@ import User from '../models/User.js';
 const router = express.Router();
 
 // Get all tasks (with filtering options)
+// router.get('/', authenticateToken, async (req, res) => {
+//   try {
+//     const { 
+//       status, 
+//       priority, 
+//       assignedTo, 
+//       patient,
+//       dueDate,
+//       search
+//     } = req.query;
+    
+//     // Build filter object
+//     const filter = {};
+    
+//     // Filter by status if provided
+//     if (status) filter.status = status;
+    
+//     // Filter by priority if provided
+//     if (priority) filter.priority = priority;
+    
+//     // Filter by assignedTo if provided
+//     if (assignedTo) filter.assignedTo = assignedTo;
+    
+//     // Filter by patient if provided
+//     if (patient) filter.patient = patient;
+    
+//     // Filter by due date if provided
+//     if (dueDate) {
+//       const date = new Date(dueDate);
+//       filter.dueDate = { $lte: date };
+//     }
+    
+//     // Search in title or description
+//     if (search) {
+//       filter.$or = [
+//         { title: { $regex: search, $options: 'i' } },
+//         { description: { $regex: search, $options: 'i' } }
+//       ];
+//     }
+    
+//     // Get tasks with populated references
+//     const tasks = await Task.find(filter)
+//       .populate('assignedTo', 'firstName lastName username')
+//       .populate('assignedBy', 'firstName lastName username')
+//       .populate('patient', 'firstName lastName dateOfBirth')
+//       .sort({ createdAt: -1 });
+    
+//     res.status(200).json(tasks);
+//   } catch (error) {
+//     console.error('Error fetching tasks:', error);
+//     res.status(500).json({ message: 'Failed to fetch tasks', error: error.message });
+//   }
+// });
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { 
@@ -48,14 +101,96 @@ router.get('/', authenticateToken, async (req, res) => {
       ];
     }
     
-    // Get tasks with populated references
+    // Modified: Get tasks with populated references, including patient dynamicData
     const tasks = await Task.find(filter)
       .populate('assignedTo', 'firstName lastName username')
       .populate('assignedBy', 'firstName lastName username')
-      .populate('patient', 'firstName lastName dateOfBirth')
+      .populate('patient', 'email dynamicData') // Fix: Include dynamicData and email; remove virtual fields firstName, lastName as they are handled by virtuals
       .sort({ createdAt: -1 });
     
-    res.status(200).json(tasks);
+    // Modified: Map tasks to include mapped patient data within each task
+    const tasksWithVirtuals = tasks.map(task => {
+      const taskObj = task.toObject({ virtuals: true });
+      
+      // Modified: Initialize patient data with fallback values
+      let patientData = {
+        _id: taskObj.patient?._id || null,
+        firstName: '',
+        lastName: '',
+        email: '',
+        dateOfBirth: ''
+      };
+      
+      // Modified: Process patient data if it exists
+      if (taskObj.patient) {
+        const patientObj = taskObj.patient;
+        
+        // Modified: Use virtual fields for firstName, lastName, and email
+        patientData.firstName = patientObj.firstName || '';
+        patientData.lastName = patientObj.lastName || '';
+        patientData.email = patientObj.email || '';
+        
+        // Modified: Check multiple variations for dateOfBirth in dynamicData
+        patientData.dateOfBirth = patientObj.dynamicData?.['Date of Birth'] || 
+                                 patientObj.dynamicData?.dateOfBirth || 
+                                 patientObj.dateOfBirth || '';
+        
+        // Modified: Fallback to dynamicData keys for firstName, lastName if virtuals are empty
+        if (!patientData.firstName) {
+          patientData.firstName = patientObj.dynamicData?.firstName || 
+                                 patientObj.dynamicData?.['First Name'] || 
+                                 patientObj._doc?.firstName || '';
+        }
+        if (!patientData.lastName) {
+          patientData.lastName = patientObj.dynamicData?.lastName || 
+                                patientObj.dynamicData?.['Last Name'] || 
+                                patientObj._doc?.lastName || '';
+        }
+        if (!patientData.email) {
+          patientData.email = patientObj.dynamicData?.email || 
+                             patientObj.dynamicData?.['Email'] || 
+                             patientObj._doc?.email || '';
+        }
+        
+        // Modified: Debug logging for patient data to diagnose null/empty issues
+        console.log('Server extracting patient data for task:', taskObj._id);
+        console.log('Patient dynamicData:', patientObj.dynamicData ? JSON.stringify(patientObj.dynamicData, null, 2) : 'null');
+        console.log('Patient data extracted:', {
+          _id: patientData._id,
+          firstName: patientData.firstName,
+          lastName: patientData.lastName,
+          email: patientData.email,
+          dateOfBirth: patientData.dateOfBirth,
+          virtualFirstName: patientObj.firstName,
+          virtualLastName: patientObj.lastName,
+          virtualEmail: patientObj.email
+        });
+        
+        // Modified: Assign mapped patient data to task
+        taskObj.patient = patientData;
+      } else {
+        // Modified: Log warning for null patient despite required field
+        console.warn('Task with null patient detected:', taskObj._id);
+        taskObj.patient = null;
+      }
+      
+      return taskObj;
+    });
+    
+    // Modified: Debug logging for tasks
+    console.log('Tasks found:', tasksWithVirtuals.length);
+    if (tasksWithVirtuals.length > 0 && tasksWithVirtuals[0].patient) {
+      console.log('First task patient structure:', JSON.stringify(tasksWithVirtuals[0].patient, null, 2));
+      console.log('First task patient names:', {
+        firstName: tasksWithVirtuals[0].patient.firstName,
+        lastName: tasksWithVirtuals[0].patient.lastName,
+        email: tasksWithVirtuals[0].patient.email,
+        dateOfBirth: tasksWithVirtuals[0].patient.dateOfBirth
+      });
+    }
+    
+    // Modified: Return tasks array with embedded patient data
+    res.status(200).json(tasksWithVirtuals);
   } catch (error) {
     console.error('Error fetching tasks:', error);
     res.status(500).json({ message: 'Failed to fetch tasks', error: error.message });
@@ -63,6 +198,25 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get tasks assigned to the current user
+// router.get('/my-tasks', authenticateToken, async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { status } = req.query;
+    
+//     const filter = { assignedTo: userId };
+//     if (status) filter.status = status;
+    
+//     const tasks = await Task.find(filter)
+//       .populate('assignedBy', 'firstName lastName username')
+//       .populate('patient', 'firstName lastName dateOfBirth')
+//       .sort({ priority: -1, dueDate: 1 });
+    
+//     res.status(200).json(tasks);
+//   } catch (error) {
+//     console.error('Error fetching user tasks:', error);
+//     res.status(500).json({ message: 'Failed to fetch tasks', error: error.message });
+//   }
+// });
 router.get('/my-tasks', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -71,12 +225,107 @@ router.get('/my-tasks', authenticateToken, async (req, res) => {
     const filter = { assignedTo: userId };
     if (status) filter.status = status;
     
+    // Get raw tasks before population to log patient reference
+    const rawTasks = await Task.find(filter).lean(); // lean() for plain objects without Mongoose overhead
+    
+    // Log raw patient references for debugging
+    rawTasks.forEach(task => {
+      console.log('Raw task patient reference:', {
+        taskId: task._id,
+        patientRef: task.patient,
+        isValidObjectId: task.patient ? /^[0-9a-fA-F]{24}$/.test(task.patient.toString()) : false
+      });
+    });
+    
+    // Modified: Get tasks with populated references, including patient dynamicData
     const tasks = await Task.find(filter)
       .populate('assignedBy', 'firstName lastName username')
-      .populate('patient', 'firstName lastName dateOfBirth')
+      .populate('patient', 'email dynamicData') // Fix: Include dynamicData and email; remove virtual fields firstName, lastName and dateOfBirth
       .sort({ priority: -1, dueDate: 1 });
     
-    res.status(200).json(tasks);
+    // Modified: Map tasks to include mapped patient data within each task
+    const tasksWithVirtuals = tasks.map(task => {
+      const taskObj = task.toObject({ virtuals: true });
+      
+      // Modified: Initialize patient data with fallback values
+      let patientData = {
+        _id: taskObj.patient?._id || null,
+        firstName: '',
+        lastName: '',
+        email: '',
+        dateOfBirth: ''
+      };
+      
+      // Modified: Process patient data if it exists
+      if (taskObj.patient) {
+        const patientObj = taskObj.patient;
+        
+        // Modified: Use virtual fields for firstName, lastName, and email
+        patientData.firstName = patientObj.firstName || '';
+        patientData.lastName = patientObj.lastName || '';
+        patientData.email = patientObj.email || '';
+        
+        // Modified: Check multiple variations for dateOfBirth in dynamicData
+        patientData.dateOfBirth = patientObj.dynamicData?.['Date of Birth'] || 
+                                 patientObj.dynamicData?.dateOfBirth || 
+                                 patientObj.dateOfBirth || '';
+        
+        // Modified: Fallback to dynamicData keys for firstName, lastName if virtuals are empty
+        if (!patientData.firstName) {
+          patientData.firstName = patientObj.dynamicData?.firstName || 
+                                 patientObj.dynamicData?.['First Name'] || 
+                                 patientObj._doc?.firstName || '';
+        }
+        if (!patientData.lastName) {
+          patientData.lastName = patientObj.dynamicData?.lastName || 
+                                patientObj.dynamicData?.['Last Name'] || 
+                                patientObj._doc?.lastName || '';
+        }
+        if (!patientData.email) {
+          patientData.email = patientObj.dynamicData?.email || 
+                             patientObj.dynamicData?.['Email'] || 
+                             patientObj._doc?.email || '';
+        }
+        
+        // Modified: Debug logging for patient data to diagnose null issues
+        console.log('Server extracting patient data for task:', taskObj._id);
+        console.log('Patient dynamicData:', patientObj.dynamicData ? JSON.stringify(patientObj.dynamicData, null, 2) : 'null');
+        console.log('Patient data extracted:', {
+          _id: patientData._id,
+          firstName: patientData.firstName,
+          lastName: patientData.lastName,
+          email: patientData.email,
+          dateOfBirth: patientData.dateOfBirth,
+          virtualFirstName: patientObj.firstName,
+          virtualLastName: patientObj.lastName,
+          virtualEmail: patientObj.email
+        });
+        
+        // Modified: Assign mapped patient data to task
+        taskObj.patient = patientData;
+      } else {
+        // Modified: Log warning for null patient despite required field
+        console.warn('Task with null patient detected:', taskObj._id);
+        taskObj.patient = null;
+      }
+      
+      return taskObj;
+    });
+    
+    // Modified: Debug logging for tasks
+    console.log('Tasks found:', tasksWithVirtuals.length);
+    if (tasksWithVirtuals.length > 0 && tasksWithVirtuals[0].patient) {
+      console.log('First task patient structure:', JSON.stringify(tasksWithVirtuals[0].patient, null, 2));
+      console.log('First task patient names:', {
+        firstName: tasksWithVirtuals[0].patient.firstName,
+        lastName: tasksWithVirtuals[0].patient.lastName,
+        email: tasksWithVirtuals[0].patient.email,
+        dateOfBirth: tasksWithVirtuals[0].patient.dateOfBirth
+      });
+    }
+    
+    // Modified: Return tasks array with embedded patient data
+    res.status(200).json(tasksWithVirtuals);
   } catch (error) {
     console.error('Error fetching user tasks:', error);
     res.status(500).json({ message: 'Failed to fetch tasks', error: error.message });

@@ -496,7 +496,30 @@ const NoteForm: React.FC = () => {
     `;
   };
 
-
+const processContentToHTML = (text: string): string => {
+  if (!text) return text;
+  
+  // Split by newlines and wrap each line/block in <p> for paragraph formatting
+  // You can enhance this for Markdown (e.g., **bold** -> <strong>) if your AI returns Markdown
+  let html = text
+    .split('\n\n')  // Split on double newlines for paragraphs
+    .map(paragraph => {
+      let p = paragraph.trim();
+      if (p.startsWith('- ')) {
+        // Convert bullet lists
+        p = p.replace(/^- /gm, '<li>');
+        return `<ul><li>${p.slice(2)}</li></ul>`;  // Basic list handling
+      }
+      return `<p>${p.replace(/\n/g, '<br />')}</p>`;
+    })
+    .join('');
+  
+  // Add basic bold/italic if AI uses ** or * (optional enhancement)
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  
+  return html;
+};
 
   // Fetch note data if in edit mode
   useEffect(() => {
@@ -820,7 +843,7 @@ const NoteForm: React.FC = () => {
           ...prev,
           _id: generatedNote._id,
           title: generatedNote.title,
-          content: generatedNote.content,
+          content: processContentToHTML(generatedNote.content),
           noteType: generatedNote.noteType,
           colorCode: generatedNote.colorCode || '#FFFFFF',
           patient: generatedNote.patient._id || generatedNote.patient,

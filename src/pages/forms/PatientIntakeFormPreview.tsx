@@ -92,6 +92,7 @@ const PatientIntakeFormPreview: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [language, setLanguage] = useState<string>('english');
+  const [Loading, setLoading] = useState(false)
   const [doctors, setDoctors] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
 
   // Define filteredItems and currentQuestion before useEffect
@@ -394,187 +395,9 @@ const PatientIntakeFormPreview: React.FC = () => {
     }
   };
 
-  // const handleSubmit = async () => {
-  //   if (!formTemplate) return;
-
-  //   if (currentQuestion?.isRequired && currentQuestion.type !== 'section') {
-  //     if ((currentQuestion.type === 'blank' || currentQuestion.type === 'openAnswer' || currentQuestion.type === 'smartEditor') && !responses[currentQuestion.id]) {
-  //       alert('This question is required');
-  //       return;
-  //     }
-  //     if (currentQuestion.type === 'bodyMap' && (!responses[currentQuestion.id]?.markings || responses[currentQuestion.id].markings.length === 0) && !responses[currentQuestion.id]?.description) {
-  //       alert('Please provide markings or a description for the body map');
-  //       return;
-  //     }
-  //   }
-
-  //   try {
-  //     const formattedResponses = formTemplate.items
-  //       .filter(item => !item.questionText.includes('Language Preference') && item.type !== 'section')
-  //       .map(question => {
-  //         const questionId = question.id;
-  //         const questionType = question.type;
-  //         const responseObj: any = {
-  //           questionId,
-  //           questionType,
-  //           questionText: question.questionText,
-  //         };
-
-  //         if (questionType === 'blank' || questionType === 'openAnswer' || questionType === 'smartEditor') {
-  //           responseObj.answer = responses[questionId] || '';
-  //         } else if (questionType === 'demographics') {
-  //           responseObj.answer = {};
-  //           if (question.demographicFields) {
-  //             for (const field of question.demographicFields) {
-  //               const responseKey = `${questionId}_${field.fieldName}`;
-  //               if (responses[responseKey]) {
-  //                 responseObj.answer[field.fieldName] = responses[responseKey];
-  //               }
-  //             }
-  //             if (responses[`${questionId}_assignedDoctor`] || responses['assignedDoctor']) {
-  //               responseObj.answer['assignedDoctor'] = responses[`${questionId}_assignedDoctor`] || responses['assignedDoctor'];
-  //             }
-  //           }
-  //         } else if (questionType === 'primaryInsurance' || questionType === 'secondaryInsurance') {
-  //           responseObj.answer = {};
-  //           if (question.insuranceFields) {
-  //             for (const field of question.insuranceFields) {
-  //               const responseKey = `${questionId}_${field.fieldName}`;
-  //               if (responses[responseKey]) {
-  //                 responseObj.answer[field.fieldName] = responses[responseKey];
-  //               }
-  //             }
-  //           }
-  //         } else if (questionType === 'allergies' || questionType === 'matrix' || questionType === 'matrixSingleAnswer') {
-  //           const matrixResponses = Array.isArray(responses[questionId]) ? responses[questionId].filter((item: any) => item && typeof item.rowIndex === 'number' && typeof item.columnIndex === 'number' && item.value !== undefined) : [];
-  //           responseObj.matrixResponses = matrixResponses;
-  //           if (responses[`${questionId}_additionalInfo`]) {
-  //             responseObj.additionalInfo = responses[`${questionId}_additionalInfo`];
-  //           }
-  //         } else if (questionType === 'multipleChoiceSingle') {
-  //           responseObj.answer = responses[questionId] || '';
-  //         } else if (questionType === 'multipleChoiceMultiple') {
-  //           responseObj.answer = Array.isArray(responses[questionId]) ? responses[questionId] : [];
-  //         } else if (questionType === 'date') {
-  //           responseObj.answer = responses[questionId] || '';
-  //         } else if (questionType === 'fileAttachment') {
-  //           responseObj.fileAttachments = responses[questionId] || [];
-  //         } else if (questionType === 'eSignature') {
-  //           responseObj.signature = responses[questionId] || null;
-  //         } else if (questionType === 'bodyMap') {
-  //           responseObj.bodyMapMarkings = responses[questionId]?.markings || [];
-  //           responseObj.description = responses[questionId]?.description || '';
-  //         } else if (questionType === 'mixedControls') {
-  //           responseObj.mixedControlsResponses = question.mixedControlsConfig?.map((_, index) => ({
-  //             index,
-  //             value: responses[`${questionId}_${index}`] || '',
-  //           })) || [];
-  //         } else {
-  //           responseObj.answer = responses[questionId] || '';
-  //         }
-
-  //         return responseObj;
-  //       })
-  //       .filter(response => response.answer || response.matrixResponses?.length || response.fileAttachments?.length || response.signature || response.bodyMapMarkings?.length || response.mixedControlsResponses?.length || response.description);
-
-  //     if (formattedResponses.length === 0) {
-  //       alert('No responses to submit. Please fill out at least one question.');
-  //       return;
-  //     }
-
-  //     const demographicQuestion = formTemplate.items.find(item => item.type === 'demographics');
-  //     let patientId = null;
-
-  //     if (demographicQuestion && demographicQuestion.demographicFields) {
-  //       const patientData = {
-  //         dynamicData: {
-  //           firstName: responses[`${demographicQuestion.id}_firstName`] || '',
-  //           lastName: responses[`${demographicQuestion.id}_lastName`] || '',
-  //           dateOfBirth: responses[`${demographicQuestion.id}_dateOfBirth`] || '',
-  //           gender: responses[`${demographicQuestion.id}_gender`] || '',
-  //           email: responses[`${demographicQuestion.id}_email`] || '',
-  //           phone: responses[`${demographicQuestion.id}_phone`] || '',
-  //           address: {
-  //             street: responses[`${demographicQuestion.id}_street`] || '',
-  //             city: responses[`${demographicQuestion.id}_city`] || '',
-  //             state: responses[`${demographicQuestion.id}_state`] || '',
-  //             zipCode: responses[`${demographicQuestion.id}_zipCode`] || '',
-  //             country: 'USA', // Default country as per example response
-  //           },
-  //           medicalHistory: {
-  //             allergies: [],
-  //             medications: [],
-  //             conditions: [],
-  //             surgeries: [],
-  //             familyHistory: [],
-  //           },
-  //           subjective: {
-  //             fullName: '',
-  //             date: '',
-  //             physical: [],
-  //             sleep: [],
-  //             cognitive: [],
-  //             digestive: [],
-  //             emotional: [],
-  //             bodyPart: [],
-  //             severity: '',
-  //             quality: [],
-  //             timing: '',
-  //             context: '',
-  //             exacerbatedBy: [],
-  //             symptoms: [],
-  //             notes: '',
-  //             radiatingTo: '',
-  //             radiatingRight: false,
-  //             radiatingLeft: false,
-  //             sciaticaRight: false,
-  //             sciaticaLeft: false,
-  //           },
-  //         },
-  //         assignedDoctor: responses[`${demographicQuestion.id}_assignedDoctor`] || responses['assignedDoctor'] || '',
-  //       };
-
-  //       if (!patientData.assignedDoctor) {
-  //         alert('Assigned Doctor is required');
-  //         return;
-  //       }
-
-  //       try {
-  //         const patientResponse = await axios.post('/api/patients', patientData);
-  //         patientId = patientResponse.data.patient.id;
-  //       } catch (patientError) {
-  //         console.error('Error creating patient:', patientError);
-  //         alert('Error creating patient record. Please check the form and try again.');
-  //         return;
-  //       }
-  //     }
-
-  //     // If we have a demographics question but no patientId, something went wrong
-  //     if (demographicQuestion && !patientId) {
-  //       console.error('Missing patientId for form with demographics');
-  //       alert('Error processing patient information. Please try again.');
-  //       return;
-  //     }
-
-  //     await axios.post('/api/form-responses', {
-  //       formTemplate: id,
-  //       patient: patientId,
-  //       responses: formattedResponses,
-  //       status: 'completed',
-  //       completedAt: new Date(),
-  //     });
-
-  //     alert('Form submitted successfully!');
-  //     navigate(patientId ? '/patients' : `/forms/templates/${id}`);
-  //   } catch (error) {
-  //     console.error('Error submitting form:', error);
-  //     alert('Error submitting form. Please try again.');
-  //   }
-  // };
-
-  // inside PatientIntakeFormPreview.tsx
-
+ 
 const handleSubmit = async () => {
+  setLoading(true)
   if (!formTemplate) return;
 
   // final on-page required check for current question
@@ -710,7 +533,7 @@ const handleSubmit = async () => {
       console.error('Missing patientId for form with demographics');
       alert('Error processing patient information. Please try again.');
       return;
-    }
+    } 
 
     // 3) Build multipart/form-data
     const formData = new FormData();
@@ -745,6 +568,8 @@ const handleSubmit = async () => {
   } catch (error) {
     console.error('Error submitting form:', error);
     alert('Error submitting form. Please try again.');
+  } finally {
+    setLoading(false)
   }
 };
 
@@ -1396,8 +1221,9 @@ const handleSubmit = async () => {
               <button
                 onClick={handleSubmit}
                 className="px-4 py-2 bg-green-600 text-white rounded-md"
+                disabled={Loading}
               >
-                Submit
+                {Loading ? 'Submitting...' : 'Submit'}
               </button>
             )}
           </div>

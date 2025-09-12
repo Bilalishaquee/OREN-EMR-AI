@@ -345,7 +345,7 @@ const PatientDetails: React.FC<{}> = () => {
               {patient.firstName} {patient.lastName}
             </h1>
             <p className="text-gray-600">
-              {calculateAge(patient.dateOfBirth)} years • {patient.gender} • {patient.status}
+              {calculateAge(patient.dynamicData["Date of Birth"])} years • {patient.gender} • {patient.status}
             </p>
           </div>
         </div>

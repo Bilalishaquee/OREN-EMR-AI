@@ -68,7 +68,7 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 
     const patients = await Patient.find(searchQuery)
-      .populate('assignedDoctor', 'firstName lastName')
+      .populate('assignedDoctor', 'firstName lastName ')
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ updatedAt: -1 });
@@ -83,13 +83,15 @@ router.get('/', authenticateToken, async (req, res) => {
       let firstName = '';
       let lastName = '';
       let email = '';
-      
-             // Try dynamicData first (new structure)
-       if (patientObj.dynamicData) {
-         // Check for both formats: "firstName" and "First Name"
+      let dateOfBirth = '';
+
+      // Try dynamicData first (new structure)
+      if (patientObj.dynamicData) {
+        // Check for both formats: "firstName" and "First Name"
          firstName = patientObj.dynamicData.firstName || patientObj.dynamicData['First Name'] || '';
          lastName = patientObj.dynamicData.lastName || patientObj.dynamicData['Last Name'] || '';
          email = patientObj.dynamicData.email || patientObj.dynamicData['Email'] || '';
+         dateOfBirth = patientObj.dynamicData['Date of Birth'] || patientObj.dynamicData['Date of Birth'] || '';
          
          // Debug logging
          console.log('Server extracting names for patient:', patientObj._id);
@@ -107,7 +109,8 @@ router.get('/', authenticateToken, async (req, res) => {
         ...patientObj,
         firstName,
         lastName,
-        email
+        email,
+        dateOfBirth
       };
     });
 

@@ -339,7 +339,7 @@ const TaskForm: React.FC = () => {
                 {Array.isArray(filteredPatients) && filteredPatients.length > 0 ? (
                   filteredPatients.map(patient => (
                     <option key={patient._id} value={patient._id}>
-                      {patient.firstName} {patient.lastName} (DOB: {patient.dateOfBirth})
+                      {patient.firstName} {patient.lastName} (DOB: {new Date(patient.dateOfBirth).toLocaleDateString()})
                     </option>
                   ))
                 ) : (

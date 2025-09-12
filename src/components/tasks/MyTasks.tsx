@@ -104,8 +104,8 @@ const MyTasks: React.FC = () => {
               <div className="mt-4 flex flex-wrap gap-4 text-sm">
                 <div>
                   <span className="font-medium text-gray-500">Patient:</span>{' '}
-                  <Link to={`/patients/${task.patient._id}`} className="text-blue-600 hover:text-blue-800">
-                    {task.patient.firstName} {task.patient.lastName}
+                  <Link to={`/patients/${task.patient?._id}`} className="text-blue-600 hover:text-blue-800">
+                    {task.patient?.firstName} {task.patient?.lastName}
                   </Link>
                 </div>
                 

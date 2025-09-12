@@ -201,8 +201,8 @@ const TaskList: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <Link to={`/patients/${task.patient._id}`} className="text-sm text-blue-600 hover:text-blue-800">
-                      {task.patient.firstName} {task.patient.lastName}
+                    <Link to={`/patients/${task.patient?._id}`} className="text-sm text-blue-600 hover:text-blue-800">
+                      {task.patient?.firstName} {task.patient?.lastName}
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
