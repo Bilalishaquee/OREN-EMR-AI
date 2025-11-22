@@ -46,6 +46,7 @@ const PORT = process.env.PORT || 5001; // Changed port to 5001 to avoid conflict
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:5173',
+  'https://oren-emr-ai-ashen.vercel.app',
   process.env.FRONTEND_URL,
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
 ].filter(Boolean);
