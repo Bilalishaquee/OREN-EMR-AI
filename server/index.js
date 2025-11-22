@@ -44,10 +44,28 @@ const app = express();
 const PORT = process.env.PORT || 5001; // Changed port to 5001 to avoid conflict
 
 // CORS configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+].filter(Boolean);
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      // In production, you might want to log this
+      if (process.env.NODE_ENV === 'production') {
+        console.log('CORS blocked origin:', origin);
+      }
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
- methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
