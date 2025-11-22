@@ -66,7 +66,7 @@ const InvoiceForm: React.FC = () => {
   const fetchAppointments = async (patientId: string) => {
     try {
       // ✅ point to your appointments route (adjust base path if different)
-      const { data } = await axios.get(`http://localhost:5000/api/billing/${patientId}/appointments`);
+      const { data } = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${patientId}/appointments`);
       const normalized = (data.appointments || []).map((a: any) => ({
         _id: a._id,
         // turn {start,end} → "start - end"
@@ -87,7 +87,7 @@ const InvoiceForm: React.FC = () => {
   const markAppointmentBilled = async (appointmentId: string) => {
   try {
     const { data } = await axios.put(
-      `http://localhost:5000/api/billing/${appointmentId}/updatestatus`
+      `https://oren-emr-ai-1.onrender.com/api/billing/${appointmentId}/updatestatus`
     );
     console.log("Updated appointment:", data);
 
@@ -107,7 +107,7 @@ const InvoiceForm: React.FC = () => {
       setIsLoading(true);
       try {
         // Fetch patients
-        const patientsResponse = await axios.get('http://localhost:5000/api/patients');
+        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients');
         setPatients(
           patientsResponse.data.patients.map((p: any) => ({
             _id: p._id,
@@ -118,7 +118,7 @@ const InvoiceForm: React.FC = () => {
 
         // If in edit mode, fetch invoice data
         if (isEditMode) {
-          const invoiceResponse = await axios.get(`http://localhost:5000/api/billing/${id}`);
+          const invoiceResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`);
           const invoiceData = invoiceResponse.data;
 
           setFormData({
@@ -142,7 +142,7 @@ const InvoiceForm: React.FC = () => {
 
           // Fetch visits for this patient
           if (invoiceData.patient._id) {
-            // const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${invoiceData.patient._id}/visits`);
+            // const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${invoiceData.patient._id}/visits`);
             // setVisits(visitsResponse.data);
             await fetchAppointments(invoiceData.patient._id);
           }
@@ -154,7 +154,7 @@ const InvoiceForm: React.FC = () => {
             setFormData(prev => ({ ...prev, patient: patientId }));
 
             // Fetch visits for this patient
-            const visitsResponse = await axios.get(`http://localhost:5000/api/patients/${patientId}/visits`);
+            const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${patientId}/visits`);
             setVisits(visitsResponse.data);
           }
         }
@@ -197,7 +197,7 @@ const InvoiceForm: React.FC = () => {
 
   const fetchPatientVisits = async (patientId: string) => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/patients/${patientId}/visits`);
+      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${patientId}/visits`);
       setVisits(response.data);
     } catch (error) {
       console.error('Error fetching patient visits:', error);
@@ -263,7 +263,7 @@ const InvoiceForm: React.FC = () => {
   const createQuickBooksInvoice = async () => {
     try {
       setIsSaving(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/create-invoice/${id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/create-invoice/${id}`, {
         recipientEmail: emailAddress
       });
 
@@ -288,7 +288,7 @@ const InvoiceForm: React.FC = () => {
 
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-invoice-email/${id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${id}`, {
         recipientEmail: emailAddress
       });
 
@@ -312,7 +312,7 @@ const InvoiceForm: React.FC = () => {
 
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-reminder/${id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-reminder/${id}`, {
         recipientEmail: emailAddress
       });
 
@@ -406,9 +406,9 @@ const InvoiceForm: React.FC = () => {
 
 
       if (isEditMode) {
-        await axios.put(`http://localhost:5000/api/billing/${id}`, invoiceData);
+        await axios.put(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`, invoiceData);
       } else {
-        await axios.post('http://localhost:5000/api/billing', invoiceData);
+        await axios.post('https://oren-emr-ai-1.onrender.com/api/billing', invoiceData);
       }
 
       navigate(`/patients/${formData.patient}`);

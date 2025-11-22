@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        const response = await axios.get('http://localhost:5000/api/auth/me');
+        const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/auth/me');
         setUser(response.data);
         setIsLoading(false);
       } catch (error) {
@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post('https://oren-emr-ai-1.onrender.com/api/auth/login', {
         username,
         password
       });
@@ -96,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (userData: any) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', userData);
+      const response = await axios.post('https://oren-emr-ai-1.onrender.com/api/auth/register', userData);
       
       const { token: newToken, user: newUser } = response.data;
       

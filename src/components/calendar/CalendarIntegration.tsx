@@ -18,7 +18,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
   useEffect(() => {
     const run = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/google-calendar/status', {
+        const res = await axios.get('https://oren-emr-ai-1.onrender.com/api/google-calendar/status', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setIsConnected(!!res.data?.connected);
@@ -44,7 +44,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
 
   const handleConnect = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/google-calendar/auth', {
+      const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/google-calendar/auth', {
         headers: { Authorization: `Bearer ${token}` }
       });
       window.location.href = response.data.authUrl; // go to Google
@@ -58,7 +58,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
     try {
       setIsSyncing(true);
       const response = await axios.post(
-        'http://localhost:5000/api/google-calendar/sync-all',
+        'https://oren-emr-ai-1.onrender.com/api/google-calendar/sync-all',
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

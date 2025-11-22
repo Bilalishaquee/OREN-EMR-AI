@@ -39,7 +39,7 @@ const UnsettledCaseReport: React.FC = () => {
     setIsLoading(true);
     try {
       // First, get all active patients
-      const response = await axios.get('http://localhost:5000/api/patients?status=active');
+      const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?status=active');
       const activePatients = response.data.patients || [];
       
       // Filter out patients who have a discharge visit

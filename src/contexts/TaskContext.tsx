@@ -86,7 +86,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       });
       
       const response = await axios.get(
-        `http://localhost:5000/api/tasks?${queryParams.toString()}`,
+        `https://oren-emr-ai-1.onrender.com/api/tasks?${queryParams.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -111,7 +111,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     try {
       const queryParams = status ? `?status=${status}` : '';
       const response = await axios.get(
-        `http://localhost:5000/api/tasks/my-tasks${queryParams}`,
+        `https://oren-emr-ai-1.onrender.com/api/tasks/my-tasks${queryParams}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -135,7 +135,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/tasks/${id}`,
+        `https://oren-emr-ai-1.onrender.com/api/tasks/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -160,7 +160,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/tasks',
+        'https://oren-emr-ai-1.onrender.com/api/tasks',
         taskData,
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -195,7 +195,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/tasks/${id}`,
+        `https://oren-emr-ai-1.onrender.com/api/tasks/${id}`,
         taskData,
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -240,7 +240,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       await axios.delete(
-        `http://localhost:5000/api/tasks/${id}`,
+        `https://oren-emr-ai-1.onrender.com/api/tasks/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }

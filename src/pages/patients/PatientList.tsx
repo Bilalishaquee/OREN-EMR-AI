@@ -46,7 +46,7 @@ const PatientList: React.FC = () => {
   const fetchPatients = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/patients?page=${currentPage}&search=${searchTerm}`);
+      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients?page=${currentPage}&search=${searchTerm}`);
       setPatients(response.data.patients);
       setTotalPages(response.data.totalPages);
     } catch (error) {
@@ -73,7 +73,7 @@ const PatientList: React.FC = () => {
 
   const deletePatient = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/patients/${selectedPatient}`);
+      await axios.delete(`https://oren-emr-ai-1.onrender.com/api/patients/${selectedPatient}`);
       setShowDeleteModal(false);
       fetchPatients();
     } catch (error) {

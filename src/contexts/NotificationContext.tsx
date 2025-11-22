@@ -79,7 +79,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       }
       
       const response = await axios.get(
-        `http://localhost:5000/api/notifications?${queryParams.toString()}`,
+        `https://oren-emr-ai-1.onrender.com/api/notifications?${queryParams.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -100,7 +100,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     
     try {
       await axios.put(
-        `http://localhost:5000/api/notifications/${id}/read`,
+        `https://oren-emr-ai-1.onrender.com/api/notifications/${id}/read`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -130,7 +130,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     
     try {
       await axios.put(
-        `http://localhost:5000/api/notifications/${id}/dismiss`,
+        `https://oren-emr-ai-1.onrender.com/api/notifications/${id}/dismiss`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -162,7 +162,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     try {
       const queryParams = type ? `?type=${type}` : '';
       const response = await axios.put(
-        `http://localhost:5000/api/notifications/mark-all-read${queryParams}`,
+        `https://oren-emr-ai-1.onrender.com/api/notifications/mark-all-read${queryParams}`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -204,7 +204,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     
     try {
       await axios.delete(
-        `http://localhost:5000/api/notifications/${id}`,
+        `https://oren-emr-ai-1.onrender.com/api/notifications/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }

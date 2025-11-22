@@ -92,7 +92,7 @@ const NotesPage: React.FC = () => {
       params.append('page', page.toString());
       params.append('limit', limit.toString());
 
-      const response = await axios.get(`http://localhost:5000/api/notes?${params.toString()}`);
+      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/notes?${params.toString()}`);
 
       const notesData = response.data?.notes || [];
       const sanitizedNotes = notesData.map((note: any) => ({
@@ -143,7 +143,7 @@ const NotesPage: React.FC = () => {
       // Fetch patients
       let patientsData = [];
       try {
-        const patientsResponse = await axios.get('http://localhost:5000/api/patients?limit=1000');
+        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?limit=1000');
         patientsData = patientsResponse.data?.patients || patientsResponse.data || [];
         console.log('Patients response:', patientsData);
       } catch (patientError) {
@@ -154,7 +154,7 @@ const NotesPage: React.FC = () => {
       // Fetch doctors
       let doctorsData = [];
       try {
-        const doctorsResponse = await axios.get('http://localhost:5000/api/auth/doctors');
+        const doctorsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/auth/doctors');
         doctorsData = doctorsResponse.data || [];
         console.log('Doctors response:', doctorsData);
       } catch (doctorError) {
@@ -269,7 +269,7 @@ const NotesPage: React.FC = () => {
   const handleDeleteNote = async (noteId: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/notes/${noteId}`);
+        await axios.delete(`https://oren-emr-ai-1.onrender.com/api/notes/${noteId}`);
         toast.success('Note deleted successfully');
         fetchNotes();
       } catch (error) {

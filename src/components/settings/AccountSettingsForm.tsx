@@ -76,7 +76,7 @@ const AccountSettingsForm: React.FC = () => {
     
     try {
       const response = await axios.put(
-        'http://localhost:5000/api/auth/update-profile',
+        'https://oren-emr-ai-1.onrender.com/api/auth/update-profile',
         formData,
         {
           headers: {

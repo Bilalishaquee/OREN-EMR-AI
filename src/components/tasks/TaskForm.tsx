@@ -57,13 +57,13 @@ const TaskForm: React.FC = () => {
       try {
         // Use Promise.all to fetch data in parallel
         const [usersResponse, doctorsResponse, patientsResponse] = await Promise.all([
-          axios.get('http://localhost:5000/api/auth/users', {
+          axios.get('https://oren-emr-ai-1.onrender.com/api/auth/users', {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('http://localhost:5000/api/auth/doctors', {
+          axios.get('https://oren-emr-ai-1.onrender.com/api/auth/doctors', {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          axios.get('http://localhost:5000/api/patients', {
+          axios.get('https://oren-emr-ai-1.onrender.com/api/patients', {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);

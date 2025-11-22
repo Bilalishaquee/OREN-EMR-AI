@@ -632,7 +632,7 @@ const NoteForm: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const patientsResponse = await axios.get('http://localhost:5000/api/patients?limit=1000', {
+        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?limit=1000', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (patientsResponse.data && Array.isArray(patientsResponse.data.patients)) {
@@ -641,7 +641,7 @@ const NoteForm: React.FC = () => {
           setPatients([]);
         }
         if (isEditMode && id) {
-          const noteResponse = await axios.get(`http://localhost:5000/api/notes/${id}`, {
+          const noteResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/notes/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const noteData = noteResponse.data;
@@ -671,7 +671,7 @@ const NoteForm: React.FC = () => {
           // Fetch visits for the patient
           if (patientId) {
             try {
-              const visitsResponse = await axios.get(`http://localhost:5000/api/visits/patient/${patientId}`, {
+              const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/visits/patient/${patientId}`, {
                 headers: { Authorization: `Bearer ${token}` },
               });
               setVisits(visitsResponse.data || []);
@@ -718,7 +718,7 @@ const NoteForm: React.FC = () => {
     
     if (patientId) {
       try {
-        const visitsResponse = await axios.get(`http://localhost:5000/api/visits/patient/${patientId}`, {
+        const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/visits/patient/${patientId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setVisits(visitsResponse.data);
@@ -940,7 +940,7 @@ const NoteForm: React.FC = () => {
     setGeneratingNote(true);
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/notes/generate',
+        'https://oren-emr-ai-1.onrender.com/api/notes/generate',
         {
           patientId: note.patient,
           visitId: note.visit,
@@ -1032,7 +1032,7 @@ const NoteForm: React.FC = () => {
           uploadFormData.append('footerImage', footerFile);
         }
 
-        const uploadResponse = await axios.post('http://localhost:5000/api/templates/upload', uploadFormData, {
+        const uploadResponse = await axios.post('https://oren-emr-ai-1.onrender.com/api/templates/upload', uploadFormData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
@@ -1158,7 +1158,7 @@ const NoteForm: React.FC = () => {
         console.log('Fetching existing template for DrId:', token);
         if (token) {
           try {
-            const templateResponse = await axios.get(`http://localhost:5000/api/templates/get-Templates`, {
+            const templateResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/templates/get-Templates`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (templateResponse.data && Array.isArray(templateResponse.data.data)) {
@@ -1220,7 +1220,7 @@ const NoteForm: React.FC = () => {
         return;
       }
       if (isEditMode && id) {
-        await axios.put(`http://localhost:5000/api/notes/${id}`, formData, {
+        await axios.put(`https://oren-emr-ai-1.onrender.com/api/notes/${id}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
@@ -1228,7 +1228,7 @@ const NoteForm: React.FC = () => {
         });
         toast.success('Note updated successfully');
       } else {
-        await axios.post('http://localhost:5000/api/notes', formData, {
+        await axios.post('https://oren-emr-ai-1.onrender.com/api/notes', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
@@ -1251,7 +1251,7 @@ const NoteForm: React.FC = () => {
  const getImageUrl = (path: string): string => {
   if (!path) return '';
   const normalizedPath = path.replace(/\\/g, '/');
-  return `http://localhost:5000/${normalizedPath}`;
+  return `https://oren-emr-ai-1.onrender.com/${normalizedPath}`;
 };
 const handleUseExisting = async () => {
   const selectedTemplate = existingTemplates.find(t => t._id === selectedTemplateId);

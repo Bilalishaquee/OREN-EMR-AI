@@ -49,9 +49,9 @@ const Payment: React.FC = () => {
             setIsLoading(true);
             try {
                 // Fetch patients
-                const patientsResponse = await axios.get('http://localhost:5000/api/patients');
+                const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients');
                 setPatients(patientsResponse.data.patients);
-                const invoiceResponse = await axios.get(`http://localhost:5000/api/billing/${id}`);
+                const invoiceResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`);
                 const invoiceData = invoiceResponse.data;
 
                 setFormData({

@@ -187,7 +187,7 @@ const PatientForm: React.FC = () => {
       setIsLoading(true);
       try {
         if (isEditMode) {
-          const patientResponse = await axios.get(`http://localhost:5000/api/patients/${id}`);
+          const patientResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${id}`);
           const patientData = patientResponse.data;
 
           // Map dynamicData to form fields if present
@@ -260,7 +260,7 @@ const PatientForm: React.FC = () => {
 
         // 👨‍⚕️ Fetch doctor list if user is admin
         if (user?.role === 'admin') {
-          const doctorsResponse = await axios.get('http://localhost:5000/api/auth/doctors');
+          const doctorsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/auth/doctors');
           setDoctors(doctorsResponse.data);
         }
       } catch (error) {
@@ -497,8 +497,8 @@ const PatientForm: React.FC = () => {
 
       try {
         const response = isEditMode
-          ? await axios.put(`http://localhost:5000/api/patients/${id}`, patientData, config)
-          : await axios.post('http://localhost:5000/api/patients', patientData, config);
+          ? await axios.put(`https://oren-emr-ai-1.onrender.com/api/patients/${id}`, patientData, config)
+          : await axios.post('https://oren-emr-ai-1.onrender.com/api/patients', patientData, config);
 
         console.log('Server response:', response.data);
 

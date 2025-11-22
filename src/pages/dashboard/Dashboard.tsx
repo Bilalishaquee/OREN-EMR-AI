@@ -57,19 +57,19 @@ const Dashboard: React.FC = () => {
         const nextWeek = new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0];
         
         // Fetch patients count
-        const patientsResponse = await axios.get('http://localhost:5000/api/patients?limit=1');
+        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?limit=1');
         
         // Fetch today's appointments
-        const todayAppointmentsResponse = await axios.get(`http://localhost:5000/api/appointments?startDate=${today}&endDate=${tomorrow}`);
+        const todayAppointmentsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments?startDate=${today}&endDate=${tomorrow}`);
         
         // Fetch upcoming appointments
-        const upcomingAppointmentsResponse = await axios.get(`http://localhost:5000/api/appointments?startDate=${tomorrow}&endDate=${nextWeek}`);
+        const upcomingAppointmentsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments?startDate=${tomorrow}&endDate=${nextWeek}`);
         
         // Fetch billing summary
-        const billingSummaryResponse = await axios.get('http://localhost:5000/api/billing/summary/dashboard');
+        const billingSummaryResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/billing/summary/dashboard');
         
         // Fetch recent appointments
-        const recentAppointmentsResponse = await axios.get('http://localhost:5000/api/appointments?limit=5');
+        const recentAppointmentsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/appointments?limit=5');
         
         // Calculate appointment stats
         const allAppointments = [...todayAppointmentsResponse.data, ...upcomingAppointmentsResponse.data];

@@ -80,7 +80,7 @@ const BillingList: React.FC<BillingListProps> = ({
   const fetchInvoices = async () => {
     setIsLoading(true);
     try {
-      let url = `http://localhost:5000/api/billing?page=${currentPage}`;
+      let url = `https://oren-emr-ai-1.onrender.com/api/billing?page=${currentPage}`;
 
       if (searchTerm) url += `&search=${searchTerm}`;
       if (statusFilter) url += `&status=${statusFilter}`;
@@ -106,7 +106,7 @@ const BillingList: React.FC<BillingListProps> = ({
 
   const fetchBillingSummary = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/billing/summary/dashboard');
+      const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/billing/summary/dashboard');
       setBillingStats(response.data);
     } catch (error) {
       console.error('Error fetching billing summary:', error);
@@ -181,7 +181,7 @@ const BillingList: React.FC<BillingListProps> = ({
 
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-invoice-email/${selectedInvoice._id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${selectedInvoice._id}`, {
         recipientEmail: emailAddress
       });
 
@@ -207,7 +207,7 @@ const BillingList: React.FC<BillingListProps> = ({
 
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-reminder/${selectedInvoice._id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-reminder/${selectedInvoice._id}`, {
         recipientEmail: emailAddress
       });
 
@@ -482,7 +482,7 @@ const BillingList: React.FC<BillingListProps> = ({
                               <button
                                 onClick={async () => {
                                   try {
-                                    const response = await axios.get(`http://localhost:5000/api/billing/${invoice._id}/download`, {
+                                    const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${invoice._id}/download`, {
                                       responseType: 'blob'
                                     });
 

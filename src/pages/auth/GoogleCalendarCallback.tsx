@@ -25,7 +25,7 @@ const GoogleCalendarCallback: React.FC = () => {
         }
 
         // Exchange the code for tokens
-        const response = await axios.get(`http://localhost:5000/api/google-calendar/callback?code=${code}`, {
+        const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/google-calendar/callback?code=${code}`, {
           headers: {
             Authorization: `Bearer ${token}`
           }

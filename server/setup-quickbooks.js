@@ -14,7 +14,7 @@ const QUICKBOOKS_TOKEN_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens
 // Your app credentials (replace with your actual values)
 const CLIENT_ID = process.env.QUICKBOOKS_CLIENT_ID || 'YOUR_CLIENT_ID';
 const CLIENT_SECRET = process.env.QUICKBOOKS_CLIENT_SECRET || 'YOUR_CLIENT_SECRET';
-const REDIRECT_URI = 'http://localhost:3000/auth/quickbooks/callback';
+const REDIRECT_URI = process.env.QUICKBOOKS_REDIRECT_URI || 'https://oren-emr-ai-1.onrender.com/api/quickbooks/callback';
 
 app.get('/', (req, res) => {
   res.send(`
@@ -28,7 +28,7 @@ app.get('/', (req, res) => {
     <ul>
       <li>Created a QuickBooks app in the developer portal</li>
       <li>Set CLIENT_ID and CLIENT_SECRET in your .env file</li>
-      <li>Added http://localhost:3000/auth/quickbooks/callback as redirect URI</li>
+      <li>Added https://oren-emr-ai-1.onrender.com/api/quickbooks/callback as redirect URI</li>
     </ul>
   `);
 });
@@ -97,5 +97,5 @@ QUICKBOOKS_REALM_ID=${realmId}
 
 app.listen(PORT, () => {
   console.log(`QuickBooks setup server running at http://localhost:${PORT}`);
-  console.log('Make sure your QuickBooks app redirect URI is set to: http://localhost:3000/auth/quickbooks/callback');
+  console.log('Make sure your QuickBooks app redirect URI is set to: https://oren-emr-ai-1.onrender.com/api/quickbooks/callback');
 }); 

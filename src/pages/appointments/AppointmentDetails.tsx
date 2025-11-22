@@ -56,7 +56,7 @@ const AppointmentDetails: React.FC = () => {
     const fetchAppointment = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:5000/api/appointments/${id}`);
+        const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments/${id}`);
         setAppointment(response.data);
       } catch (error) {
         console.error('Error fetching appointment:', error);
@@ -73,7 +73,7 @@ const AppointmentDetails: React.FC = () => {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/appointments/${id}`);
+      await axios.delete(`https://oren-emr-ai-1.onrender.com/api/appointments/${id}`);
       toast.success('Appointment deleted successfully');
       navigate('/appointments');
     } catch (error) {

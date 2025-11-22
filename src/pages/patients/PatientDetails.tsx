@@ -218,18 +218,18 @@ const PatientDetails: React.FC<{}> = () => {
       setIsLoading(true);
       try {
         // Fetch patient details
-        const patientResponse = await axios.get(`http://localhost:5000/api/patients/${id}`);
+        const patientResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${id}`);
         setPatient(patientResponse.data);
 
         // Fetch patient appointments
-        const appointmentsResponse = await axios.get(`http://localhost:5000/api/appointments?patient=${id}`);
+        const appointmentsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments?patient=${id}`);
         setAppointments(appointmentsResponse.data);
 
         // Fetch invoice count for the patient using the dedicated endpoint
-        const invoiceCountResponse = await axios.get(`http://localhost:5000/api/billing/count/${id}`);
+        const invoiceCountResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/count/${id}`);
         setInvoiceCount(invoiceCountResponse.data.totalInvoices);
 
-        const patientFormData = await axios.get(`http://localhost:5000/api/form-responses/patient-details/${id}`);
+        const patientFormData = await axios.get(`https://oren-emr-ai-1.onrender.com/api/form-responses/patient-details/${id}`);
         setFormData(patientFormData.data);
         // We don't need to fetch invoices here anymore as BillingList will handle it
         // setInvoices([]); // Clear the local invoices state

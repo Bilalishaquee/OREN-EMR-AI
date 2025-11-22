@@ -58,7 +58,7 @@ const AppointmentList: React.FC = () => {
   const fetchAppointments = async () => {
     setIsLoading(true);
     try {
-      let url = `http://localhost:5000/api/appointments?page=${currentPage}&limit=${appointmentsPerPage}`;
+      let url = `https://oren-emr-ai-1.onrender.com/api/appointments?page=${currentPage}&limit=${appointmentsPerPage}`;
       
       if (statusFilter !== 'all') {
         url += `&status=${statusFilter}`;

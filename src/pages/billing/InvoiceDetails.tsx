@@ -106,7 +106,7 @@ const InvoiceDetails: React.FC = () => {
     const fetchInvoice = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`http://localhost:5000/api/billing/${id}`);
+        const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`);
         setInvoice(response.data);
         setAppintmentId(response.data.appointment || '');
 
@@ -143,7 +143,7 @@ const InvoiceDetails: React.FC = () => {
 
     try {
       // Use server-side PDF generation
-      const response = await axios.get(`http://localhost:5000/api/billing/${id}/download`, {
+      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}/download`, {
         responseType: 'blob'
       });
 
@@ -173,7 +173,7 @@ const InvoiceDetails: React.FC = () => {
     try {
       // If you require auth, pass the token in headers
       const { data } = await axios.put(
-        `http://localhost:5000/api/billing/${AppintmentId}/UpdateStatusPaid`,
+        `https://oren-emr-ai-1.onrender.com/api/billing/${AppintmentId}/UpdateStatusPaid`,
         {}, // no body needed for your current API
         // { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -191,12 +191,12 @@ const InvoiceDetails: React.FC = () => {
 
   const handleRecordPayment = async () => {
     try {
-      await axios.post(`http://localhost:5000/api/billing/${id}/payments`, paymentData);
+      await axios.post(`https://oren-emr-ai-1.onrender.com/api/billing/${id}/payments`, paymentData);
       markAppointmentPaid(AppintmentId);
       setShowPaymentModal(false);
 
       // Refresh invoice data
-      const response = await axios.get(`http://localhost:5000/api/billing/${id}`);
+      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`);
       setInvoice(response.data);
     } catch (error) {
       console.error('Error recording payment:', error);
@@ -224,7 +224,7 @@ const InvoiceDetails: React.FC = () => {
 
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-invoice-email/${id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${id}`, {
         recipientEmail: emailAddress
       });
 
@@ -250,7 +250,7 @@ const InvoiceDetails: React.FC = () => {
 
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`http://localhost:5000/api/quickbooks/send-reminder/${id}`, {
+      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-reminder/${id}`, {
         recipientEmail: emailAddress
       });
 
@@ -268,7 +268,7 @@ const InvoiceDetails: React.FC = () => {
 
   const getQuickBooksStatus = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/quickbooks/invoice-status/${id}`);
+      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/quickbooks/invoice-status/${id}`);
       if (response.data.success) {
         setQuickbooksStatus(response.data.data);
         console.log('QuickBooks Status:', response.data.data);
@@ -413,7 +413,7 @@ const InvoiceDetails: React.FC = () => {
                 <button
                   onClick={async () => {
                     try {
-                      const response = await axios.post(`http://localhost:5000/api/quickbooks/create-invoice/${id}`, {
+                      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/create-invoice/${id}`, {
                         recipientEmail: invoice.patient?.email || 'test@example.com'
                       });
                       if (response.data.success) {
