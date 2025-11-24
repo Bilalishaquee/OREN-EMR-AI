@@ -801,11 +801,14 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       let emailSent = false;
       
       // Try SendGrid first if API key is configured
-      if (process.env.SENDGRID_API_KEY) {
+      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.trim()) {
         try {
+          console.log('Attempting to send email with SendGrid...');
+          console.log('SendGrid from email:', senderEmail);
+          
           const msg = {
             to: email,
-            from: senderEmail,
+            from: senderEmail, // Must be a verified sender in SendGrid
             subject: subject,
             text: text,
             html: htmlContent,
@@ -815,9 +818,26 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
           console.log('Email sent successfully with SendGrid:', response);
           emailSent = true;
         } catch (sendgridError) {
-          console.error('SendGrid email failed, falling back to nodemailer:', sendgridError);
+          console.error('SendGrid email failed:', {
+            message: sendgridError.message,
+            code: sendgridError.code,
+            response: sendgridError.response?.body,
+            statusCode: sendgridError.response?.statusCode
+          });
+          
+          // If SendGrid fails with unauthorized, log detailed info
+          if (sendgridError.response?.statusCode === 401 || sendgridError.message?.includes('Unauthorized')) {
+            console.error('SendGrid authorization failed. Common causes:');
+            console.error('  1. Invalid API key');
+            console.error('  2. From email (' + senderEmail + ') not verified in SendGrid');
+            console.error('  3. API key permissions insufficient');
+          }
+          
+          console.log('Falling back to nodemailer/Gmail...');
           // Fall through to nodemailer
         }
+      } else {
+        console.log('SendGrid API key not configured, using nodemailer/Gmail');
       }
       
       // Use nodemailer if SendGrid is not configured or failed
@@ -839,35 +859,75 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
         }
         
         // Create nodemailer transporter - use EMAIL_USER for Gmail authentication
+        // Use secure: true for Gmail (port 465) or secure: false for port 587
         const transporter = nodemailer.createTransport({
           service: 'gmail',
+          secure: true, // Use TLS
           auth: {
             user: emailUserForAuth,
             pass: emailPassword,
           },
         });
         
-        // Verify transporter is ready
-        try {
-          await transporter.verify();
-          console.log('Nodemailer transporter verified successfully');
-        } catch (verifyError) {
-          console.error('Nodemailer verification failed:', verifyError);
-          throw new Error('Email service configuration invalid. Please check EMAIL_USER and EMAIL_PASSWORD in server environment.');
-        }
-        
         const mailOptions = {
-          from: senderEmail,
+          from: senderEmail, // Can be EMAIL_FROM or EMAIL_USER
           to: email,
           subject: subject,
           text: text,
           html: htmlContent,
         };
         
-        console.log('Attempting to send email with nodemailer...');
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Email sent successfully with nodemailer:', info.messageId);
-        emailSent = true;
+        console.log('Attempting to send email with nodemailer/Gmail...');
+        console.log('From:', senderEmail);
+        console.log('To:', email);
+        console.log('Auth user:', emailUserForAuth);
+        
+        // Skip verification - just try to send directly
+        // Verification can fail even when sending works, especially with Gmail
+        try {
+          const info = await transporter.sendMail(mailOptions);
+          console.log('✅ Email sent successfully with nodemailer:', info.messageId);
+          console.log('Response:', info.response);
+          emailSent = true;
+        } catch (sendError) {
+          console.error('❌ Failed to send email with nodemailer:', {
+            message: sendError.message,
+            code: sendError.code,
+            command: sendError.command,
+            response: sendError.response,
+            responseCode: sendError.responseCode
+          });
+          
+          // Provide detailed, actionable error information
+          let errorMessage = 'Failed to send email via Gmail/nodemailer. ';
+          
+          if (sendError.code === 'EAUTH' || 
+              sendError.message?.includes('Invalid login') || 
+              sendError.message?.includes('authentication failed') ||
+              sendError.message?.includes('Username and Password not accepted') ||
+              sendError.responseCode === 535) {
+            errorMessage += 'Gmail authentication failed. Please verify:\n';
+            errorMessage += '1. EMAIL_USER is your full Gmail address (e.g., yourname@gmail.com)\n';
+            errorMessage += '2. EMAIL_PASSWORD is a Gmail App Password (NOT your regular Gmail password)\n';
+            errorMessage += '3. To create an App Password:\n';
+            errorMessage += '   - Go to your Google Account → Security\n';
+            errorMessage += '   - Enable 2-Step Verification if not already enabled\n';
+            errorMessage += '   - Go to Security → App Passwords\n';
+            errorMessage += '   - Generate a new App Password for "Mail"\n';
+            errorMessage += '   - Use that 16-character password as EMAIL_PASSWORD';
+          } else if (sendError.code === 'ECONNECTION' || sendError.code === 'ETIMEDOUT') {
+            errorMessage += 'Connection to Gmail servers failed. Please check your network connection.';
+          } else if (sendError.code === 'EENVELOPE' || sendError.responseCode === 550) {
+            errorMessage += 'Invalid recipient email address or Gmail rejected the email.';
+          } else {
+            errorMessage += `Error: ${sendError.message || 'Unknown error occurred'}. `;
+            errorMessage += `Error code: ${sendError.code || sendError.responseCode || 'N/A'}`;
+          }
+          
+          throw new Error(errorMessage);
+        }
+      } else {
+        console.log('Email already sent via SendGrid, skipping nodemailer');
       }
 
       res.status(200).json({
@@ -881,22 +941,41 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       console.error('Email error details:', {
         message: emailError.message,
         code: emailError.code,
-        response: emailError.response?.data,
+        command: emailError.command,
+        response: emailError.response?.data || emailError.response?.body,
+        statusCode: emailError.response?.statusCode,
         stack: emailError.stack
       });
+
+      // Determine which service failed and provide helpful error message
+      let errorMessage = emailError.message;
+      let helpfulHint = '';
+      
+      if (emailError.response?.statusCode === 401 || emailError.message?.includes('Unauthorized')) {
+        if (process.env.SENDGRID_API_KEY) {
+          helpfulHint = 'SendGrid authentication failed. Check: 1) API key is valid, 2) From email is verified in SendGrid dashboard, 3) API key has mail.send permission.';
+        } else {
+          helpfulHint = 'Gmail authentication failed. For Gmail, you must use an App Password (not your regular password). Enable 2FA and generate an app password.';
+        }
+      } else if (emailError.code === 'EAUTH') {
+        helpfulHint = 'Gmail authentication failed. Please verify EMAIL_USER and EMAIL_PASSWORD are correct. Use an App Password for Gmail accounts with 2FA enabled.';
+      }
 
       // Still save the token but inform about email failure
       res.status(500).json({
         message: 'Form token created but email failed to send',
-        error: emailError.message,
-        errorCode: emailError.code,
+        error: errorMessage,
+        errorCode: emailError.code || emailError.response?.statusCode,
+        hint: helpfulHint,
         formLink,
         token,
         emailSent: false,
         debug: {
-          EMAIL_USER: !!process.env.EMAIL_USER,
-          EMAIL_PASSWORD: !!process.env.EMAIL_PASSWORD,
-          SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY
+          triedSendGrid: !!process.env.SENDGRID_API_KEY,
+          triedNodemailer: !process.env.SENDGRID_API_KEY || emailError.code !== 'EAUTH',
+          EMAIL_USER_set: !!process.env.EMAIL_USER,
+          EMAIL_PASSWORD_set: !!process.env.EMAIL_PASSWORD,
+          SENDGRID_API_KEY_set: !!process.env.SENDGRID_API_KEY
         }
       });
     }
