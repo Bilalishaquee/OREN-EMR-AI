@@ -99,20 +99,54 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       }
     }
 
-    // If no QuickBooks invoice exists, create one
-    if (!invoice.quickbooksInvoiceId) {
-      try {
-        const quickbooksInvoice = await quickbooksService.createInvoice(invoice, invoice.patient);
-        const paymentLink = await quickbooksService.generatePaymentLink(quickbooksInvoice.Id);
-        
-        invoice.quickbooksInvoiceId = quickbooksInvoice.Id;
-        invoice.quickbooksCustomerId = quickbooksInvoice.CustomerRef.value;
-        invoice.paymentLink = paymentLink;
-      } catch (error) {
-        console.error('QuickBooks integration failed:', error.message);
-        // Create a fallback payment link
+    // Ensure payment link exists - try QuickBooks if configured, otherwise use fallback
+    if (!invoice.paymentLink) {
+      // Only try QuickBooks if it's configured and no invoice exists yet
+      if (!invoice.quickbooksInvoiceId && quickbooksService.isConfigured) {
+        try {
+          // Add timeout wrapper for QuickBooks operations (shorter timeout)
+          const quickbooksPromise = Promise.race([
+            quickbooksService.createInvoice(invoice, invoice.patient),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('QuickBooks operation timed out after 10 seconds')), 10000)
+            )
+          ]);
+          
+          const quickbooksInvoice = await quickbooksPromise;
+          
+          // Try to generate payment link with timeout
+          try {
+            const paymentLinkPromise = Promise.race([
+              quickbooksService.generatePaymentLink(quickbooksInvoice.Id),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Payment link generation timed out')), 5000)
+              )
+            ]);
+            
+            const paymentLink = await paymentLinkPromise;
+            invoice.quickbooksInvoiceId = quickbooksInvoice.Id;
+            invoice.quickbooksCustomerId = quickbooksInvoice.CustomerRef.value;
+            invoice.paymentLink = paymentLink;
+          } catch (linkError) {
+            console.error('Payment link generation failed:', linkError.message);
+            // Use fallback payment link but still save QuickBooks invoice ID
+            invoice.quickbooksInvoiceId = quickbooksInvoice.Id;
+            invoice.quickbooksCustomerId = quickbooksInvoice.CustomerRef.value;
+            invoice.paymentLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoice._id}`;
+          }
+        } catch (error) {
+          console.error('QuickBooks integration failed or timed out:', error.message);
+          // Create a fallback payment link - don't block email sending
+          invoice.paymentLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoice._id}`;
+          // Continue with email sending even if QuickBooks fails
+        }
+      } else {
+        // QuickBooks not configured or already has invoice, use fallback
         invoice.paymentLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoice._id}`;
       }
+      
+      // Save the payment link
+      await invoice.save();
     }
 
     // Send email
@@ -187,8 +221,16 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
       }
     }
 
-    // Send reminder email
-    await emailService.sendPaymentReminder(invoice, invoice.patient, invoice.paymentLink, recipientEmail);
+    // Ensure payment link exists - use fallback if not available
+    let paymentLink = invoice.paymentLink;
+    if (!paymentLink) {
+      paymentLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoice._id}`;
+      invoice.paymentLink = paymentLink;
+      await invoice.save();
+    }
+
+    // Send reminder email (this is fast, no QuickBooks dependency)
+    await emailService.sendPaymentReminder(invoice, invoice.patient, paymentLink, recipientEmail);
     
     // Update invoice with reminder sent status
     invoice.lastReminderSent = new Date();
@@ -199,7 +241,8 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
       message: 'Payment reminder sent successfully',
       data: {
         reminderSent: true,
-        reminderSentAt: invoice.lastReminderSent
+        reminderSentAt: invoice.lastReminderSent,
+        paymentLink: paymentLink
       }
     });
 

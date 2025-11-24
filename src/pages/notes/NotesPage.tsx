@@ -112,7 +112,57 @@ const NotesPage: React.FC = () => {
         isAiGenerated: Boolean(note.isAiGenerated)
       }));
 
-      setNotes(sanitizedNotes);
+      // Remove duplicates - check both by _id and by content/title/patient/date
+      // This handles cases where duplicate notes were saved with different _ids
+      const uniqueNotesMap = new Map<string, Note>();
+      
+      sanitizedNotes.forEach((note) => {
+        // Skip if note is missing _id
+        if (!note._id) return;
+        
+        // Check if we already have this exact note by _id
+        if (uniqueNotesMap.has(note._id)) {
+          return; // Skip duplicate _id
+        }
+        
+        // Check for duplicate by content (title, patient, noteType, same day)
+        let isDuplicate = false;
+        for (const [existingId, existingNote] of uniqueNotesMap.entries()) {
+          // Check if title matches
+          const sameTitle = note.title.trim() === existingNote.title.trim();
+          
+          // Check if patient matches (by _id or by name)
+          const samePatient = 
+            (note.patient?._id && existingNote.patient?._id && 
+             note.patient._id === existingNote.patient._id) ||
+            (!note.patient?._id && !existingNote.patient?._id &&
+             note.patient?.firstName === existingNote.patient?.firstName &&
+             note.patient?.lastName === existingNote.patient?.lastName);
+          
+          // Check if noteType matches
+          const sameNoteType = note.noteType === existingNote.noteType;
+          
+          // Check if created on the same day (duplicates are usually created on the same day)
+          const sameDay = new Date(note.createdAt).toDateString() === new Date(existingNote.createdAt).toDateString();
+          
+          // If all match and same day, it's a duplicate
+          if (sameTitle && samePatient && sameNoteType && sameDay) {
+            isDuplicate = true;
+            console.log(`Found duplicate note: "${note.title}" for patient, created on same day. Keeping first occurrence.`);
+            break;
+          }
+        }
+        
+        // Only add if not a duplicate
+        if (!isDuplicate) {
+          uniqueNotesMap.set(note._id, note);
+        }
+      });
+      
+      // Convert map back to array
+      const uniqueNotes = Array.from(uniqueNotesMap.values());
+
+      setNotes(uniqueNotes);
 
       const paginationData = response.data?.pagination || {};
       setPagination(prev => ({

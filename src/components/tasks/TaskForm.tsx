@@ -41,8 +41,6 @@ const TaskForm: React.FC = () => {
   const [doctors, setDoctors] = useState<User[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   
   // Fetch users and patients when component mounts
   useEffect(() => {
@@ -77,7 +75,6 @@ const TaskForm: React.FC = () => {
           const patientsData = patientsResponse.data && patientsResponse.data.patients ? 
             patientsResponse.data.patients : [];
           setPatients(patientsData);
-          setFilteredPatients(patientsData);
           
           // If in edit mode, fetch task details
           if (isEditMode && id) {
@@ -122,35 +119,6 @@ const TaskForm: React.FC = () => {
     };
   }, [token, id, isEditMode, getTaskById, user]);
   
-  // Filter patients based on search term - optimize to reduce re-renders
-  useEffect(() => {
-    // Skip filtering if patients array is invalid
-    if (!Array.isArray(patients)) {
-      return;
-    }
-    
-    // Only update filteredPatients if the search term actually changed
-    const trimmedSearchTerm = searchTerm.trim().toLowerCase();
-    
-    // If search is empty, just use the original patients array (no filtering needed)
-    if (trimmedSearchTerm === '') {
-      setFilteredPatients(patients);
-      return;
-    }
-    
-    // Debounce the filtering for better performance
-    const timeoutId = setTimeout(() => {
-      const filtered = patients.filter(patient => {
-        const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
-        return fullName.includes(trimmedSearchTerm);
-      });
-      setFilteredPatients(filtered);
-    }, 300); // 300ms debounce
-    
-    // Clean up timeout on component unmount or when dependencies change
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, patients]);
-  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -193,7 +161,7 @@ const TaskForm: React.FC = () => {
   // Loading state is now handled inside the try block for consistent UI structure
   
   // Add error handling for empty data
-  const hasPatients = Array.isArray(filteredPatients) && filteredPatients.length > 0;
+  const hasPatients = Array.isArray(patients) && patients.length > 0;
   const hasDoctors = Array.isArray(doctors) && doctors.length > 0;
   
   // Add a CSS class for the loader animation
@@ -311,19 +279,6 @@ const TaskForm: React.FC = () => {
               {!hasDoctors && <p className="mt-1 text-sm text-red-500">No doctors found in the system.</p>}
             </div>
             
-            {/* Patient Search */}
-            <div>
-              <label htmlFor="patientSearch" className="block text-sm font-medium text-gray-700 mb-1">Search Patient</label>
-              <input
-                type="text"
-                id="patientSearch"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Search by patient name"
-              />
-            </div>
-            
             {/* Patient Selection */}
             <div className="col-span-2">
               <label htmlFor="patient" className="block text-sm font-medium text-gray-700 mb-1">Patient*</label>
@@ -336,8 +291,8 @@ const TaskForm: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select Patient</option>
-                {Array.isArray(filteredPatients) && filteredPatients.length > 0 ? (
-                  filteredPatients.map(patient => (
+                {Array.isArray(patients) && patients.length > 0 ? (
+                  patients.map(patient => (
                     <option key={patient._id} value={patient._id}>
                       {patient.firstName} {patient.lastName} (DOB: {new Date(patient.dateOfBirth).toLocaleDateString()})
                     </option>

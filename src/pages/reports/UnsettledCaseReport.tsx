@@ -77,13 +77,6 @@ const UnsettledCaseReport: React.FC = () => {
     return age;
   };
 
-  const getLastVisitDate = (visits: any[]) => {
-    if (!visits || visits.length === 0) return 'No visits';
-    const sortedVisits = [...visits].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    return new Date(sortedVisits[0].date).toLocaleDateString();
-  };
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -131,9 +124,6 @@ const UnsettledCaseReport: React.FC = () => {
                     Age/Gender
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Visit
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Doctor
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -165,9 +155,6 @@ const UnsettledCaseReport: React.FC = () => {
                         <div className="text-sm text-gray-900">{calculateAge(patient.dateOfBirth)} years</div>
                         <div className="text-sm text-gray-500 capitalize">{patient.gender}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {getLastVisitDate(patient.visits || [])}
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {patient.assignedDoctor
@@ -178,22 +165,16 @@ const UnsettledCaseReport: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <Link
                           to={`/patients/${patient._id}`}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="text-blue-600 hover:text-blue-900"
                         >
                           View
-                        </Link>
-                        <Link
-                          to={`/patients/${patient._id}/visits/initial`}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Add Visit
                         </Link>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
                       {searchTerm ? 'No matching patients found' : 'No unsettled cases found'}
                     </td>
                   </tr>

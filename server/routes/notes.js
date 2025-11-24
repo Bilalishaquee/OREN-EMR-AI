@@ -30,18 +30,18 @@ const storage = multer.diskStorage({
       // Use absolute path for uploads folder
       const uploadDir = path.join(process.cwd(), 'uploads/notes');
       console.log('Upload directory:', uploadDir);
-      
+
       // Check if directory exists
       const dirExists = fs.existsSync(uploadDir);
       console.log('Directory exists:', dirExists);
-      
+
       // Create directory if it doesn't exist
       if (!dirExists) {
         console.log('Creating directory:', uploadDir);
         fs.mkdirSync(uploadDir, { recursive: true });
         console.log('Directory created successfully');
       }
-      
+
       // Check if directory is writable
       try {
         fs.accessSync(uploadDir, fs.constants.W_OK);
@@ -50,7 +50,7 @@ const storage = multer.diskStorage({
         console.error('Directory is not writable:', accessError);
         return cb(new Error('Upload directory is not writable'));
       }
-      
+
       cb(null, uploadDir);
     } catch (error) {
       console.error('Error setting upload destination:', error);
@@ -64,7 +64,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ 
+const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
@@ -75,7 +75,7 @@ const upload = multer({
       'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .doc & .docx
       'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xls & .xlsx
     ];
-    
+
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -102,24 +102,24 @@ const handleMulterError = (err, req, res, next) => {
 // Get all notes (with pagination and filtering)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      patientId, 
-      doctorId, 
+    const {
+      page = 1,
+      limit = 10,
+      patientId,
+      doctorId,
       noteType,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc'
     } = req.query;
-    
+
     const query = {};
-    
+
     // Apply filters if provided
     if (patientId) query.patient = patientId;
     if (doctorId) query.doctor = doctorId;
     if (noteType) query.noteType = noteType;
-    
+
     // Apply search if provided
     if (search) {
       query.$or = [
@@ -127,19 +127,19 @@ router.get('/', authenticateToken, async (req, res) => {
         { content: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     // Access control based on user role
     if (req.user.role === 'doctor') {
       // Doctors can only see their own notes
       query.doctor = req.user.id;
     }
-    
+
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
+
     // Determine sort direction
     const sortDirection = sortOrder.toLowerCase() === 'asc' ? 1 : -1;
-    
+
     // Execute query with pagination and sorting
     const notes = await Note.find(query)
       .sort({ [sortBy]: sortDirection })
@@ -148,10 +148,10 @@ router.get('/', authenticateToken, async (req, res) => {
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('doctor', 'firstName lastName')
       .populate('visit', 'visitType date');
-    
+
     // Get total count for pagination
     const total = await Note.countDocuments(query);
-    
+
     res.json({
       notes,
       pagination: {
@@ -174,23 +174,23 @@ router.get('/:id', authenticateToken, async (req, res) => {
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('doctor', 'firstName lastName')
       .populate('visit', 'visitType date');
-    
+
     if (!note) {
       return res.status(404).json({ message: 'Note not found' });
     }
-    
+
     // Access control: Admins can access all notes, doctors can only access their own
     if (req.user.role === 'doctor') {
       const noteDoctorId = getDoctorId(note);
       const userId = req.user.id.toString();
-      
+
       // If note has no doctor assigned or doctor doesn't match, deny access
       if (!noteDoctorId || noteDoctorId !== userId) {
         return res.status(403).json({ message: 'Not authorized to access this note' });
       }
     }
     // Admins can access any note, so no additional check needed
-    
+
     res.json(note);
   } catch (error) {
     console.error('Error fetching note:', error);
@@ -203,30 +203,30 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
   try {
     console.log('Creating new note with data:', req.body);
     console.log('Files received:', req.files);
-    
-    const { 
-      title, 
-      content, 
-      noteType, 
-      colorCode, 
-      patientId, 
+
+    const {
+      title,
+      content,
+      noteType,
+      colorCode,
+      patientId,
       visitId,
       diagnosisCodes,
       treatmentCodes,
       isAiGenerated
     } = req.body;
-    
+
     // Validate required fields
     if (!title || !content || !patientId) {
       return res.status(400).json({ message: 'Title, content, and patient ID are required' });
     }
-    
+
     // Check if patient exists
     const patient = await Patient.findById(patientId);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-    
+
     // Check if visit exists if provided
     if (visitId) {
       const visit = await Visit.findById(visitId);
@@ -234,7 +234,7 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
         return res.status(404).json({ message: 'Visit not found' });
       }
     }
-    
+
     // Process file uploads
     let attachments = [];
     try {
@@ -259,11 +259,11 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
       // Continue without attachments rather than failing the whole request
       attachments = [];
     }
-    
+
     // Parse JSON strings if they come as strings
     let parsedDiagnosisCodes = diagnosisCodes;
     let parsedTreatmentCodes = treatmentCodes;
-    
+
     if (typeof diagnosisCodes === 'string') {
       try {
         parsedDiagnosisCodes = JSON.parse(diagnosisCodes);
@@ -271,7 +271,7 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
         parsedDiagnosisCodes = [];
       }
     }
-    
+
     if (typeof treatmentCodes === 'string') {
       try {
         parsedTreatmentCodes = JSON.parse(treatmentCodes);
@@ -279,7 +279,7 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
         parsedTreatmentCodes = [];
       }
     }
-    
+
     // Create new note
     const newNote = new Note({
       title,
@@ -294,25 +294,25 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
       attachments,
       isAiGenerated: isAiGenerated === 'true' || isAiGenerated === true
     });
-    
+
     await newNote.save();
-    
+
     // Populate references for response
     const populatedNote = await Note.findById(newNote._id)
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('doctor', 'firstName lastName')
       .populate('visit', 'visitType date');
-    
+
     res.status(201).json(populatedNote);
   } catch (error) {
     console.error('Error creating note:', error);
     console.error('Error stack:', error.stack);
-    
+
     // Provide more detailed error information
     let errorMessage = 'Server error';
     let statusCode = 500;
     let errorDetails = null;
-    
+
     if (error.name === 'ValidationError') {
       errorMessage = 'Validation error';
       statusCode = 400;
@@ -335,9 +335,9 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
       statusCode = 500;
       errorDetails = { path: error.path };
     }
-    
-    res.status(statusCode).json({ 
-      message: errorMessage, 
+
+    res.status(statusCode).json({
+      message: errorMessage,
       error: error.message,
       details: errorDetails || error.code || null
     });
@@ -347,35 +347,35 @@ router.post('/', authenticateToken, upload.array('attachments', 5), handleMulter
 // Update a note
 router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMulterError, async (req, res) => {
   try {
-    const { 
-      title, 
-      content, 
-      noteType, 
+    const {
+      title,
+      content,
+      noteType,
       colorCode,
       diagnosisCodes,
       treatmentCodes,
       removeAttachments
     } = req.body;
-    
+
     // Find the note
     const note = await Note.findById(req.params.id);
-    
+
     if (!note) {
       return res.status(404).json({ message: 'Note not found' });
     }
-    
+
     // Access control: Admins can update all notes, doctors can only update their own
     if (req.user.role === 'doctor') {
       const noteDoctorId = getDoctorId(note);
       const userId = req.user.id.toString();
-      
+
       // If note has no doctor assigned or doctor doesn't match, deny access
       if (!noteDoctorId || noteDoctorId !== userId) {
         return res.status(403).json({ message: 'Not authorized to update this note' });
       }
     }
     // Admins can update any note, so no additional check needed
-    
+
     // Process file uploads
     const newAttachments = req.files ? req.files.map(file => ({
       filename: file.filename,
@@ -384,20 +384,20 @@ router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMult
       mimetype: file.mimetype,
       size: file.size
     })) : [];
-    
+
     // Handle attachment removal if specified
     let currentAttachments = [...note.attachments];
     if (removeAttachments) {
       let attachmentsToRemove;
-      
+
       try {
-        attachmentsToRemove = typeof removeAttachments === 'string' 
-          ? JSON.parse(removeAttachments) 
+        attachmentsToRemove = typeof removeAttachments === 'string'
+          ? JSON.parse(removeAttachments)
           : removeAttachments;
       } catch (e) {
         attachmentsToRemove = [];
       }
-      
+
       // Remove files from storage
       for (const attachmentId of attachmentsToRemove) {
         const attachment = note.attachments.id(attachmentId);
@@ -409,17 +409,17 @@ router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMult
           }
         }
       }
-      
+
       // Filter out removed attachments
       currentAttachments = note.attachments.filter(
         attachment => !attachmentsToRemove.includes(attachment._id.toString())
       );
     }
-    
+
     // Parse JSON strings if they come as strings
     let parsedDiagnosisCodes = diagnosisCodes;
     let parsedTreatmentCodes = treatmentCodes;
-    
+
     if (typeof diagnosisCodes === 'string') {
       try {
         parsedDiagnosisCodes = JSON.parse(diagnosisCodes);
@@ -427,7 +427,7 @@ router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMult
         parsedDiagnosisCodes = note.diagnosisCodes;
       }
     }
-    
+
     if (typeof treatmentCodes === 'string') {
       try {
         parsedTreatmentCodes = JSON.parse(treatmentCodes);
@@ -435,7 +435,7 @@ router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMult
         parsedTreatmentCodes = note.treatmentCodes;
       }
     }
-    
+
     // Update note
     note.title = title || note.title;
     note.content = content || note.content;
@@ -445,15 +445,15 @@ router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMult
     note.treatmentCodes = parsedTreatmentCodes || note.treatmentCodes;
     note.attachments = [...currentAttachments, ...newAttachments];
     note.updatedAt = Date.now();
-    
+
     await note.save();
-    
+
     // Populate references for response
     const populatedNote = await Note.findById(note._id)
       .populate('patient', 'firstName lastName dateOfBirth')
       .populate('doctor', 'firstName lastName')
       .populate('visit', 'visitType date');
-    
+
     res.json(populatedNote);
   } catch (error) {
     console.error('Error updating note:', error);
@@ -465,23 +465,23 @@ router.put('/:id', authenticateToken, upload.array('attachments', 5), handleMult
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const note = await Note.findById(req.params.id);
-    
+
     if (!note) {
       return res.status(404).json({ message: 'Note not found' });
     }
-    
+
     // Access control: Admins can delete all notes, doctors can only delete their own
     if (req.user.role === 'doctor') {
       const noteDoctorId = getDoctorId(note);
       const userId = req.user.id.toString();
-      
+
       // If note has no doctor assigned or doctor doesn't match, deny access
       if (!noteDoctorId || noteDoctorId !== userId) {
         return res.status(403).json({ message: 'Not authorized to delete this note' });
       }
     }
     // Admins can delete any note, so no additional check needed
-    
+
     // Delete attachment files
     for (const attachment of note.attachments) {
       try {
@@ -490,9 +490,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         console.error('Error deleting file:', err);
       }
     }
-    
+
     await Note.findByIdAndDelete(req.params.id);
-    
+
     res.json({ message: 'Note deleted successfully' });
   } catch (error) {
     console.error('Error deleting note:', error);
@@ -505,22 +505,22 @@ router.get('/patient/:patientId', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
     const { noteType } = req.query;
-    
+
     const query = { patient: patientId };
-    
+
     // Apply note type filter if provided
     if (noteType) query.noteType = noteType;
-    
+
     // Access control
     if (req.user.role === 'doctor') {
       query.doctor = req.user.id;
     }
-    
+
     const notes = await Note.find(query)
       .sort({ createdAt: -1 })
       .populate('doctor', 'firstName lastName')
       .populate('visit', 'visitType date');
-    
+
     res.json(notes);
   } catch (error) {
     console.error('Error fetching patient notes:', error);
@@ -529,98 +529,70 @@ router.get('/patient/:patientId', authenticateToken, async (req, res) => {
 });
 
 // Generate a note using AI
+// IMPORTANT: This endpoint ONLY generates content and returns it. It does NOT save the note to the database.
+// Notes are only saved when the user explicitly clicks "Save Note" button which calls POST /api/notes
 router.post('/generate', authenticateToken, async (req, res) => {
   try {
-    const { 
-      patientId, 
-      visitId, 
+    const {
+      patientId,
+      visitId,
       noteType,
       promptData
     } = req.body;
-    
+
     // Validate required fields
     if (!patientId || !noteType) {
       return res.status(400).json({ message: 'Patient ID and note type are required' });
     }
-    
+
     // Validate note type
     const supportedNoteTypes = ['Progress', 'Consultation', 'New ER Operative Report', 'New OR Operative Report'];
     if (!supportedNoteTypes.includes(noteType)) {
-      return res.status(400).json({ 
-        message: `Unsupported note type. Supported types: ${supportedNoteTypes.join(', ')}` 
+      return res.status(400).json({
+        message: `Unsupported note type. Supported types: ${supportedNoteTypes.join(', ')}`
       });
     }
-    
+
     // Fetch patient data
     const patient = await Patient.findById(patientId);
     if (!patient) {
       return res.status(404).json({ message: 'Patient not found' });
     }
-    
+
     // Generate the note using the AI service
     console.log('Generating note with OpenAI API...');
     console.log('Patient ID:', patientId);
     console.log('Visit ID:', visitId);
     console.log('Note Type:', noteType);
     console.log('Prompt Data:', promptData);
-    
+
     const generatedText = await aiNoteGenerationService.generateNote(patientId, visitId, noteType, promptData);
-    
+
     console.log('Generated text length:', generatedText.length);
     console.log('Generated text preview:', generatedText.substring(0, 200) + '...');
-    
+
     // Generate a title based on the note type and current date
     const currentDate = new Date().toLocaleDateString();
     const title = `${noteType} Note - ${patient.firstName} ${patient.lastName} - ${currentDate}`;
-    
-    console.log('Creating note with title:', title);
-    console.log('Patient ID for note:', patientId);
-    console.log('Doctor ID for note:', req.user.id);
-    console.log('Visit ID for note:', visitId);
-    
-    // Create a new note with the generated content
-    const newNote = new Note({
-      title,
-      content: generatedText,
-      noteType,
-      colorCode: '#FFFFFF', // Default white
-      patient: patientId,
-      doctor: req.user.id,
-      visit: visitId || null,
-      isAiGenerated: true
-    });
-    
-    console.log('Saving note to database...');
-    await newNote.save();
-    console.log('Note saved with ID:', newNote._id);
-    
-    // Populate references for response
-    console.log('Populating note references...');
-    const populatedNote = await Note.findById(newNote._id)
-      .populate('patient', 'firstName lastName dateOfBirth')
-      .populate('doctor', 'firstName lastName')
-      .populate('visit', 'visitType date');
-    
-    console.log('Populated note:', {
-      _id: populatedNote._id,
-      title: populatedNote.title,
-      noteType: populatedNote.noteType,
-      patient: populatedNote.patient,
-      doctor: populatedNote.doctor,
-      visit: populatedNote.visit,
-      isAiGenerated: populatedNote.isAiGenerated
-    });
-    
-    res.status(201).json({
+
+    // Return generated content ONLY - do NOT save to database
+    // The note will only be saved when user explicitly clicks "Save Note" button
+    res.json({
       success: true,
-      note: populatedNote
+      data: {
+        title,
+        content: generatedText,
+        noteType,
+        patientId,
+        visitId
+      }
     });
   } catch (error) {
     console.error('Error generating note:', error);
     
     let errorMessage = 'Failed to generate note';
     let statusCode = 500;
-    
+
     if (error.message.includes('OpenAI API error') || error.message.includes('OpenAI')) {
       errorMessage = 'AI service temporarily unavailable. Please try again later.';
       statusCode = 503;
@@ -631,11 +603,11 @@ router.post('/generate', authenticateToken, async (req, res) => {
       errorMessage = error.message;
       statusCode = 400;
     }
-    
-    res.status(statusCode).json({ 
+
+    res.status(statusCode).json({
       success: false,
       message: errorMessage,
-      error: error.message 
+      error: error.message
     });
   }
 });

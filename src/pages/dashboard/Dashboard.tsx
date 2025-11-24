@@ -372,7 +372,7 @@ const Dashboard: React.FC = () => {
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
-            to="/patients/new"
+            to="/forms/questionnaires"
             className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
           >
             <Users className="h-6 w-6 text-blue-600 mr-3" />

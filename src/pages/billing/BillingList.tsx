@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -69,10 +69,18 @@ const BillingList: React.FC<BillingListProps> = ({
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [emailAddress, setEmailAddress] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     fetchInvoices();
     fetchBillingSummary();
+    
+    // Cleanup: cancel any pending requests when component unmounts
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [patientId, currentPage, statusFilter, dateRange]);
 
 
@@ -179,23 +187,94 @@ const BillingList: React.FC<BillingListProps> = ({
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailAddress)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    const startTime = Date.now();
+
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${selectedInvoice._id}`, {
-        recipientEmail: emailAddress
-      });
+      console.log('🚀 Starting to send invoice email...');
+      console.log('📧 Recipient:', emailAddress);
+      console.log('📄 Invoice ID:', selectedInvoice._id);
+      console.log('🔗 Endpoint:', `https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${selectedInvoice._id}`);
+      
+      // Reduced timeout since backend is faster now
+      const response = await axios.post(
+        `https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${selectedInvoice._id}`,
+        {
+          recipientEmail: emailAddress
+        },
+        {
+          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          signal: abortControllerRef.current.signal
+        }
+      );
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ Email response received in ${duration}ms:`, response.data);
 
       if (response.data.success) {
-        setShowEmailModal(false);
-        setSelectedInvoice(null);
-        setEmailAddress('');
-        alert('Invoice email sent successfully!');
+        // Check if email was actually sent
+        if (response.data.data && response.data.data.emailSent) {
+          setShowEmailModal(false);
+          setSelectedInvoice(null);
+          setEmailAddress('');
+          alert('Invoice email sent successfully!');
+        } else {
+          // Email sending failed but API returned success
+          const errorMsg = response.data.data?.error || response.data.message || 'Email sending failed';
+          console.error('❌ Email sending failed:', errorMsg);
+          alert(`Failed to send email: ${errorMsg}. Please check your email configuration.`);
+        }
+      } else {
+        alert(response.data.message || 'Failed to send invoice email. Please try again.');
       }
-    } catch (error) {
-      console.error('Error sending invoice email:', error);
-      alert('Failed to send invoice email. Please try again.');
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ Error sending invoice email after', duration, 'ms:', error);
+      
+      // Don't show error if request was aborted
+      if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+        console.log('Request was cancelled');
+        return;
+      }
+      
+      let errorMessage = 'Failed to send invoice email. Please try again.';
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. The email should still be sent. Please check if the email was delivered.';
+      } else if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
+        console.error('Server error response:', error.response.data);
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'No response from server. Please check your internet connection and try again.';
+        console.error('No response received:', error.request);
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
+      
+      alert(`Error: ${errorMessage}`);
     } finally {
       setIsSendingEmail(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -205,23 +284,82 @@ const BillingList: React.FC<BillingListProps> = ({
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailAddress)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    // Cancel any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    const startTime = Date.now();
+
     try {
       setIsSendingEmail(true);
-      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/send-reminder/${selectedInvoice._id}`, {
-        recipientEmail: emailAddress
-      });
+      console.log('🚀 Starting to send payment reminder...');
+      console.log('📧 Recipient:', emailAddress);
+      console.log('📄 Invoice ID:', selectedInvoice._id);
+      
+      const response = await axios.post(
+        `https://oren-emr-ai-1.onrender.com/api/quickbooks/send-reminder/${selectedInvoice._id}`,
+        {
+          recipientEmail: emailAddress
+        },
+        {
+          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          signal: abortControllerRef.current.signal
+        }
+      );
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ Reminder response received in ${duration}ms:`, response.data);
 
       if (response.data.success) {
         setShowEmailModal(false);
         setSelectedInvoice(null);
         setEmailAddress('');
         alert('Payment reminder sent successfully!');
+      } else {
+        alert(response.data.message || 'Failed to send payment reminder. Please try again.');
       }
-    } catch (error) {
-      console.error('Error sending payment reminder:', error);
-      alert('Failed to send payment reminder. Please try again.');
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error('❌ Error sending payment reminder after', duration, 'ms:', error);
+      
+      // Don't show error if request was aborted
+      if (error.name === 'AbortError' || error.code === 'ERR_CANCELED') {
+        console.log('Request was cancelled');
+        return;
+      }
+      
+      let errorMessage = 'Failed to send payment reminder. Please try again.';
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. The reminder should still be sent. Please check if the email was delivered.';
+      } else if (error.response) {
+        errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
+        console.error('Server error response:', error.response.data);
+      } else if (error.request) {
+        errorMessage = 'No response from server. Please check your internet connection and try again.';
+        console.error('No response received:', error.request);
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
+      
+      alert(`Error: ${errorMessage}`);
     } finally {
       setIsSendingEmail(false);
+      abortControllerRef.current = null;
     }
   };
 

@@ -426,6 +426,21 @@ const PatientForm: React.FC = () => {
     return cleanedData;
   };
 
+  // Helper function to calculate age from date of birth
+  const calculateAge = (dateOfBirth: string): number => {
+    if (!dateOfBirth) return 0;
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -434,7 +449,14 @@ const PatientForm: React.FC = () => {
 
     if (!formData.firstName?.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName?.trim()) newErrors.lastName = 'Last name is required';
-    if (!formData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
+    if (!formData.dateOfBirth) {
+      newErrors.dateOfBirth = 'Date of birth is required';
+    } else {
+      const age = calculateAge(formData.dateOfBirth);
+      if (age <= 0) {
+        newErrors.dateOfBirth = 'Age must be greater than zero';
+      }
+    }
     if (!formData.email?.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {

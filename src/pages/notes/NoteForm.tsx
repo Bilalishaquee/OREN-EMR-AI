@@ -82,6 +82,7 @@ const NoteForm: React.FC = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const quillRef = useRef<any>(null);
 
   const [note, setNote] = useState<Note>({
     title: '',
@@ -189,7 +190,7 @@ const NoteForm: React.FC = () => {
     const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '';
     const patientDOB = selectedPatient && selectedPatient.dateOfBirth ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '';
     const currentDate = new Date().toLocaleDateString();
-    
+
     return `<h2>Consultation Note</h2>
 
 <p><strong>I expect that the following will be carried over directly from the intake form or EMR:</strong></p>
@@ -283,7 +284,7 @@ const NoteForm: React.FC = () => {
     const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '';
     const patientDOB = selectedPatient && selectedPatient.dateOfBirth ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '';
     const currentDate = new Date().toLocaleDateString();
-    
+
     return `<h2>ER Operative Report</h2>
 
 <p><strong>I expect that the following will be carried over directly from the intake form or EMR:</strong></p>
@@ -419,7 +420,7 @@ const NoteForm: React.FC = () => {
     const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '';
     const patientDOB = selectedPatient && selectedPatient.dateOfBirth ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '';
     const currentDate = new Date().toLocaleDateString();
-    
+
     return `<h2>OR Operative Report</h2>
 
 <p><strong>I expect that the following will be carried over directly from the intake form or EMR:</strong></p>
@@ -645,13 +646,13 @@ const NoteForm: React.FC = () => {
             headers: { Authorization: `Bearer ${token}` },
           });
           const noteData = noteResponse.data;
-          
+
           // Handle patient - could be populated object or just ID
           const patientId = noteData.patient?._id || noteData.patient || '';
-          
+
           // Handle visit - could be populated object or just ID
           const visitId = noteData.visit?._id || noteData.visit || null;
-          
+
           setNote({
             _id: noteData._id,
             title: noteData.title || '',
@@ -667,7 +668,7 @@ const NoteForm: React.FC = () => {
             headerImage: noteData.headerImage || '',
             footerImage: noteData.footerImage || '',
           });
-          
+
           // Fetch visits for the patient
           if (patientId) {
             try {
@@ -693,10 +694,10 @@ const NoteForm: React.FC = () => {
 
   const handlePatientChange = async (patientId: string) => {
     const selectedPatient = patients.find(p => p._id === patientId);
-    
+
     setNote(prev => {
       const updatedNote = { ...prev, patient: patientId, visit: null };
-      
+
       // If note type is Consultation and patient is selected, update the template with patient data
       if (prev.noteType === 'Consultation' && selectedPatient) {
         const updatedTemplate = getConsultTemplate(selectedPatient);
@@ -712,10 +713,10 @@ const NoteForm: React.FC = () => {
         const updatedTemplate = getOROperativeTemplate(selectedPatient);
         updatedNote.content = updatedTemplate;
       }
-      
+
       return updatedNote;
     });
-    
+
     if (patientId) {
       try {
         const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/visits/patient/${patientId}`, {
@@ -733,7 +734,7 @@ const NoteForm: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+
     // Validate color code format if it's the colorCode field
     if (name === 'colorCode') {
       // Allow hex color format (#RRGGBB or #RGB)
@@ -743,7 +744,7 @@ const NoteForm: React.FC = () => {
       }
       return;
     }
-    
+
     const selectedPatient = patients.find(p => p._id === note.patient);
     if (name === 'noteType' && value === 'Progress' && !note.content.trim()) {
       const soapTemplate = getSOAPTemplate({
@@ -932,26 +933,102 @@ const NoteForm: React.FC = () => {
     }));
   };
 
+  // Generate note content using AI
+  // IMPORTANT: This function ONLY generates content and updates the form. It does NOT save the note.
+  // The note will only be saved when the user explicitly clicks "Save Note" button.
   const generateNote = async () => {
     if (!note.patient || !note.noteType) {
       toast.error('Please select a patient and note type before generating');
       return;
     }
+    
+    if (!token) {
+      toast.error('Authentication error. Please log in again.');
+      return;
+    }
+
     setGeneratingNote(true);
     try {
+      console.log('Starting note generation...', { patientId: note.patient, noteType: note.noteType, visitId: note.visit });
+      
       const response = await axios.post(
         'https://oren-emr-ai-1.onrender.com/api/notes/generate',
         {
           patientId: note.patient,
-          visitId: note.visit,
+          visitId: note.visit || null,
           noteType: note.noteType,
-          promptData: promptData,
+          promptData: promptData || '',
         },
-        { headers: { Authorization: `Bearer ${token}` } },
+        { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 120000 // 2 minute timeout for AI generation
+        },
       );
-      if (response.data.success && response.data.note) {
-        toast.success('Note generated successfully');
-        const generatedNote = response.data.note;
+      
+      console.log('Generate response received:', response.data);
+      
+      // Handle both response structures: {success: true, data: {...}} or {success: true, note: {...}}
+      // Check 'note' first since that's what the server is currently returning
+      let responseData = response.data?.note || response.data?.data;
+      
+      // If responseData is a note object with nested structure, extract the needed fields
+      if (responseData) {
+        // Handle case where note object might have patient as an object
+        if (responseData.patient && typeof responseData.patient === 'object') {
+          responseData = {
+            ...responseData,
+            patientId: responseData.patient._id || responseData.patientId
+          };
+        }
+        // Handle case where visit might be an object
+        if (responseData.visit && typeof responseData.visit === 'object') {
+          responseData = {
+            ...responseData,
+            visitId: responseData.visit._id || responseData.visitId
+          };
+        }
+      }
+      
+      // Check if we have valid response data - be more lenient with the check
+      if (response.data && response.data.success && responseData) {
+        toast.success('Note generated successfully. Please review and save.');
+        
+        // Extract data ensuring we handle all possible structures
+        // Handle patient ID - could be patientId, patient._id, or patient as string
+        let extractedPatientId = responseData.patientId;
+        if (!extractedPatientId && responseData.patient) {
+          if (typeof responseData.patient === 'object' && responseData.patient._id) {
+            extractedPatientId = responseData.patient._id;
+          } else if (typeof responseData.patient === 'string') {
+            extractedPatientId = responseData.patient;
+          }
+        }
+        
+        // Handle visit ID - could be visitId, visit._id, or visit as string
+        let extractedVisitId = responseData.visitId || null;
+        if (!extractedVisitId && responseData.visit) {
+          if (typeof responseData.visit === 'object' && responseData.visit._id) {
+            extractedVisitId = responseData.visit._id;
+          } else if (typeof responseData.visit === 'string') {
+            extractedVisitId = responseData.visit;
+          }
+        }
+        
+        const generatedData = {
+          title: responseData.title || '',
+          content: responseData.content || '',
+          noteType: responseData.noteType || '',
+          patientId: extractedPatientId,
+          visitId: extractedVisitId
+        };
+        
+        console.log('Processing generated data:', {
+          title: generatedData.title,
+          hasContent: !!generatedData.content,
+          noteType: generatedData.noteType,
+          patientId: generatedData.patientId
+        });
+        
         if (note.noteType === 'Consultation') {
           try {
             setConsultationNoteData(null);
@@ -959,27 +1036,60 @@ const NoteForm: React.FC = () => {
             console.error('Error parsing consultation note data:', error);
           }
         }
+        
+        // Update form state with generated content - DO NOT save to database
+        // Note will only be saved when user explicitly clicks "Save Note" button
+        const processedContent = processContentToHTML(generatedData.content || '');
+        
         setNote(prev => ({
           ...prev,
-          _id: generatedNote._id,
-          title: generatedNote.title,
-          content: processContentToHTML(generatedNote.content),
-          noteType: generatedNote.noteType,
-          colorCode: generatedNote.colorCode || '#FFFFFF',
-          patient: generatedNote.patient._id || generatedNote.patient,
-          visit: generatedNote.visit ? generatedNote.visit._id : null,
-          diagnosisCodes: generatedNote.diagnosisCodes || [],
-          treatmentCodes: generatedNote.treatmentCodes || [],
-          attachments: generatedNote.attachments || [],
-          isAiGenerated: generatedNote.isAiGenerated || true,
+          // CRITICAL: Do NOT set or update _id - the note is NOT saved yet, this is just generated content
+          // Only update form fields with the generated content
+          title: generatedData.title || prev.title,
+          content: processedContent,
+          noteType: generatedData.noteType || prev.noteType,
+          colorCode: prev.colorCode || '#FFFFFF',
+          patient: generatedData.patientId || prev.patient,
+          visit: generatedData.visitId || prev.visit || null,
+          // Keep existing arrays - do not overwrite with empty arrays from generate response
+          diagnosisCodes: prev.diagnosisCodes || [],
+          treatmentCodes: prev.treatmentCodes || [],
+          attachments: prev.attachments || [],
+          isAiGenerated: true,
         }));
+        
         setPromptData('');
+        // DO NOT navigate away or trigger any save operations
       } else {
-        toast.error('Failed to generate note: ' + (response.data.message || 'Unknown error'));
+        const errorMsg = response.data?.message || 'Invalid response structure from server';
+        console.error('Invalid response structure:', {
+          hasResponse: !!response.data,
+          success: response.data?.success,
+          hasData: !!response.data?.data,
+          hasNote: !!response.data?.note,
+          fullResponse: response.data
+        });
+        toast.error('Failed to generate note: ' + errorMsg);
       }
     } catch (error: any) {
       console.error('Error generating note:', error);
-      toast.error('Failed to generate note: ' + (error.response?.data.message || error.message));
+      
+      let errorMessage = 'Failed to generate note';
+      if (error.response) {
+        errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
+        console.error('Server error response:', error.response.data);
+      } else if (error.request) {
+        errorMessage = 'No response from server. Please check your connection.';
+        console.error('No response received:', error.request);
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. AI generation can take a while. Please try again.';
+      }
+      
+      toast.error('Failed to generate note: ' + errorMessage);
     } finally {
       setGeneratingNote(false);
     }
@@ -1183,11 +1293,27 @@ const NoteForm: React.FC = () => {
   }, [id, isEditMode, token]);  // No change to dependencies
 
 
+  // Save note to database
+  // This is the ONLY function that should save notes to the database
+  // It is called when user explicitly clicks "Save Note" button
   const saveNote = async () => {
+    // Prevent double-save - if already saving, don't proceed
+    if (saving) {
+      console.log('Save already in progress, ignoring duplicate call');
+      return;
+    }
+    
     if (!note.title || !note.content || !note.patient || !note.noteType) {
       toast.error('Please fill in all required fields including Note Type');
       return;
     }
+    
+    // Prevent saving if note is being generated
+    if (generatingNote) {
+      toast.error('Please wait for note generation to complete');
+      return;
+    }
+    
     setSaving(true);
     try {
       const formData = new FormData();
@@ -1236,6 +1362,22 @@ const NoteForm: React.FC = () => {
         });
         toast.success('Note created successfully');
       }
+      // Immediately navigate away to prevent duplicate saves
+      // Clear the form state before navigating to ensure no accidental re-saves
+      setNote({
+        title: '',
+        content: '',
+        noteType: '',
+        colorCode: '#FFFFFF',
+        patient: '',
+        visit: null,
+        diagnosisCodes: [],
+        treatmentCodes: [],
+        attachments: [],
+        isAiGenerated: false,
+        headerImage: '',
+        footerImage: '',
+      });
       navigate('/notes');
     } catch (error: any) {
       console.error('Error saving note:', error);
@@ -1247,43 +1389,43 @@ const NoteForm: React.FC = () => {
 
   // Add this new handler function near other handlers (e.g., after handleFooterImageChange)
   // Called when user clicks "Use Existing Template"
- // Replace entire function:
- const getImageUrl = (path: string): string => {
-  if (!path) return '';
-  const normalizedPath = path.replace(/\\/g, '/');
-  return `https://oren-emr-ai-1.onrender.com/${normalizedPath}`;
-};
-const handleUseExisting = async () => {
-  const selectedTemplate = existingTemplates.find(t => t._id === selectedTemplateId);
-  if (selectedTemplate && selectedTemplate.headerImage && selectedTemplate.footerImage) {
-    // Fetch images as base64 for PDF (since paths are server-side)
-    try {
-      const headerBase64 = await fetchImageAsBase64(getImageUrl(selectedTemplate.headerImage));
-      const footerBase64 = await fetchImageAsBase64(getImageUrl(selectedTemplate.footerImage));
-      setNote(prev => ({ ...prev, headerImage: headerBase64, footerImage: footerBase64 }));
-      setUseExistingTemplate(true);
-      setHeaderFile(null);
-      setFooterFile(null);
-      toast.success('Switched to selected template');
-    } catch (error) {
-      toast.error('Failed to load template images');
+  // Replace entire function:
+  const getImageUrl = (path: string): string => {
+    if (!path) return '';
+    const normalizedPath = path.replace(/\\/g, '/');
+    return `https://oren-emr-ai-1.onrender.com/${normalizedPath}`;
+  };
+  const handleUseExisting = async () => {
+    const selectedTemplate = existingTemplates.find(t => t._id === selectedTemplateId);
+    if (selectedTemplate && selectedTemplate.headerImage && selectedTemplate.footerImage) {
+      // Fetch images as base64 for PDF (since paths are server-side)
+      try {
+        const headerBase64 = await fetchImageAsBase64(getImageUrl(selectedTemplate.headerImage));
+        const footerBase64 = await fetchImageAsBase64(getImageUrl(selectedTemplate.footerImage));
+        setNote(prev => ({ ...prev, headerImage: headerBase64, footerImage: footerBase64 }));
+        setUseExistingTemplate(true);
+        setHeaderFile(null);
+        setFooterFile(null);
+        toast.success('Switched to selected template');
+      } catch (error) {
+        toast.error('Failed to load template images');
+      }
+    } else {
+      toast.warning('No valid template selected');
     }
-  } else {
-    toast.warning('No valid template selected');
-  }
-};
+  };
 
-// Add this new helper function (near getImageUrl):
-const fetchImageAsBase64 = async (url: string): Promise<string> => {
-  const response = await fetch(url);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
+  // Add this new helper function (near getImageUrl):
+  const fetchImageAsBase64 = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
 
   // Optional: Add a toggle to switch back to custom uploads
   const handleUseCustom = () => {
@@ -1311,6 +1453,7 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
         </div>
         <div className="flex space-x-2">
           <button
+            type="button"
             onClick={generateNote}
             disabled={!note.patient || !note.noteType || generatingNote}
             className={`flex items-center px-4 py-2 rounded-md ${generatingNote || !note.patient || !note.noteType
@@ -1332,9 +1475,14 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
           </button>
 
           <button
-            onClick={saveNote}
-            disabled={saving}
-            className={`flex items-center px-4 py-2 bg-blue-500 text-white rounded-md ${saving ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-600'
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              saveNote();
+            }}
+            disabled={saving || generatingNote}
+            className={`flex items-center px-4 py-2 bg-blue-500 text-white rounded-md ${saving || generatingNote ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-600'
               }`}
           >
             {saving ? <FaSpinner className="animate-spin mr-2" /> : <FaSave className="mr-2" />}
@@ -1435,14 +1583,14 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
               />
               {showColorPicker && (
                 <div className="absolute z-50" style={{ top: '100%', left: 0, marginTop: '8px' }}>
-                  <div 
-                    className="fixed inset-0" 
+                  <div
+                    className="fixed inset-0"
                     onClick={() => setShowColorPicker(false)}
                     style={{ zIndex: 40 }}
                   />
                   <div style={{ position: 'relative', zIndex: 50 }}>
-                    <ChromePicker 
-                      color={note.colorCode || '#FFFFFF'} 
+                    <ChromePicker
+                      color={note.colorCode || '#FFFFFF'}
                       onChange={handleColorChange}
                       onChangeComplete={(color) => {
                         setNote(prev => ({ ...prev, colorCode: color.hex || '#FFFFFF' }));
@@ -1540,8 +1688,9 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
             </div>
           ) : (
             <ReactQuill
+              ref={quillRef}
               theme="snow"
-              value={note.content}
+              value={note.content || ''}
               onChange={handleContentChange}
               modules={quillModules}
               className="h-64 mb-12"
@@ -1954,8 +2103,8 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
                 onClick={handleUseExisting}
                 disabled={!selectedTemplateId || useExistingTemplate}
                 className={`px-6 py-2 rounded-md font-medium transition ${!selectedTemplateId || useExistingTemplate
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
                   }`}
               >
                 {useExistingTemplate ? 'Using Selected' : 'Use Selected Template'}
@@ -2003,10 +2152,10 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
                     alt="Header Preview"
                     className="w-20 h-20 object-cover rounded shadow"
                   />
-                   <button
-                     onClick={() =>
-                       setNote((prev) => ({ ...prev, headerImage: '' }))
-                     }
+                  <button
+                    onClick={() =>
+                      setNote((prev) => ({ ...prev, headerImage: '' }))
+                    }
                     className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
                   >
                     Remove
@@ -2041,10 +2190,10 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
                     alt="Footer Preview"
                     className="w-20 h-20 object-cover rounded shadow"
                   />
-                   <button
-                     onClick={() =>
-                       setNote((prev) => ({ ...prev, footerImage: '' }))
-                     }
+                  <button
+                    onClick={() =>
+                      setNote((prev) => ({ ...prev, footerImage: '' }))
+                    }
                     className="px-3 py-1 bg-red-500 text-white rounded-md hover:bg-red-600 transition"
                   >
                     Remove

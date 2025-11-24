@@ -659,6 +659,79 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
+    // CRITICAL: Check email configuration FIRST before doing anything else
+    // This allows the system to work with either SendGrid (EMAIL_FROM) or Gmail (EMAIL_USER)
+    // Handle empty strings, whitespace, and null/undefined values
+    // IMPORTANT: Check that values exist AND are not empty strings
+    const rawEmailFrom = process.env.EMAIL_FROM;
+    const rawEmailUser = process.env.EMAIL_USER;
+    
+    // Helper function to check if a value is a valid non-empty email string
+    const isValidEmailString = (val) => {
+      return val && typeof val === 'string' && val.trim().length > 0;
+    };
+    
+    const emailFrom = isValidEmailString(rawEmailFrom) ? rawEmailFrom.trim() : '';
+    const emailUser = isValidEmailString(rawEmailUser) ? rawEmailUser.trim() : '';
+    const senderEmail = emailFrom || emailUser;
+    
+    // IMPORTANT: Check environment variables immediately and log them
+    // This helps debug if env vars are not being loaded
+    const envCheck = {
+      EMAIL_FROM_exists: rawEmailFrom !== undefined && rawEmailFrom !== null,
+      EMAIL_FROM_type: typeof rawEmailFrom,
+      EMAIL_FROM_length: rawEmailFrom ? rawEmailFrom.length : 0,
+      EMAIL_FROM_trimmed: emailFrom ? 'SET' : 'EMPTY',
+      EMAIL_USER_exists: rawEmailUser !== undefined && rawEmailUser !== null,
+      EMAIL_USER_type: typeof rawEmailUser,
+      EMAIL_USER_length: rawEmailUser ? rawEmailUser.length : 0,
+      EMAIL_USER_trimmed: emailUser ? 'SET' : 'EMPTY',
+      SENDGRID_API_KEY: process.env.SENDGRID_API_KEY ? 'SET' : 'NOT SET',
+      EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'SET' : 'NOT SET',
+      senderEmail_determined: senderEmail ? 'YES' : 'NO',
+      senderEmail_length: senderEmail ? senderEmail.length : 0
+    };
+    
+    console.log('=== EMAIL CONFIGURATION CHECK ===');
+    console.log(JSON.stringify(envCheck, null, 2));
+    if (emailUser) {
+      console.log('EMAIL_USER value (first 5 chars):', emailUser.substring(0, 5) + '...');
+    }
+    if (emailFrom) {
+      console.log('EMAIL_FROM value (first 5 chars):', emailFrom.substring(0, 5) + '...');
+    }
+    console.log('Sender email determined:', senderEmail ? `${senderEmail.substring(0, 5)}...` : 'NONE');
+    console.log('Raw EMAIL_FROM:', rawEmailFrom ? `"${rawEmailFrom.substring(0, 10)}..."` : rawEmailFrom);
+    console.log('Raw EMAIL_USER:', rawEmailUser ? `"${rawEmailUser.substring(0, 10)}..."` : rawEmailUser);
+    console.log('================================');
+    
+    // FAIL FAST: If no sender email is configured, return error immediately
+    if (!senderEmail || senderEmail.trim() === '' || senderEmail.length === 0) {
+      console.error('=== EMAIL CONFIGURATION ERROR ===');
+      console.error('No sender email found. Environment variables:', envCheck);
+      console.error('Raw values check:');
+      console.error('  process.env.EMAIL_FROM:', typeof process.env.EMAIL_FROM, process.env.EMAIL_FROM ? `"${process.env.EMAIL_FROM.substring(0, 20)}..."` : process.env.EMAIL_FROM);
+      console.error('  process.env.EMAIL_USER:', typeof process.env.EMAIL_USER, process.env.EMAIL_USER ? `"${process.env.EMAIL_USER.substring(0, 20)}..."` : process.env.EMAIL_USER);
+      console.error('================================');
+      
+      // Return detailed error with actual values for debugging
+      return res.status(500).json({ 
+        message: 'Sender email is not configured. Please set EMAIL_FROM or EMAIL_USER in your server environment variables.',
+        error: 'EMAIL_CONFIGURATION_MISSING',
+        debug: {
+          EMAIL_FROM_exists: rawEmailFrom !== undefined && rawEmailFrom !== null,
+          EMAIL_FROM_hasValue: !!emailFrom,
+          EMAIL_FROM_length: rawEmailFrom ? rawEmailFrom.length : 0,
+          EMAIL_USER_exists: rawEmailUser !== undefined && rawEmailUser !== null,
+          EMAIL_USER_hasValue: !!emailUser,
+          EMAIL_USER_length: rawEmailUser ? rawEmailUser.length : 0,
+          SENDGRID_API_KEY_set: !!process.env.SENDGRID_API_KEY,
+          EMAIL_PASSWORD_set: !!process.env.EMAIL_PASSWORD,
+          note: 'Ensure variables have non-empty values in Render dashboard Environment tab'
+        }
+      });
+    }
+
     const clientName = name || 'Valued Patient';
 
     // Generate a unique token for this form link
@@ -678,27 +751,12 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
     // Save the form token to the database
     await formToken.save();
 
-    // Base URL from environment
-    const baseUrl = process.env.CLIENT_BASE_URL;
-    if (!baseUrl) {
-      return res.status(500).json({ message: 'CLIENT_BASE_URL is not configured in server environment' });
-    }
-
+    // Base URL from environment - use FRONTEND_URL as fallback
+    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
     const formLink = `${baseUrl}/patients/form/${token}?lang=${language}`;
 
-    // Configure SendGrid for email sending
-    if (!process.env.SENDGRID_API_KEY) {
-      return res.status(500).json({ message: 'SendGrid API key is missing in server environment' });
-    }
-
-    // Log attempt to send email
-    console.log(`Attempting to send email to: ${email} using SendGrid`);
-    console.log('Make sure your SendGrid API key is valid and has the necessary permissions');
-
-    // Verify sender email is configured
-    if (!process.env.EMAIL_FROM) {
-      return res.status(500).json({ message: 'Sender email (EMAIL_FROM) is not configured in server environment' });
-    }
+    // Sender email already determined at the top - no need to check again
+    console.log('Using sender email:', senderEmail.substring(0, 5) + '...');
 
     const subject = language === 'spanish' ?
       'Complete su formulario médico - The Wellness Studio' :
@@ -738,19 +796,79 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       </div>
     `;
 
-    // Create email message for SendGrid
-    const msg = {
-      to: email,
-      from: process.env.EMAIL_FROM, // Verified sender in SendGrid
-      subject: subject,
-      text: text,
-      html: htmlContent,
-    };
-
-    // Send the email with better error handling
+    // Send email using SendGrid if available, otherwise use nodemailer
     try {
-      const response = await sgMail.send(msg);
-      console.log('Email sent successfully with SendGrid:', response);
+      let emailSent = false;
+      
+      // Try SendGrid first if API key is configured
+      if (process.env.SENDGRID_API_KEY) {
+        try {
+          const msg = {
+            to: email,
+            from: senderEmail,
+            subject: subject,
+            text: text,
+            html: htmlContent,
+          };
+          
+          const response = await sgMail.send(msg);
+          console.log('Email sent successfully with SendGrid:', response);
+          emailSent = true;
+        } catch (sendgridError) {
+          console.error('SendGrid email failed, falling back to nodemailer:', sendgridError);
+          // Fall through to nodemailer
+        }
+      }
+      
+      // Use nodemailer if SendGrid is not configured or failed
+      if (!emailSent) {
+        // For nodemailer/Gmail, we need EMAIL_USER for authentication
+        // IMPORTANT: We must use EMAIL_USER (not senderEmail) because Gmail auth requires the actual Gmail account
+        // But we use senderEmail (EMAIL_FROM or EMAIL_USER) as the "from" field in the email
+        const emailUserForAuth = isValidEmailString(process.env.EMAIL_USER) ? process.env.EMAIL_USER.trim() : '';
+        const emailPassword = process.env.EMAIL_PASSWORD && process.env.EMAIL_PASSWORD.trim() ? process.env.EMAIL_PASSWORD.trim() : '';
+        
+        if (!emailUserForAuth || !emailPassword) {
+          console.error('Nodemailer configuration missing:', {
+            EMAIL_USER: emailUserForAuth ? 'SET' : 'NOT SET',
+            EMAIL_USER_length: emailUserForAuth ? emailUserForAuth.length : 0,
+            EMAIL_PASSWORD: emailPassword ? 'SET' : 'NOT SET',
+            EMAIL_PASSWORD_length: emailPassword ? emailPassword.length : 0
+          });
+          throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD (both must be non-empty), or SENDGRID_API_KEY and EMAIL_FROM in server environment variables (check Render dashboard).');
+        }
+        
+        // Create nodemailer transporter - use EMAIL_USER for Gmail authentication
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: emailUserForAuth,
+            pass: emailPassword,
+          },
+        });
+        
+        // Verify transporter is ready
+        try {
+          await transporter.verify();
+          console.log('Nodemailer transporter verified successfully');
+        } catch (verifyError) {
+          console.error('Nodemailer verification failed:', verifyError);
+          throw new Error('Email service configuration invalid. Please check EMAIL_USER and EMAIL_PASSWORD in server environment.');
+        }
+        
+        const mailOptions = {
+          from: senderEmail,
+          to: email,
+          subject: subject,
+          text: text,
+          html: htmlContent,
+        };
+        
+        console.log('Attempting to send email with nodemailer...');
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent successfully with nodemailer:', info.messageId);
+        emailSent = true;
+      }
 
       res.status(200).json({
         message: 'Form link sent successfully',
@@ -759,23 +877,51 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
         emailSent: true
       });
     } catch (emailError) {
-      console.error('Error sending email with SendGrid:', emailError);
-      if (emailError.response) {
-        console.error('SendGrid API error details:', emailError.response.body);
-      }
+      console.error('Error sending email:', emailError);
+      console.error('Email error details:', {
+        message: emailError.message,
+        code: emailError.code,
+        response: emailError.response?.data,
+        stack: emailError.stack
+      });
 
       // Still save the token but inform about email failure
       res.status(500).json({
         message: 'Form token created but email failed to send',
         error: emailError.message,
+        errorCode: emailError.code,
         formLink,
         token,
-        emailSent: false
+        emailSent: false,
+        debug: {
+          EMAIL_USER: !!process.env.EMAIL_USER,
+          EMAIL_PASSWORD: !!process.env.EMAIL_PASSWORD,
+          SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY
+        }
       });
     }
   } catch (error) {
     console.error('Send form link error:', error);
-    res.status(500).json({ message: 'Failed to send form link', error: error.message });
+    console.error('Full error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    
+    // More detailed error response
+    res.status(500).json({ 
+      message: 'Failed to send form link', 
+      error: error.message,
+      errorType: error.name,
+      errorCode: error.code,
+      debug: {
+        EMAIL_USER: !!process.env.EMAIL_USER,
+        EMAIL_PASSWORD: !!process.env.EMAIL_PASSWORD,
+        EMAIL_FROM: !!process.env.EMAIL_FROM,
+        SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY
+      }
+    });
   }
 });
 

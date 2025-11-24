@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 import { toast } from 'react-toastify';
@@ -60,7 +60,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   const [error, setError] = useState<string | null>(null);
   const { token } = useAuth();
 
-  const fetchNotifications = async (filters = {}) => {
+  const fetchNotifications = useCallback(async (filters = {}) => {
     if (!token) return;
     
     setLoading(true);
@@ -73,8 +73,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         if (value !== undefined) queryParams.append(key, value as string);
       });
       
-      // Default to non-dismissed notifications
-      if (!queryParams.has('isDismissed')) {
+      // Default to non-dismissed notifications (unless explicitly requested)
+      // This allows the notifications page to show all notifications if needed
+      if (!queryParams.has('isDismissed') && filters.isDismissed === undefined) {
         queryParams.append('isDismissed', 'false');
       }
       
@@ -93,7 +94,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   const markAsRead = async (id: string): Promise<boolean> => {
     if (!token) return false;
@@ -241,7 +242,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       
       return () => clearInterval(intervalId);
     }
-  }, [token]);
+  }, [token, fetchNotifications]);
 
   const value = {
     notifications,

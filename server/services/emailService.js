@@ -28,7 +28,7 @@ class EmailService {
 
 
   // Generate HTML email template for invoice
-  generateInvoiceEmailHTML(invoiceData, patientData, paymentLink) {
+  generateInvoiceEmailHTML(invoiceData, patientData, paymentLink = '') {
     
     const itemsHTML = invoiceData.items.map(item => `
       <tr>
@@ -140,8 +140,11 @@ class EmailService {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
     }
 
+    // Ensure payment link exists (fallback if not provided)
+    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoiceData._id}`;
+
     try {
-      const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, paymentLink);
+      const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
       
       const mailOptions = {
         from: this.emailUser,
@@ -151,7 +154,7 @@ class EmailService {
         attachments: [
           {
             filename: `invoice-${invoiceData.invoiceNumber}.pdf`,
-            content: await this.generateInvoicePDF(invoiceData, patientData, paymentLink)
+            content: await this.generateInvoicePDF(invoiceData, patientData, finalPaymentLink)
           }
         ]
       };
@@ -166,7 +169,7 @@ class EmailService {
   }
 
   // Generate PDF invoice using jsPDF
-  async generateInvoicePDF(invoiceData, patientData, paymentLink) {
+  async generateInvoicePDF(invoiceData, patientData, paymentLink = '') {
     try {
       const doc = new jsPDF();
       
@@ -313,6 +316,9 @@ class EmailService {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
     }
 
+    // Ensure payment link exists (fallback if not provided)
+    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoiceData._id}`;
+
     try {
       const htmlContent = `
         <!DOCTYPE html>
@@ -347,7 +353,7 @@ class EmailService {
               <p>This is a friendly reminder that your invoice #${invoiceData.invoiceNumber} for $${invoiceData.total.toFixed(2)} is due on ${new Date(invoiceData.dueDate).toLocaleDateString()}.</p>
               <p>Please click the button below to make your payment:</p>
               <div style="text-align: center;">
-                <a href="${paymentLink}" class="payment-button">
+                <a href="${finalPaymentLink}" class="payment-button">
                   Pay Now
                 </a>
               </div>

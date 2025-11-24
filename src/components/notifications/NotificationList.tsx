@@ -17,9 +17,19 @@ const NotificationList: React.FC = () => {
   const [filter, setFilter] = useState<string>('all');
   const navigate = useNavigate();
   
+  // Fetch notifications on mount and when filter changes
   useEffect(() => {
-    fetchNotifications(filter === 'all' ? undefined : filter === 'unread');
-  }, [fetchNotifications, filter]);
+    // On notifications page, show all non-dismissed notifications
+    const filters: any = {};
+    if (filter === 'unread') {
+      filters.isRead = 'false';
+    }
+    // Show all notifications on the notifications page
+    // Note: fetchNotifications is memoized with useCallback, so it won't cause re-renders
+    
+    fetchNotifications(filters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]); // Only refetch when filter changes - fetchNotifications is stable (memoized)
   
   const handleNotificationClick = async (notification: any) => {
     // Mark as read
