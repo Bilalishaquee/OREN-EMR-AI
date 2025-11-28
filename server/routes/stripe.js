@@ -81,48 +81,46 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       await invoice.save();
     }
 
-    console.log(`[${Date.now() - startTime}ms] Starting email send (PDF generation + email)...`);
-    // Send email
-    try {
-      await emailService.sendInvoiceEmail(
-        invoice,
-        invoice.patient,
-        paymentLink,
-        recipientEmail
-      );
+    console.log(`[${Date.now() - startTime}ms] Responding immediately, sending email in background...`);
+    
+    // Respond immediately to prevent timeout
+    res.json({
+      success: true,
+      message: 'Invoice email is being sent',
+      data: {
+        emailSent: false, // Will be updated when email completes
+        paymentLink: paymentLink,
+        stripeSessionId: invoice.stripeSessionId,
+        processing: true
+      }
+    });
 
-      console.log(`[${Date.now() - startTime}ms] Email sent successfully, updating invoice...`);
-      // Update invoice
-      invoice.emailSent = true;
-      invoice.emailSentAt = new Date();
-      await invoice.save();
+    // Send email asynchronously in the background (don't await)
+    (async () => {
+      try {
+        console.log(`[${Date.now() - startTime}ms] Starting background email send (PDF generation + email)...`);
+        await emailService.sendInvoiceEmail(
+          invoice,
+          invoice.patient,
+          paymentLink,
+          recipientEmail
+        );
 
-      const totalTime = Date.now() - startTime;
-      console.log(`[${totalTime}ms] ✅ Invoice email process completed successfully`);
-      
-      res.json({
-        success: true,
-        message: 'Invoice email sent successfully',
-        data: {
-          emailSent: true,
-          paymentLink: paymentLink,
-          stripeSessionId: invoice.stripeSessionId
-        }
-      });
-    } catch (emailError) {
-      const totalTime = Date.now() - startTime;
-      console.error(`[${totalTime}ms] ❌ Error sending email:`, emailError);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send email',
-        error: emailError.message,
-        data: {
-          emailSent: false,
-          error: emailError.message,
-          paymentLink: paymentLink
-        }
-      });
-    }
+        console.log(`[${Date.now() - startTime}ms] Email sent successfully, updating invoice...`);
+        // Update invoice
+        invoice.emailSent = true;
+        invoice.emailSentAt = new Date();
+        await invoice.save();
+
+        const totalTime = Date.now() - startTime;
+        console.log(`[${totalTime}ms] ✅ Invoice email process completed successfully in background`);
+      } catch (emailError) {
+        const totalTime = Date.now() - startTime;
+        console.error(`[${totalTime}ms] ❌ Error sending email in background:`, emailError);
+        // Log error but don't fail the request since we already responded
+        // The invoice will remain with emailSent: false
+      }
+    })();
   } catch (error) {
     const totalTime = Date.now() - startTime;
     console.error(`[${totalTime}ms] ❌ Error in send-invoice-email:`, error);
@@ -192,34 +190,35 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
       await invoice.save();
     }
 
-    // Send reminder email
-    try {
-      await emailService.sendPaymentReminder(
-        invoice,
-        invoice.patient,
-        paymentLink,
-        recipientEmail
-      );
+    // Respond immediately to prevent timeout
+    res.json({
+      success: true,
+      message: 'Payment reminder is being sent',
+      data: {
+        emailSent: false, // Will be updated when email completes
+        paymentLink: paymentLink,
+        processing: true
+      }
+    });
 
-      invoice.lastReminderSent = new Date();
-      await invoice.save();
+    // Send reminder email asynchronously in the background (don't await)
+    (async () => {
+      try {
+        await emailService.sendPaymentReminder(
+          invoice,
+          invoice.patient,
+          paymentLink,
+          recipientEmail
+        );
 
-      res.json({
-        success: true,
-        message: 'Payment reminder sent successfully',
-        data: {
-          emailSent: true,
-          paymentLink: paymentLink
-        }
-      });
-    } catch (emailError) {
-      console.error('Error sending reminder email:', emailError);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send reminder email',
-        error: emailError.message
-      });
-    }
+        invoice.lastReminderSent = new Date();
+        await invoice.save();
+        console.log('✅ Payment reminder email sent successfully in background');
+      } catch (emailError) {
+        console.error('❌ Error sending reminder email in background:', emailError);
+        // Log error but don't fail the request since we already responded
+      }
+    })();
   } catch (error) {
     console.error('Error in send-reminder:', error);
     res.status(500).json({

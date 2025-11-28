@@ -237,11 +237,13 @@ const BillingList: React.FC<BillingListProps> = ({
       console.log(`✅ Email response received in ${duration}ms:`, response.data);
 
       if (response.data.success) {
-        // Check if email was actually sent
-        if (response.data.data && response.data.data.emailSent) {
-          setShowEmailModal(false);
-          setSelectedInvoice(null);
-          setEmailAddress('');
+        setShowEmailModal(false);
+        setSelectedInvoice(null);
+        setEmailAddress('');
+        // Check if email is being processed in background
+        if (response.data.data?.processing) {
+          alert('Invoice email is being sent in the background. Please check your email in a few moments. The email should arrive shortly.');
+        } else if (response.data.data && response.data.data.emailSent) {
           alert('Invoice email sent successfully!');
         } else {
           // Email sending failed but API returned success
