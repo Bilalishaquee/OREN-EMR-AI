@@ -55,6 +55,7 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://oren-emr-ai-ashen.vercel.app',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -65,6 +66,10 @@ app.use(cors({
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {
+      // In production, allow vercel.app subdomains
+      if (origin && origin.includes('vercel.app')) {
+        return callback(null, true);
+      }
       // In production, you might want to log this
       if (process.env.NODE_ENV === 'production') {
         console.log('CORS blocked origin:', origin);

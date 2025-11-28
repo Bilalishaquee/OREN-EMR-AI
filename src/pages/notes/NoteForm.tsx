@@ -1486,7 +1486,7 @@ ${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</stro
     // Remove leading slash if present, then add it back to ensure consistent format
     normalizedPath = normalizedPath.replace(/^\/+/, '');
     // Use the API base URL for images since frontend and backend are on different ports
-    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://oren-emr-ai-1.onrender.com';
     // Ensure it starts with / for absolute path
     return `${apiBaseUrl}/${normalizedPath}`;
   };

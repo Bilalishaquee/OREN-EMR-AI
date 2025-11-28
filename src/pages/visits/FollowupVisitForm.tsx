@@ -882,7 +882,7 @@ Now generate this summary using the provided patient data:
 
       // 2. Generate AI narrative
       try {
-        const aiResponse = await axios.post(`${import.meta.env.VITE_API_URL}/api/generate-narrative`, {
+        const aiResponse = await axios.post(`${import.meta.env.VITE_API_URL || 'https://oren-emr-ai-1.onrender.com'}/api/generate-narrative`, {
           ...formData,
           visitType: 'followup'
         });

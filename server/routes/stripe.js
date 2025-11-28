@@ -55,8 +55,8 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
           quantity: 1
         }],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/success/${invoiceId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/cancel/${invoiceId}`,
+        success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/success/${invoiceId}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/cancel/${invoiceId}`,
         metadata: {
           invoiceId: invoice._id.toString(),
           invoiceNumber: invoice.invoiceNumber
@@ -161,8 +161,8 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
           quantity: 1
         }],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/success/${invoiceId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/cancel/${invoiceId}`,
+        success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/success/${invoiceId}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/cancel/${invoiceId}`,
         metadata: {
           invoiceId: invoice._id.toString(),
           invoiceNumber: invoice.invoiceNumber
