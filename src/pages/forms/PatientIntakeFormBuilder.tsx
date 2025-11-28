@@ -419,16 +419,16 @@ const PatientIntakeFormBuilder: React.FC = () => {
     }
   };
   
-  const saveFormTemplate = async () => {
+  const saveFormTemplate = async (skipNavigation = false) => {
     // Validate form
     if (!formTemplate.title.trim()) {
       toast.error('Form title is required');
-      return;
+      return null;
     }
     
     if (formTemplate.items.length === 0) {
       toast.error('Form must have at least one question');
-      return;
+      return null;
     }
     
     setIsSaving(true);
@@ -444,11 +444,17 @@ const PatientIntakeFormBuilder: React.FC = () => {
         toast.success('Form template created successfully');
       }
       
-      // Navigate to form templates list
-      navigate('/forms/templates');
+      // Navigate to form templates list only if not skipping navigation
+      if (!skipNavigation) {
+        navigate('/forms/templates');
+      }
+      
+      // Return the form ID (either existing or newly created)
+      return response.data._id || response.data.id || id;
     } catch (error) {
       console.error('Error saving form template:', error);
       toast.error('Failed to save form template');
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -472,12 +478,25 @@ const PatientIntakeFormBuilder: React.FC = () => {
     }
   };
   
-  const handlePreview = () => {
-    // Save the form first to ensure all changes are persisted
-    saveFormTemplate().then(() => {
-      // Open the preview in a new window/tab
-      window.open(`/forms/templates/${id || 'new'}/preview`, '_blank');
-    });
+  const handlePreview = async () => {
+    // If form is not saved yet, save it first
+    if (!id) {
+      const savedId = await saveFormTemplate(true); // Skip navigation
+      if (!savedId) {
+        toast.error('Please save the form before previewing');
+        return;
+      }
+      // Update the URL to reflect the new ID
+      window.history.replaceState({}, '', `/forms/templates/${savedId}/builder`);
+      // Open preview with the saved ID
+      window.open(`/forms/templates/${savedId}/preview`, '_blank');
+    } else {
+      // Form already exists, just save changes and open preview
+      const savedId = await saveFormTemplate(true); // Skip navigation
+      if (savedId) {
+        window.open(`/forms/templates/${savedId}/preview`, '_blank');
+      }
+    }
   };
   
   if (isLoading) {
