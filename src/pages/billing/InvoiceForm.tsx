@@ -301,7 +301,7 @@ const InvoiceForm: React.FC = () => {
         `/api/stripe/send-invoice-email/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
+          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -310,12 +310,10 @@ const InvoiceForm: React.FC = () => {
       );
 
       if (response.data.success) {
-        setShowEmailModal(false);
-        setEmailAddress('');
-        // Check if email is being processed in background
-        if (response.data.data?.processing) {
-          alert('Invoice email is being sent in the background. Please check your email in a few moments. The email should arrive shortly.');
-        } else if (response.data.data && response.data.data.emailSent) {
+        // Check if email was actually sent
+        if (response.data.data && response.data.data.emailSent) {
+          setShowEmailModal(false);
+          setEmailAddress('');
           alert('Invoice email sent successfully!');
         } else {
           // Email sending failed but API returned success
@@ -327,18 +325,7 @@ const InvoiceForm: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error sending invoice email:', error);
-      let errorMessage = 'Failed to send invoice email. Please try again.';
-      
-      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        errorMessage = 'Request timed out after 90 seconds. This can happen on slower connections or when the server is processing. The email may still be processing in the background. Please wait a moment and check if the email was delivered, or try again.';
-      } else if (error.response) {
-        errorMessage = error.response?.data?.message || error.response?.data?.error || `Server error: ${error.response.status}`;
-      } else if (error.request) {
-        errorMessage = 'No response from server. Please check your internet connection and try again.';
-      } else {
-        errorMessage = error.message || errorMessage;
-      }
-      
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to send invoice email. Please try again.';
       alert(`Error: ${errorMessage}`);
     } finally {
       setIsSendingEmail(false);
@@ -357,7 +344,7 @@ const InvoiceForm: React.FC = () => {
         `/api/stripe/send-reminder/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
+          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -367,11 +354,7 @@ const InvoiceForm: React.FC = () => {
 
       if (response.data.success) {
         setShowEmailModal(false);
-        if (response.data.data?.processing) {
-          alert('Payment reminder is being sent in the background. Please check your email in a few moments.');
-        } else {
-          alert('Payment reminder sent successfully!');
-        }
+        alert('Payment reminder sent successfully!');
       }
     } catch (error) {
       console.error('Error sending payment reminder:', error);

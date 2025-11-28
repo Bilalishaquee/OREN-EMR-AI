@@ -195,7 +195,7 @@ const InvoiceDetails: React.FC = () => {
         `/api/stripe/send-invoice-email/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
+          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -204,12 +204,9 @@ const InvoiceDetails: React.FC = () => {
       );
 
       if (response.data.success) {
-        setShowEmailModal(false);
-        setEmailAddress('');
-        // Check if email is being processed in background
-        if (response.data.data?.processing) {
-          alert('Invoice email is being sent in the background. Please check your email in a few moments. The email should arrive shortly.');
-        } else if (response.data.data && response.data.data.emailSent) {
+        if (response.data.data && response.data.data.emailSent) {
+          setShowEmailModal(false);
+          setEmailAddress('');
           alert('Invoice email sent successfully!');
         } else {
           const errorMsg = response.data.data?.error || response.data.message || 'Email sending failed';
@@ -255,7 +252,7 @@ const InvoiceDetails: React.FC = () => {
         `/api/stripe/send-reminder/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
+          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -266,11 +263,7 @@ const InvoiceDetails: React.FC = () => {
       if (response.data.success) {
         setShowEmailModal(false);
         setEmailAddress('');
-        if (response.data.data?.processing) {
-          alert('Payment reminder is being sent in the background. Please check your email in a few moments.');
-        } else {
-          alert('Payment reminder sent successfully!');
-        }
+        alert('Payment reminder sent successfully!');
       } else {
         alert(response.data.message || 'Failed to send payment reminder. Please try again.');
       }

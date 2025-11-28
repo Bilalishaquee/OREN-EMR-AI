@@ -12,12 +12,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Send invoice email with Stripe payment link
 router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res) => {
-  const startTime = Date.now();
-  console.log(`[${new Date().toISOString()}] Starting invoice email send for invoice ${req.params.invoiceId}`);
-  
-  // Set a longer timeout for this route (2 minutes)
-  req.setTimeout(120000);
-  
   try {
     const { invoiceId } = req.params;
     const { recipientEmail } = req.body;
@@ -29,7 +23,6 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       });
     }
 
-    console.log(`[${Date.now() - startTime}ms] Finding invoice...`);
     // Find invoice
     const invoice = await Billing.findById(invoiceId)
       .populate('patient', 'firstName lastName email phone address');
@@ -41,11 +34,9 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       });
     }
 
-    console.log(`[${Date.now() - startTime}ms] Invoice found, checking payment link...`);
     // Create Stripe payment link if not exists
     let paymentLink = invoice.stripePaymentLink;
     if (!paymentLink) {
-      console.log(`[${Date.now() - startTime}ms] Creating Stripe checkout session...`);
       // Create Stripe Checkout Session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -64,8 +55,8 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
           quantity: 1
         }],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/success/${invoiceId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/cancel/${invoiceId}`,
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/success/${invoiceId}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/cancel/${invoiceId}`,
         metadata: {
           invoiceId: invoice._id.toString(),
           invoiceNumber: invoice.invoiceNumber
@@ -74,56 +65,50 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
 
       paymentLink = session.url;
       
-      console.log(`[${Date.now() - startTime}ms] Stripe session created, saving invoice...`);
       // Save Stripe session ID and payment link
       invoice.stripeSessionId = session.id;
       invoice.stripePaymentLink = paymentLink;
       await invoice.save();
     }
 
-    console.log(`[${Date.now() - startTime}ms] Responding immediately, sending email in background...`);
-    
-    // Respond immediately to prevent timeout
-    res.json({
-      success: true,
-      message: 'Invoice email is being sent',
-      data: {
-        emailSent: false, // Will be updated when email completes
-        paymentLink: paymentLink,
-        stripeSessionId: invoice.stripeSessionId,
-        processing: true
-      }
-    });
+    // Send email
+    try {
+      await emailService.sendInvoiceEmail(
+        invoice,
+        invoice.patient,
+        paymentLink,
+        recipientEmail
+      );
 
-    // Send email asynchronously in the background (don't await)
-    (async () => {
-      try {
-        console.log(`[${Date.now() - startTime}ms] Starting background email send (PDF generation + email)...`);
-        await emailService.sendInvoiceEmail(
-          invoice,
-          invoice.patient,
-          paymentLink,
-          recipientEmail
-        );
+      // Update invoice
+      invoice.emailSent = true;
+      invoice.emailSentAt = new Date();
+      await invoice.save();
 
-        console.log(`[${Date.now() - startTime}ms] Email sent successfully, updating invoice...`);
-        // Update invoice
-        invoice.emailSent = true;
-        invoice.emailSentAt = new Date();
-        await invoice.save();
-
-        const totalTime = Date.now() - startTime;
-        console.log(`[${totalTime}ms] ✅ Invoice email process completed successfully in background`);
-      } catch (emailError) {
-        const totalTime = Date.now() - startTime;
-        console.error(`[${totalTime}ms] ❌ Error sending email in background:`, emailError);
-        // Log error but don't fail the request since we already responded
-        // The invoice will remain with emailSent: false
-      }
-    })();
+      res.json({
+        success: true,
+        message: 'Invoice email sent successfully',
+        data: {
+          emailSent: true,
+          paymentLink: paymentLink,
+          stripeSessionId: invoice.stripeSessionId
+        }
+      });
+    } catch (emailError) {
+      console.error('Error sending email:', emailError);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send email',
+        error: emailError.message,
+        data: {
+          emailSent: false,
+          error: emailError.message,
+          paymentLink: paymentLink
+        }
+      });
+    }
   } catch (error) {
-    const totalTime = Date.now() - startTime;
-    console.error(`[${totalTime}ms] ❌ Error in send-invoice-email:`, error);
+    console.error('Error in send-invoice-email:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send invoice email',
@@ -176,8 +161,8 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
           quantity: 1
         }],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/success/${invoiceId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app'}/billing/cancel/${invoiceId}`,
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/success/${invoiceId}`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/billing/cancel/${invoiceId}`,
         metadata: {
           invoiceId: invoice._id.toString(),
           invoiceNumber: invoice.invoiceNumber
@@ -190,35 +175,34 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
       await invoice.save();
     }
 
-    // Respond immediately to prevent timeout
-    res.json({
-      success: true,
-      message: 'Payment reminder is being sent',
-      data: {
-        emailSent: false, // Will be updated when email completes
-        paymentLink: paymentLink,
-        processing: true
-      }
-    });
+    // Send reminder email
+    try {
+      await emailService.sendPaymentReminder(
+        invoice,
+        invoice.patient,
+        paymentLink,
+        recipientEmail
+      );
 
-    // Send reminder email asynchronously in the background (don't await)
-    (async () => {
-      try {
-        await emailService.sendPaymentReminder(
-          invoice,
-          invoice.patient,
-          paymentLink,
-          recipientEmail
-        );
+      invoice.lastReminderSent = new Date();
+      await invoice.save();
 
-        invoice.lastReminderSent = new Date();
-        await invoice.save();
-        console.log('✅ Payment reminder email sent successfully in background');
-      } catch (emailError) {
-        console.error('❌ Error sending reminder email in background:', emailError);
-        // Log error but don't fail the request since we already responded
-      }
-    })();
+      res.json({
+        success: true,
+        message: 'Payment reminder sent successfully',
+        data: {
+          emailSent: true,
+          paymentLink: paymentLink
+        }
+      });
+    } catch (emailError) {
+      console.error('Error sending reminder email:', emailError);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send reminder email',
+        error: emailError.message
+      });
+    }
   } catch (error) {
     console.error('Error in send-reminder:', error);
     res.status(500).json({
