@@ -217,14 +217,14 @@ const BillingList: React.FC<BillingListProps> = ({
       console.log('📄 Invoice ID:', selectedInvoice._id);
       console.log('🔗 Endpoint:', `/api/stripe/send-invoice-email/${selectedInvoice._id}`);
 
-      // Reduced timeout since backend is faster now
+      // Increased timeout for production (PDF generation + email sending can take time)
       const response = await axios.post(
         `/api/stripe/send-invoice-email/${selectedInvoice._id}`,
         {
           recipientEmail: emailAddress
         },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -265,7 +265,7 @@ const BillingList: React.FC<BillingListProps> = ({
       let errorMessage = 'Failed to send invoice email. Please try again.';
 
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        errorMessage = 'Request timed out. The email should still be sent. Please check if the email was delivered.';
+        errorMessage = 'Request timed out after 90 seconds. This can happen on slower connections or when the server is processing. The email may still be processing in the background. Please wait a moment and check if the email was delivered, or try again.';
       } else if (error.response) {
         // Server responded with error status
         errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
@@ -319,7 +319,7 @@ const BillingList: React.FC<BillingListProps> = ({
           recipientEmail: emailAddress
         },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`

@@ -195,7 +195,7 @@ const InvoiceDetails: React.FC = () => {
         `/api/stripe/send-invoice-email/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -252,7 +252,7 @@ const InvoiceDetails: React.FC = () => {
         `/api/stripe/send-reminder/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`

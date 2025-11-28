@@ -301,7 +301,7 @@ const InvoiceForm: React.FC = () => {
         `/api/stripe/send-invoice-email/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -325,7 +325,18 @@ const InvoiceForm: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error sending invoice email:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to send invoice email. Please try again.';
+      let errorMessage = 'Failed to send invoice email. Please try again.';
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out after 90 seconds. This can happen on slower connections or when the server is processing. The email may still be processing in the background. Please wait a moment and check if the email was delivered, or try again.';
+      } else if (error.response) {
+        errorMessage = error.response?.data?.message || error.response?.data?.error || `Server error: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage = 'No response from server. Please check your internet connection and try again.';
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
+      
       alert(`Error: ${errorMessage}`);
     } finally {
       setIsSendingEmail(false);
@@ -344,7 +355,7 @@ const InvoiceForm: React.FC = () => {
         `/api/stripe/send-reminder/${id}`,
         { recipientEmail: emailAddress },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 90000, // 90 second timeout (PDF generation + email sending can take time on production)
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`

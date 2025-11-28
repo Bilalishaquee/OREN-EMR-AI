@@ -15,10 +15,25 @@ class EmailService {
     if (this.isConfigured) {
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // true for 465, false for other ports
         auth: {
           user: this.emailUser,
           pass: this.emailPassword, // Use app password for Gmail
         },
+        tls: {
+          rejectUnauthorized: false,
+          minVersion: 'TLSv1.2'
+        },
+        // Increased timeouts for production environments
+        connectionTimeout: 60000, // 60 seconds
+        greetingTimeout: 60000, // 60 seconds
+        socketTimeout: 60000, // 60 seconds
+        // Retry configuration
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 3
       });
     } else {
       console.warn('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');

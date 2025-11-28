@@ -12,6 +12,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Send invoice email with Stripe payment link
 router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  console.log(`[${new Date().toISOString()}] Starting invoice email send for invoice ${req.params.invoiceId}`);
+  
+  // Set a longer timeout for this route (2 minutes)
+  req.setTimeout(120000);
+  
   try {
     const { invoiceId } = req.params;
     const { recipientEmail } = req.body;
@@ -23,6 +29,7 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       });
     }
 
+    console.log(`[${Date.now() - startTime}ms] Finding invoice...`);
     // Find invoice
     const invoice = await Billing.findById(invoiceId)
       .populate('patient', 'firstName lastName email phone address');
@@ -34,9 +41,11 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       });
     }
 
+    console.log(`[${Date.now() - startTime}ms] Invoice found, checking payment link...`);
     // Create Stripe payment link if not exists
     let paymentLink = invoice.stripePaymentLink;
     if (!paymentLink) {
+      console.log(`[${Date.now() - startTime}ms] Creating Stripe checkout session...`);
       // Create Stripe Checkout Session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -65,12 +74,14 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
 
       paymentLink = session.url;
       
+      console.log(`[${Date.now() - startTime}ms] Stripe session created, saving invoice...`);
       // Save Stripe session ID and payment link
       invoice.stripeSessionId = session.id;
       invoice.stripePaymentLink = paymentLink;
       await invoice.save();
     }
 
+    console.log(`[${Date.now() - startTime}ms] Starting email send (PDF generation + email)...`);
     // Send email
     try {
       await emailService.sendInvoiceEmail(
@@ -80,11 +91,15 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
         recipientEmail
       );
 
+      console.log(`[${Date.now() - startTime}ms] Email sent successfully, updating invoice...`);
       // Update invoice
       invoice.emailSent = true;
       invoice.emailSentAt = new Date();
       await invoice.save();
 
+      const totalTime = Date.now() - startTime;
+      console.log(`[${totalTime}ms] ✅ Invoice email process completed successfully`);
+      
       res.json({
         success: true,
         message: 'Invoice email sent successfully',
@@ -95,7 +110,8 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
         }
       });
     } catch (emailError) {
-      console.error('Error sending email:', emailError);
+      const totalTime = Date.now() - startTime;
+      console.error(`[${totalTime}ms] ❌ Error sending email:`, emailError);
       res.status(500).json({
         success: false,
         message: 'Failed to send email',
@@ -108,7 +124,8 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       });
     }
   } catch (error) {
-    console.error('Error in send-invoice-email:', error);
+    const totalTime = Date.now() - startTime;
+    console.error(`[${totalTime}ms] ❌ Error in send-invoice-email:`, error);
     res.status(500).json({
       success: false,
       message: 'Failed to send invoice email',

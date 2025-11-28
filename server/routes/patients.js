@@ -960,10 +960,13 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
             rejectUnauthorized: true, // Verify certificate (more secure)
             minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
           },
-          // Additional connection options
-          connectionTimeout: 30000, // 30 seconds (increased for better reliability)
-          greetingTimeout: 30000,
-          socketTimeout: 30000
+          // Additional connection options - increased timeouts for production
+          connectionTimeout: 60000, // 60 seconds (increased for production environments)
+          greetingTimeout: 60000, // 60 seconds
+          socketTimeout: 60000, // 60 seconds
+          pool: true,
+          maxConnections: 1,
+          maxMessages: 3
         });
         
         const mailOptions = {
@@ -979,23 +982,50 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
         console.log('To:', email);
         console.log('Auth user:', emailUserForAuth);
         
-        // Verify connection before sending
+        // Verify connection before sending (with timeout protection)
         try {
           console.log('Verifying SMTP connection...');
-          await transporter.verify();
+          // Add timeout to verification to prevent hanging
+          const verifyPromise = transporter.verify();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Verification timeout after 30 seconds')), 30000)
+          );
+          await Promise.race([verifyPromise, timeoutPromise]);
           console.log('✅ SMTP connection verified successfully');
         } catch (verifyError) {
           console.error('❌ SMTP connection verification failed:', verifyError.message);
           console.error('Error code:', verifyError.code);
           // Continue anyway - sometimes verify fails but sendMail works
+          console.warn('⚠️ Continuing with sendMail despite verification failure...');
         }
         
         // Try sending email - if port 587 fails, try port 465 as fallback
         let sendError = null;
         try {
-          const info = await transporter.sendMail(mailOptions);
-          console.log('✅ Email sent successfully with nodemailer (port 587):', info.messageId);
-          emailSent = true;
+          // Add retry logic for transient connection errors
+          let retries = 2;
+          let lastSendError = null;
+          while (retries >= 0) {
+            try {
+              const info = await transporter.sendMail(mailOptions);
+              console.log('✅ Email sent successfully with nodemailer (port 587):', info.messageId);
+              emailSent = true;
+              break;
+            } catch (sendRetryError) {
+              lastSendError = sendRetryError;
+              if (retries > 0 && (sendRetryError.code === 'ETIMEDOUT' || sendRetryError.code === 'ECONNRESET' || sendRetryError.code === 'ESOCKET' || sendRetryError.message?.includes('timeout'))) {
+                console.warn(`⚠️ Email send failed (${sendRetryError.code}), retrying... (${retries} attempts left)`);
+                retries--;
+                // Wait 2 seconds before retry
+                await new Promise(resolve => setTimeout(resolve, 2000));
+              } else {
+                throw sendRetryError;
+              }
+            }
+          }
+          if (!emailSent && lastSendError) {
+            throw lastSendError;
+          }
         } catch (firstError) {
           sendError = firstError;
           console.error('❌ Port 587 failed:', {
@@ -1020,9 +1050,12 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
                 rejectUnauthorized: true,
                 minVersion: 'TLSv1.2'
               },
-              connectionTimeout: 30000,
-              greetingTimeout: 30000,
-              socketTimeout: 30000
+              connectionTimeout: 60000, // 60 seconds - increased for production
+              greetingTimeout: 60000, // 60 seconds
+              socketTimeout: 60000, // 60 seconds
+              pool: true,
+              maxConnections: 1,
+              maxMessages: 3
             });
             
             // Verify fallback connection
