@@ -96,7 +96,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       patient: id,
     };
 
-    await axios.post('https://oren-emr-ai-1.onrender.com/api/visits', payload);
+    await axios.post('/api/visits', payload);
 
     navigate(`/patients/${id}`);
   } catch (err) {

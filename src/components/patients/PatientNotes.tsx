@@ -63,7 +63,7 @@ const PatientNotes: React.FC<PatientNotesProps> = ({ patientId }) => {
   const fetchPatientNotes = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/notes/patient/${patientId}`);
+      const response = await axios.get(`/api/notes/patient/${patientId}`);
       setNotes(response.data || []);
     } catch (error) {
       console.error('Error fetching patient notes:', error);
@@ -78,7 +78,7 @@ const PatientNotes: React.FC<PatientNotesProps> = ({ patientId }) => {
   const handleDeleteNote = async (noteId: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
       try {
-        await axios.delete(`https://oren-emr-ai-1.onrender.com/api/notes/${noteId}`);
+        await axios.delete(`/api/notes/${noteId}`);
         toast.success('Note deleted successfully');
         fetchPatientNotes();
       } catch (error) {

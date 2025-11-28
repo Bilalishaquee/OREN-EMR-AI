@@ -149,7 +149,7 @@ const [modalIsOpen, setModalIsOpen] = useState(false);
 const { data: patientData, isLoading } = useQuery({
   queryKey: ['patientData', id],
   queryFn: async () => {
-    const res = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${id}`);
+    const res = await axios.get(`/api/patients/${id}`);
     console.log("Patient API Response:", res.data);
     if (!res.data) throw new Error("No patient data returned");
     return res.data; // ✅ Fix: directly return res.data (not res.data.patient)
@@ -337,7 +337,7 @@ const { data: patientData, isLoading } = useQuery({
   
     try {
       // First, save the visit data
-      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/visits`, {
+      const response = await axios.post(`/api/visits`, {
          ...formData,
          patient: id,
          doctor: user?._id,
@@ -355,7 +355,7 @@ const { data: patientData, isLoading } = useQuery({
 
         if (aiResponse.data.success) {
           // Update the visit with the AI narrative
-          await axios.patch(`https://oren-emr-ai-1.onrender.com/api/visits/${savedVisitId}`, {
+          await axios.patch(`/api/visits/${savedVisitId}`, {
             aiNarrative: aiResponse.data.narrative
           });
         }

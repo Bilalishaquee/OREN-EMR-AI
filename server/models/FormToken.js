@@ -35,6 +35,10 @@ const FormTokenSchema = new mongoose.Schema({
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Patient'
+  },
+  formTemplateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FormTemplate'
   }
 });
 

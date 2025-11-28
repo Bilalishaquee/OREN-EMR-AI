@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.get('/:patientId/appointments', async (req, res) => {
   try {
-    const appointments = await Appointment.find({ patient: req.params.patientId, paymentStatus:  'Pending' }).select('date time doctor paymentStatus');
+    const appointments = await Appointment.find({ patient: req.params.patientId, paymentStatus: 'Pending' }).select('date time doctor paymentStatus');
     res.json({ appointments });
   } catch (error) {
     console.error('Get patient appointments error:', error);
@@ -27,19 +27,19 @@ router.get('/:patientId/allappointments', async (req, res) => {
   }
 });
 
-router.put('/:appointmentId/updatestatus',async(req,res)=>{
+router.put('/:appointmentId/updatestatus', async (req, res) => {
   try {
-    
-    const paymentStatus=await Appointment.findByIdAndUpdate(req.params.appointmentId, { paymentStatus: 'billed' }, { new: true });
+
+    const paymentStatus = await Appointment.findByIdAndUpdate(req.params.appointmentId, { paymentStatus: 'billed' }, { new: true });
     res.json(paymentStatus);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
-router.put('/:appointmentId/UpdateStatusPaid',async(req,res)=>{
+router.put('/:appointmentId/UpdateStatusPaid', async (req, res) => {
   try {
-    
-    const paymentStatus=await Appointment.findByIdAndUpdate(req.params.appointmentId, { paymentStatus: 'Paid' }, { new: true });
+
+    const paymentStatus = await Appointment.findByIdAndUpdate(req.params.appointmentId, { paymentStatus: 'Paid' }, { new: true });
     res.json(paymentStatus);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -51,28 +51,28 @@ router.put('/:appointmentId/UpdateStatusPaid',async(req,res)=>{
 router.get('/', authenticateToken, async (req, res) => {
 
   try {
-    const { 
-      status, 
+    const {
+      status,
       patient: patientId,
       startDate,
       endDate,
       page = 1,
       limit = 10
     } = req.query;
-    
+
     // Build filter
     const filter = {};
-    
+
     // Status filter
     if (status) {
       filter.status = status;
     }
-    
+
     // Patient filter
     if (patientId) {
       filter.patient = patientId;
     }
-    
+
     // Date range filter
     if (startDate && endDate) {
       filter.dateIssued = {
@@ -84,14 +84,14 @@ router.get('/', authenticateToken, async (req, res) => {
     } else if (endDate) {
       filter.dateIssued = { $lte: new Date(endDate) };
     }
-    
+
     // If user is a doctor, only show invoices for their patients
     if (req.user.role === 'doctor') {
       const patients = await Patient.find({ assignedDoctor: req.user.id }).select('_id');
       const patientIds = patients.map(p => p._id);
       filter.patient = { $in: patientIds };
     }
-    
+
     const invoices = await Billing.find(filter)
       .populate('patient', 'firstName lastName email phone address dynamicData')
       .populate('visit', 'date visitType')
@@ -99,9 +99,9 @@ router.get('/', authenticateToken, async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ dateIssued: -1 });
-    
+
     const count = await Billing.countDocuments(filter);
-    
+
     res.json({
       invoices,
       totalPages: Math.ceil(count / limit),
@@ -142,11 +142,11 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
     const invoice = await Billing.findById(req.params.id)
       .populate('patient', 'firstName lastName email phone address dynamicData')
       .populate('visit', 'date visitType');
-    
+
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
-    
+
     // If user is a doctor, check if invoice is for their patient
     if (req.user.role === 'doctor') {
       const patient = await Patient.findById(invoice.patient._id);
@@ -157,12 +157,12 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
 
     // Create PDF
     const doc = new jsPDF();
-    
+
     // Add header
     doc.setFontSize(24);
     doc.setTextColor(44, 62, 80);
     doc.text('INVOICE', 105, 20, { align: 'center' });
-    
+
     // Add clinic info
     doc.setFontSize(10);
     doc.setTextColor(52, 73, 94);
@@ -171,7 +171,7 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
     doc.text('Long Beach, CA 90807, USA', 20, 45);
     doc.text('Phone: (562) 980-0555', 20, 50);
     doc.text('Email: billing@wellness-studio.com', 20, 55);
-    
+
     // Add invoice details
     doc.setFontSize(12);
     doc.setTextColor(44, 62, 80);
@@ -179,14 +179,14 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
     doc.text(`Date: ${new Date(invoice.dateIssued).toLocaleDateString()}`, 120, 40);
     doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 120, 45);
     doc.text(`Status: ${invoice.status.toUpperCase()}`, 120, 50);
-    
+
     // Add patient info
     doc.setFontSize(12);
     doc.setTextColor(44, 62, 80);
     doc.text('Bill To:', 20, 70);
     doc.setFontSize(10);
     doc.text(`${invoice.patient.firstName} ${invoice.patient.lastName}`, 20, 80);
-    
+
     if (invoice.patient.address && invoice.patient.address.street) {
       doc.text(invoice.patient.address.street, 20, 85);
       const cityStateZip = `${invoice.patient.address.city || ''}, ${invoice.patient.address.state || ''} ${invoice.patient.address.zipCode || ''}`.trim();
@@ -194,15 +194,15 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
         doc.text(cityStateZip, 20, 90);
       }
     }
-    
+
     if (invoice.patient.phone) {
       doc.text(`Phone: ${invoice.patient.phone}`, 20, 95);
     }
-    
+
     if (invoice.patient.email) {
       doc.text(`Email: ${invoice.patient.email}`, 20, 100);
     }
-    
+
     // Add items table
     const tableY = 120;
     const tableData = invoice.items.map(item => [
@@ -212,7 +212,7 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
       `$${item.unitPrice.toFixed(2)}`,
       `$${item.total.toFixed(2)}`
     ]);
-    
+
     doc.autoTable({
       startY: tableY,
       head: [['Description', 'Code', 'Qty', 'Unit Price', 'Total']],
@@ -234,30 +234,30 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
         4: { cellWidth: 30 }
       }
     });
-    
+
     // Add totals
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(10);
     doc.setTextColor(44, 62, 80);
-    
+
     doc.text('Subtotal:', 150, finalY);
     doc.text(`$${invoice.subtotal.toFixed(2)}`, 170, finalY);
-    
+
     if (invoice.tax > 0) {
       doc.text('Tax:', 150, finalY + 8);
       doc.text(`$${invoice.tax.toFixed(2)}`, 170, finalY + 8);
     }
-    
+
     if (invoice.discount > 0) {
       doc.text('Discount:', 150, finalY + 16);
       doc.text(`-$${invoice.discount.toFixed(2)}`, 170, finalY + 16);
     }
-    
+
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.text('Total:', 150, finalY + 24);
     doc.text(`$${invoice.total.toFixed(2)}`, 170, finalY + 24);
-    
+
     // Add notes if any
     if (invoice.notes) {
       doc.setFontSize(10);
@@ -267,20 +267,20 @@ router.get('/:id/download', authenticateToken, async (req, res) => {
       const splitNotes = doc.splitTextToSize(invoice.notes, 170);
       doc.text(splitNotes, 20, finalY + 45);
     }
-    
+
     // Add payment info
     doc.setFontSize(10);
     doc.setTextColor(52, 73, 94);
     doc.text('Payment Terms: Net 30 days', 20, finalY + 60);
     doc.text('Please make checks payable to: The Wellness Studio', 20, finalY + 65);
-    
+
     // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Invoice_${invoice.invoiceNumber}.pdf"`);
-    
+
     // Send the PDF
     res.send(doc.output('arraybuffer'));
-    
+
   } catch (error) {
     console.error('Error generating PDF:', error);
     res.status(500).json({ message: 'Error generating PDF', error: error.message });
@@ -296,11 +296,11 @@ router.get('/:id', authenticateToken, async (req, res) => {
       .populate('patient', 'firstName lastName dateOfBirth gender phone email address dynamicData')
       .populate('visit', 'date visitType');
 
-    
+
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
-    
+
     // If user is a doctor, check if invoice is for their patient
     if (req.user.role === 'doctor') {
       const patient = await Patient.findById(invoice.patient._id);
@@ -308,8 +308,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
-    
-    
+
+
     res.json(invoice);
   } catch (error) {
     console.error('Get invoice error:', error);
@@ -332,17 +332,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   const startTime = new Date();
   const requestId = `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-  
+
   console.log(`[${startTime.toISOString()}] [${requestId}] Invoice creation started`, {
     user: req.user.id,
     invoiceNumber: req.body.invoiceNumber,
     patient: req.body.patient,
-     paymentMethod: req.body.paymentMethod
+    paymentMethod: req.body.paymentMethod
   });
-  
+
   try {
     const invoiceData = req.body;
-    
+
     // Check if patient exists
     const patient = await Patient.findById(invoiceData.patient);
     if (!patient) {
@@ -350,14 +350,14 @@ router.post('/', authenticateToken, async (req, res) => {
         patientId: invoiceData.patient,
         user: req.user.id
       });
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
         message: 'Patient not found',
         error: 'PATIENT_NOT_FOUND'
       });
     }
     if (!invoiceData.appointment) delete invoiceData.appointment;
-    
+
     // If user is a doctor, check if patient is assigned to them
     if (req.user.role === 'doctor' && patient.assignedDoctor.toString() !== req.user.id) {
       console.warn(`[${new Date().toISOString()}] [${requestId}] Unauthorized access attempt`, {
@@ -365,13 +365,13 @@ router.post('/', authenticateToken, async (req, res) => {
         patientId: patient._id,
         assignedDoctor: patient.assignedDoctor
       });
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
         message: 'Access denied: Patient not assigned to you',
         error: 'UNAUTHORIZED_ACCESS'
       });
     }
-    
+
     // Check for duplicate invoice number
     const existingInvoice = await Billing.findOne({ invoiceNumber: invoiceData.invoiceNumber });
     if (existingInvoice) {
@@ -380,7 +380,7 @@ router.post('/', authenticateToken, async (req, res) => {
         existingInvoiceId: existingInvoice._id,
         user: req.user.id
       });
-      return res.status(409).json({ 
+      return res.status(409).json({
         success: false,
         message: `Invoice number '${invoiceData.invoiceNumber}' is already in use`,
         error: 'DUPLICATE_INVOICE_NUMBER',
@@ -388,33 +388,33 @@ router.post('/', authenticateToken, async (req, res) => {
         field: 'invoiceNumber'
       });
     }
-    
+
     // Calculate totals
     let subtotal = 0;
     invoiceData.items.forEach(item => {
       item.total = item.quantity * item.unitPrice;
       subtotal += item.total;
     });
-    
+
     invoiceData.subtotal = subtotal;
     invoiceData.total = subtotal + (invoiceData.tax || 0) - (invoiceData.discount || 0);
-    
+
     const invoice = new Billing(invoiceData);
     await invoice.save();
-    
+
     const endTime = new Date();
     const processingTime = endTime - startTime;
-    
+
     console.log(`[${endTime.toISOString()}] [${requestId}] Invoice created successfully`, {
       invoiceId: invoice._id,
       invoiceNumber: invoice.invoiceNumber,
       patient: invoice.patient,
       total: invoice.total,
-      paymentMethod: invoice.paymentMethod,  
+      paymentMethod: invoice.paymentMethod,
       processingTime: `${processingTime}ms`,
       user: req.user.id
     });
-    
+
     res.status(201).json({
       success: true,
       message: 'Invoice created successfully',
@@ -425,7 +425,7 @@ router.post('/', authenticateToken, async (req, res) => {
   } catch (error) {
     const errorTime = new Date();
     const processingTime = errorTime - startTime;
-    
+
     // Log the full error for debugging
     console.error(`[${errorTime.toISOString()}] [${requestId}] Create invoice error`, {
       error: error.message,
@@ -437,7 +437,7 @@ router.post('/', authenticateToken, async (req, res) => {
       user: req.user?.id,
       invoiceNumber: req.body.invoiceNumber
     });
-    
+
     // Handle duplicate key error (E11000)
     if (error.code === 11000) {
       const keyValue = error.keyValue?.invoiceNumber || 'unknown';
@@ -446,7 +446,7 @@ router.post('/', authenticateToken, async (req, res) => {
         errorCode: error.code,
         processingTime: `${processingTime}ms`
       });
-      
+
       // Try to find the conflicting invoice
       try {
         const existingInvoice = await Billing.findOne({ invoiceNumber: keyValue });
@@ -467,14 +467,14 @@ router.post('/', authenticateToken, async (req, res) => {
         });
       }
     }
-    
+
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const errors = {};
       Object.keys(error.errors).forEach(key => {
         errors[key] = error.errors[key].message;
       });
-      
+
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -484,9 +484,9 @@ router.post('/', authenticateToken, async (req, res) => {
         processingTime: `${processingTime}ms`
       });
     }
-    
+
     // Handle other errors
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'An unexpected error occurred while creating the invoice',
       error: process.env.NODE_ENV === 'production' ? 'INTERNAL_SERVER_ERROR' : error.message,
@@ -500,11 +500,11 @@ router.post('/', authenticateToken, async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const invoice = await Billing.findById(req.params.id);
-    
+
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
-    
+
     // If user is a doctor, check if invoice is for their patient
     if (req.user.role === 'doctor') {
       const patient = await Patient.findById(invoice.patient);
@@ -512,29 +512,29 @@ router.put('/:id', async (req, res) => {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
-    
+
     // Don't allow updating paid invoices
     if (invoice.status === 'paid') {
       return res.status(400).json({ message: 'Cannot update a paid invoice' });
     }
-    
+
     // Calculate totals
     let subtotal = 0;
     req.body.items.forEach(item => {
       item.total = item.quantity * item.unitPrice;
       subtotal += item.total;
     });
-    
+
     req.body.subtotal = subtotal;
     req.body.total = subtotal + (req.body.tax || 0) - (req.body.discount || 0);
-    
+
     // Update invoice
     const updatedInvoice = await Billing.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
     );
-    
+
     res.json({
       message: 'Invoice updated successfully',
       invoice: updatedInvoice
@@ -549,11 +549,11 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/payments', async (req, res) => {
   try {
     const invoice = await Billing.findById(req.params.id);
-    
+
     if (!invoice) {
       return res.status(404).json({ message: 'Invoice not found' });
     }
-    
+
     // If user is a doctor, check if invoice is for their patient
     if (req.user.role === 'doctor') {
       const patient = await Patient.findById(invoice.patient);
@@ -561,10 +561,10 @@ router.post('/:id/payments', async (req, res) => {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
-    
-  
+
+
     const { amount, method, reference, notes } = req.body;
-    
+
     // Add payment to history
     invoice.paymentHistory.push({
       amount,
@@ -573,19 +573,19 @@ router.post('/:id/payments', async (req, res) => {
       notes,
       date: new Date()
     });
-    
+
     // Calculate total paid
     const totalPaid = invoice.paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
-    
+
     // Update status based on payment
     if (totalPaid >= invoice.total) {
       invoice.status = 'paid';
     } else if (totalPaid > 0) {
       invoice.status = 'partial';
     }
-    
+
     await invoice.save();
-    
+
     res.json({
       message: 'Payment recorded successfully',
       invoice
@@ -606,36 +606,36 @@ router.get('/summary/dashboard', async (req, res) => {
       const patientIds = patients.map(p => p._id);
       filter.patient = { $in: patientIds };
     }
-    
+
     // Get current month's start and end dates
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
+
     // Get total billed this month
     const billedThisMonth = await Billing.aggregate([
       { $match: { ...filter, dateIssued: { $gte: startOfMonth, $lte: endOfMonth } } },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]);
-    
+
     // Get total collected this month
     const collectedThisMonth = await Billing.aggregate([
       { $match: { ...filter, status: 'paid', dateIssued: { $gte: startOfMonth, $lte: endOfMonth } } },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]);
-    
+
     // Get outstanding balance
     const outstanding = await Billing.aggregate([
       { $match: { ...filter, status: { $in: ['draft', 'sent', 'overdue', 'partial'] } } },
       { $group: { _id: null, total: { $sum: '$total' } } }
     ]);
-    
+
     // Get count by status
     const statusCounts = await Billing.aggregate([
       { $match: filter },
       { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
-    
+
     res.json({
       billedThisMonth: billedThisMonth[0]?.total || 0,
       collectedThisMonth: collectedThisMonth[0]?.total || 0,

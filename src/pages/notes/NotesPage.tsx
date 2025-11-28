@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FaPlus, FaFilter, FaSearch, FaFileAlt, FaTrash, FaEdit, FaPrint } from 'react-icons/fa';
+import { FileText, Plus, Filter, Search, Trash2, Edit, Printer, User, Calendar, Tag, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Note {
@@ -92,7 +92,7 @@ const NotesPage: React.FC = () => {
       params.append('page', page.toString());
       params.append('limit', limit.toString());
 
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/notes?${params.toString()}`);
+      const response = await axios.get(`/api/notes?${params.toString()}`);
 
       const notesData = response.data?.notes || [];
       const sanitizedNotes = notesData.map((note: any) => ({
@@ -193,7 +193,7 @@ const NotesPage: React.FC = () => {
       // Fetch patients
       let patientsData = [];
       try {
-        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?limit=1000');
+        const patientsResponse = await axios.get('/api/patients?limit=1000');
         patientsData = patientsResponse.data?.patients || patientsResponse.data || [];
         console.log('Patients response:', patientsData);
       } catch (patientError) {
@@ -204,7 +204,7 @@ const NotesPage: React.FC = () => {
       // Fetch doctors
       let doctorsData = [];
       try {
-        const doctorsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/auth/doctors');
+        const doctorsResponse = await axios.get('/api/auth/doctors');
         doctorsData = doctorsResponse.data || [];
         console.log('Doctors response:', doctorsData);
       } catch (doctorError) {
@@ -319,7 +319,7 @@ const NotesPage: React.FC = () => {
   const handleDeleteNote = async (noteId: string) => {
     if (window.confirm('Are you sure you want to delete this note?')) {
       try {
-        await axios.delete(`https://oren-emr-ai-1.onrender.com/api/notes/${noteId}`);
+        await axios.delete(`/api/notes/${noteId}`);
         toast.success('Note deleted successfully');
         fetchNotes();
       } catch (error) {
@@ -336,44 +336,65 @@ const NotesPage: React.FC = () => {
   const getNoteStyle = (colorCode: string | null | undefined) => {
     const defaultColor = '#e5e7eb';
     const color = colorCode || defaultColor;
+    // Convert hex to rgba for better transparency
+    const hexToRgba = (hex: string, alpha: number) => {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+    
     return {
       borderLeft: `4px solid ${color}`,
-      backgroundColor: `${color}10`
+      backgroundColor: hexToRgba(color, 0.05)
     };
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Patient Notes</h1>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
-          >
-            <FaFilter className="mr-2" /> Filters
-          </button>
-          <button
-            onClick={() => navigate('/notes/new')}
-            className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-          >
-            <FaPlus className="mr-2" /> New Note
-          </button>
+    <div className="container mx-auto px-4 py-6">
+      {/* Header Section */}
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div className="mb-4 md:mb-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+              <FileText className="w-8 h-8 mr-3 text-blue-600" />
+              Patient Notes
+            </h1>
+            <p className="text-sm text-gray-500">View and manage all patient medical notes</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center px-4 py-2.5 border rounded-lg transition-all ${
+                showFilters 
+                  ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Filter className="w-5 h-5 mr-2" />
+              Filters
+            </button>
+            <button
+              onClick={() => navigate('/notes/new')}
+              className="flex items-center px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg font-medium"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              New Note
+            </button>
+          </div>
         </div>
       </div>
 
       {showFilters && (
-        <div className="bg-gray-100 p-4 rounded-md mb-6">
+        <div className="bg-gray-50 border border-gray-200 p-5 rounded-xl mb-6 shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Patient</label>
-              {/* --- MODIFICATION 3: Enhanced DOB display with validation --- */}
-              {/* Purpose: Ensure valid DOB rendering and clear fallback */}
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Patient</label>
               <select
                 name="patientId"
                 value={filterOptions.patientId}
                 onChange={handleFilterChange}
-                className="w-full p-2 border rounded-md"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
               >
                 <option value="">All Patients</option>
                 {patients && patients.length > 0 ? (
@@ -402,12 +423,12 @@ const NotesPage: React.FC = () => {
 
             {user && user.role === 'admin' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Doctor</label>
                 <select
                   name="doctorId"
                   value={filterOptions.doctorId}
                   onChange={handleFilterChange}
-                  className="w-full p-2 border rounded-md"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
                 >
                   <option value="">All Doctors</option>
                   {doctors && doctors.map(doctor => (
@@ -420,12 +441,12 @@ const NotesPage: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Note Type</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Note Type</label>
               <select
                 name="noteType"
                 value={filterOptions.noteType}
                 onChange={handleFilterChange}
-                className="w-full p-2 border rounded-md"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
               >
                 <option value="">All Types</option>
                 <option value="Progress">Progress</option>
@@ -438,31 +459,33 @@ const NotesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Search</label>
               <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
                 <input
                   type="text"
                   name="search"
                   value={filterOptions.search}
                   onChange={handleFilterChange}
                   placeholder="Search notes..."
-                  className="w-full p-2 pl-10 border rounded-md"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
                 />
-                <FaSearch className="absolute left-3 top-3 text-gray-400" />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end mt-4 space-x-2">
+          <div className="flex justify-end mt-5 space-x-3">
             <button
               onClick={handleResetFilters}
-              className="px-4 py-2 border rounded-md hover:bg-gray-200"
+              className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 font-medium transition-all"
             >
               Reset
             </button>
             <button
               onClick={handleApplyFilters}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-all shadow-sm hover:shadow-md"
             >
               Apply Filters
             </button>
@@ -472,14 +495,15 @@ const NotesPage: React.FC = () => {
 
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl shadow-sm">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-gray-500">Loading notes...</p>
         </div>
       ) : notes.length === 0 ? (
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <FaFileAlt className="mx-auto text-gray-400 text-5xl mb-4" />
-          <h3 className="text-xl font-medium text-gray-700">No notes found</h3>
-          <p className="text-gray-500 mt-2">Create a new note or adjust your filters</p>
+        <div className="bg-white p-12 rounded-xl shadow-lg text-center border border-gray-100">
+          <FileText className="mx-auto text-gray-300 w-16 h-16 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No notes found</h3>
+          <p className="text-gray-500">Create a new note or adjust your filters</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -487,85 +511,104 @@ const NotesPage: React.FC = () => {
             note._id ? (
               <div
                 key={note._id}
-                className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-150 border border-gray-100"
                 style={getNoteStyle(note.colorCode)}
               >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold">{note.title || 'Untitled Note'}</h3>
-                    <div className="flex items-center text-sm text-gray-600 mt-1">
-                      <span className="mr-4">
-                        Patient: {note.patient ?
-                          (note.patient.firstName || note.patient.lastName ?
-                            `${note.patient.firstName || ''} ${note.patient.lastName || ''}`.trim() :
-                            'Unknown Patient') :
-                          'Unknown Patient'}
-                      </span>
-                      <span className="mr-4">Type: {note.noteType || 'Unknown'}</span>
-                      <span>Created: {(() => {
-                        try {
-                          return note.createdAt ? new Date(note.createdAt).toLocaleDateString() : 'Unknown Date';
-                        } catch {
-                          return 'Invalid Date';
-                        }
-                      })()}</span>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">{note.title || 'Untitled Note'}</h3>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center">
+                        <User className="w-4 h-4 mr-1.5 text-gray-400" />
+                        <span className="font-medium text-gray-700">Patient:</span>
+                        <span className="ml-1 text-gray-900">
+                          {note.patient ?
+                            (note.patient.firstName || note.patient.lastName ?
+                              `${note.patient.firstName || ''} ${note.patient.lastName || ''}`.trim() :
+                              'Unknown Patient') :
+                            'Unknown Patient'}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <Tag className="w-4 h-4 mr-1.5 text-gray-400" />
+                        <span className="font-medium text-gray-700">Type:</span>
+                        <span className="ml-1 text-gray-900">{note.noteType || 'Unknown'}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-1.5 text-gray-400" />
+                        <span className="font-medium text-gray-700">Created:</span>
+                        <span className="ml-1 text-gray-900">
+                          {(() => {
+                            try {
+                              return note.createdAt ? new Date(note.createdAt).toLocaleDateString('en-US', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              }) : 'Unknown Date';
+                            } catch {
+                              return 'Invalid Date';
+                            }
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 ml-4">
                     <button
                       onClick={() => note._id && handlePrintNote(note._id)}
-                      className="p-2 text-gray-600 hover:text-blue-600"
+                      className="p-2.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-150"
                       title="Print Note"
                       disabled={!note._id}
                     >
-                      <FaPrint />
+                      <Printer className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => note._id && navigate(`/notes/${note._id}/edit`)}
-                      className="p-2 text-gray-600 hover:text-green-600"
+                      className="p-2.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-all duration-150"
                       title="Edit Note"
                       disabled={!note._id}
                     >
-                      <FaEdit />
+                      <Edit className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => note._id && handleDeleteNote(note._id)}
-                      className="p-2 text-gray-600 hover:text-red-600"
+                      className="p-2.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all duration-150"
                       title="Delete Note"
                       disabled={!note._id}
                     >
-                      <FaTrash />
+                      <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-4 mb-4">
                   <div
-                    className="text-gray-700 line-clamp-3 text-sm"
+                    className="text-gray-700 line-clamp-3 text-sm leading-relaxed"
                     dangerouslySetInnerHTML={{ __html: (note.content || '').substring(0, 200) + ((note.content && note.content.length > 200) ? '...' : '') }}
                   />
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
                   {note.diagnosisCodes && note.diagnosisCodes.length > 0 && (
-                    <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
                       {note.diagnosisCodes.length} Diagnosis {note.diagnosisCodes.length === 1 ? 'Code' : 'Codes'}
-                    </div>
+                    </span>
                   )}
                   {note.treatmentCodes && note.treatmentCodes.length > 0 && (
-                    <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
                       {note.treatmentCodes.length} Treatment {note.treatmentCodes.length === 1 ? 'Code' : 'Codes'}
-                    </div>
+                    </span>
                   )}
                   {note.attachments && note.attachments.length > 0 && (
-                    <div className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200">
                       {note.attachments.length} {note.attachments.length === 1 ? 'Attachment' : 'Attachments'}
-                    </div>
+                    </span>
                   )}
                   {note.isAiGenerated && (
-                    <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200">
+                      <Sparkles className="w-3 h-3 mr-1" />
                       AI Generated
-                    </div>
+                    </span>
                   )}
                 </div>
               </div>
@@ -575,21 +618,30 @@ const NotesPage: React.FC = () => {
       )}
 
       {!loading && pagination.pages > 1 && (
-        <div className="flex justify-center mt-6">
+        <div className="flex justify-center mt-8">
           <nav className="flex items-center space-x-2">
             <button
               onClick={() => handlePageChange(pagination.page - 1)}
               disabled={pagination.page === 1}
-              className={`px-3 py-1 rounded-md ${pagination.page === 1 ? 'bg-gray-200 cursor-not-allowed' : 'bg-gray-200 hover:bg-gray-300'}`}
+              className={`relative inline-flex items-center px-3 py-2 rounded-l-lg border border-gray-300 bg-white text-sm font-medium transition-all ${
+                pagination.page === 1
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+              }`}
             >
-              Previous
+              <span className="sr-only">Previous</span>
+              <ChevronLeft className="h-5 w-5" />
             </button>
 
             {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(page => (
               <button
                 key={page}
                 onClick={() => handlePageChange(page)}
-                className={`px-3 py-1 rounded-md ${pagination.page === page ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'}`}
+                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium transition-all ${
+                  pagination.page === page
+                    ? 'z-10 bg-blue-600 border-blue-600 text-white shadow-md'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                }`}
               >
                 {page}
               </button>
@@ -598,9 +650,14 @@ const NotesPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(pagination.page + 1)}
               disabled={pagination.page === pagination.pages}
-              className={`px-3 py-1 rounded-md ${pagination.page === pagination.pages ? 'bg-gray-200 cursor-not-allowed' : 'bg-gray-200 hover:bg-gray-300'}`}
+              className={`relative inline-flex items-center px-3 py-2 rounded-r-lg border border-gray-300 bg-white text-sm font-medium transition-all ${
+                pagination.page === pagination.pages
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+              }`}
             >
-              Next
+              <span className="sr-only">Next</span>
+              <ChevronRight className="h-5 w-5" />
             </button>
           </nav>
         </div>

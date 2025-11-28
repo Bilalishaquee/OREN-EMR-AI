@@ -69,6 +69,15 @@ const NoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Add indices for better query performance
+NoteSchema.index({ patient: 1 });
+NoteSchema.index({ doctor: 1 });
+NoteSchema.index({ visit: 1 });
+NoteSchema.index({ createdAt: 1 });
+NoteSchema.index({ noteType: 1 });
+// Compound index for common queries
+NoteSchema.index({ patient: 1, createdAt: 1 });
+
 const Note = mongoose.model('Note', NoteSchema);
 
 export default Note;

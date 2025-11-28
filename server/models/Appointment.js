@@ -60,10 +60,19 @@ const appointmentSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field on save
-appointmentSchema.pre('save', function(next) {
+appointmentSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
+
+// Add indices for better query performance
+appointmentSchema.index({ patient: 1 });
+appointmentSchema.index({ doctor: 1 });
+appointmentSchema.index({ date: 1 });
+appointmentSchema.index({ status: 1 });
+// Compound indices for common queries
+appointmentSchema.index({ doctor: 1, date: 1 });
+appointmentSchema.index({ patient: 1, date: 1 });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 

@@ -114,11 +114,16 @@
   margin-top: 0.5rem;
   margin-bottom: 0.75rem;
   padding-left: 1.5rem;
+  list-style-position: outside;
+  counter-reset: none !important;
 }
 
 .ql-editor li {
   margin-bottom: 0.5rem;
   line-height: 1.6;
+  list-style-position: outside;
+  counter-increment: none !important;
+  position: relative;
 }
 
 .ql-editor ul li {
@@ -127,6 +132,41 @@
 
 .ql-editor ol li {
   list-style-type: decimal;
+}
+
+/* Hide ReactQuill's own list markers that cause double numbering/bullets */
+.ql-editor li[class*="ql-indent"]::before,
+.ql-editor li[class*="ql-indent-0"]::before,
+.ql-editor li[class*="ql-indent-1"]::before,
+.ql-editor li[class*="ql-indent-2"]::before,
+.ql-editor li[class*="ql-indent-3"]::before,
+.ql-editor li[class*="ql-indent-4"]::before,
+.ql-editor li[class*="ql-indent-5"]::before,
+.ql-editor li[class*="ql-indent-6"]::before,
+.ql-editor li[class*="ql-indent-7"]::before,
+.ql-editor li[class*="ql-indent-8"]::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Remove ReactQuill's counter-based numbering markers */
+.ql-editor ol li[class*="ql-indent"]::marker,
+.ql-editor ul li[class*="ql-indent"]::marker {
+  content: '' !important;
+}
+
+/* Hide ReactQuill's .ql-list class formatting */
+.ql-editor .ql-list {
+  list-style: none !important;
+}
+
+.ql-editor .ql-list li {
+  list-style: none !important;
+}
+
+.ql-editor .ql-list li::before {
+  display: none !important;
+  content: none !important;
 }
 
 .ql-editor ul ul,

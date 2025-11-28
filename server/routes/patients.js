@@ -44,6 +44,53 @@ router.get('/debug', authenticateToken, async (req, res) => {
   }
 });
 
+// Email configuration debug endpoint
+router.get('/email-config-debug', authenticateToken, async (req, res) => {
+  try {
+    const emailFrom = process.env.EMAIL_FROM;
+    const emailUser = process.env.EMAIL_USER;
+    const emailPassword = process.env.EMAIL_PASSWORD;
+    const sendgridKey = process.env.SENDGRID_API_KEY;
+    
+    res.json({
+      EMAIL_FROM: {
+        exists: !!emailFrom,
+        type: typeof emailFrom,
+        length: emailFrom ? emailFrom.length : 0,
+        firstChars: emailFrom ? emailFrom.substring(0, 5) + '...' : 'NOT SET',
+        isEmpty: !emailFrom || emailFrom.trim().length === 0
+      },
+      EMAIL_USER: {
+        exists: !!emailUser,
+        type: typeof emailUser,
+        length: emailUser ? emailUser.length : 0,
+        firstChars: emailUser ? emailUser.substring(0, 5) + '...' : 'NOT SET',
+        isEmpty: !emailUser || emailUser.trim().length === 0
+      },
+      EMAIL_PASSWORD: {
+        exists: !!emailPassword,
+        type: typeof emailPassword,
+        length: emailPassword ? emailPassword.length : 0,
+        isEmpty: !emailPassword || emailPassword.trim().length === 0,
+        // Don't show password, but show if it looks like an app password (16 chars with spaces or 16 chars without)
+        looksLikeAppPassword: emailPassword ? (emailPassword.replace(/\s/g, '').length === 16) : false
+      },
+      SENDGRID_API_KEY: {
+        exists: !!sendgridKey,
+        length: sendgridKey ? sendgridKey.length : 0,
+        firstChars: sendgridKey ? sendgridKey.substring(0, 5) + '...' : 'NOT SET'
+      },
+      senderEmail: emailFrom || emailUser || 'NOT SET',
+      recommendation: !emailUser || !emailPassword ? 
+        'Set EMAIL_USER and EMAIL_PASSWORD (use Gmail App Password, not regular password)' :
+        'Configuration looks good. If emails fail, check that EMAIL_PASSWORD is a Gmail App Password.'
+    });
+  } catch (error) {
+    console.error('Email config debug error:', error);
+    res.status(500).json({ message: 'Debug error', error: error.message });
+  }
+});
+
 // Get all patients (with pagination)
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -91,7 +138,7 @@ router.get('/', authenticateToken, async (req, res) => {
         firstName = patientObj.dynamicData.firstName || patientObj.dynamicData['First Name'] || '';
         lastName = patientObj.dynamicData.lastName || patientObj.dynamicData['Last Name'] || '';
         email = patientObj.dynamicData.email || patientObj.dynamicData['Email'] || '';
-        dateOfBirth = patientObj.dynamicData['Date of Birth'] || patientObj.dynamicData['Date of Birth'] || '';
+        dateOfBirth = patientObj.dynamicData.dateOfBirth || patientObj.dynamicData['Date of Birth'] || '';
 
         // Debug logging
         console.log('Server extracting names for patient:', patientObj._id);
@@ -170,14 +217,14 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const patientData = req.body;
-    console.log('Creating patient with data:', patientData);
+    console.log('Creating patient with data:', JSON.stringify(patientData, null, 2));
 
     // 🧠 Assign doctor if role is 'doctor'
     // if (req.user.role === 'doctor') {
     //   patientData.assignedDoctor = req.user.id;
     // }
     if (req.user.role === 'doctor' && !patientData.assignedDoctor) {
-      // only assign if frontend didn’t provide one
+      // only assign if frontend didn't provide one
       patientData.assignedDoctor = req.user.id;
     }
 
@@ -194,19 +241,27 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 
     // Create a new dynamicData object to store all patient information
-    const dynamicData = {};
-
-    // Store all main patient fields in dynamicData
-    if (patientData.firstName) dynamicData.firstName = patientData.firstName;
-    if (patientData.lastName) dynamicData.lastName = patientData.lastName;
-    if (patientData.dateOfBirth) dynamicData.dateOfBirth = patientData.dateOfBirth;
-    if (patientData.gender) dynamicData.gender = patientData.gender;
-    if (patientData.email) dynamicData.email = patientData.email;
-    if (patientData.phone) dynamicData.phone = patientData.phone;
-    if (patientData.address) dynamicData.address = patientData.address;
-    if (patientData.medicalHistory) dynamicData.medicalHistory = patientData.medicalHistory;
-    if (patientData.subjective) dynamicData.subjective = patientData.subjective;
-    if (patientData.attorney) dynamicData.attorney = patientData.attorney;
+    // Handle both formats: direct dynamicData (from form submissions) or individual fields (backward compatibility)
+    let dynamicData = {};
+    
+    // If dynamicData is provided directly, use it (from form submissions)
+    if (patientData.dynamicData && typeof patientData.dynamicData === 'object') {
+      dynamicData = { ...patientData.dynamicData };
+      console.log('Using provided dynamicData:', Object.keys(dynamicData));
+    } else {
+      // Otherwise, build dynamicData from individual fields (backward compatibility)
+      if (patientData.firstName) dynamicData.firstName = patientData.firstName;
+      if (patientData.lastName) dynamicData.lastName = patientData.lastName;
+      if (patientData.dateOfBirth) dynamicData.dateOfBirth = patientData.dateOfBirth;
+      if (patientData.gender) dynamicData.gender = patientData.gender;
+      if (patientData.email) dynamicData.email = patientData.email;
+      if (patientData.phone) dynamicData.phone = patientData.phone;
+      if (patientData.address) dynamicData.address = patientData.address;
+      if (patientData.medicalHistory) dynamicData.medicalHistory = patientData.medicalHistory;
+      if (patientData.subjective) dynamicData.subjective = patientData.subjective;
+      if (patientData.attorney) dynamicData.attorney = patientData.attorney;
+      console.log('Built dynamicData from individual fields:', Object.keys(dynamicData));
+    }
 
     // Store any additional form responses
     if (patientData.additionalFormData) {
@@ -653,7 +708,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 // Send patient form link to client
 router.post('/send-to-client', authenticateToken, async (req, res) => {
   try {
-    const { email, name, instructions, language = 'english', patientId } = req.body;
+    const { email, name, instructions, language = 'english', patientId, formTemplateId } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: 'Email is required' });
@@ -745,7 +800,8 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       createdBy: req.user.id,
       language,
       status: 'sent',
-      patientId: patientId || null // If we have a patient ID, associate it
+      patientId: patientId || null, // If we have a patient ID, associate it
+      formTemplateId: formTemplateId || null // If we have a form template ID, associate it
     });
 
     // Save the form token to the database
@@ -801,10 +857,14 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       let emailSent = false;
       
       // Try SendGrid first if API key is configured
-      if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.trim()) {
+      // BUT: If SendGrid fails with auth errors, skip it and go straight to Gmail
+      const shouldTrySendGrid = process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.trim();
+      
+      if (shouldTrySendGrid) {
         try {
-          console.log('Attempting to send email with SendGrid...');
+          console.log('=== Attempting SendGrid ===');
           console.log('SendGrid from email:', senderEmail);
+          console.log('SendGrid to email:', email);
           
           const msg = {
             to: email,
@@ -815,58 +875,95 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
           };
           
           const response = await sgMail.send(msg);
-          console.log('Email sent successfully with SendGrid:', response);
+          console.log('✅ Email sent successfully with SendGrid:', response);
           emailSent = true;
         } catch (sendgridError) {
-          console.error('SendGrid email failed:', {
+          const statusCode = sendgridError.response?.statusCode;
+          const errorBody = sendgridError.response?.body;
+          
+          console.error('❌ SendGrid email failed:', {
             message: sendgridError.message,
             code: sendgridError.code,
-            response: sendgridError.response?.body,
-            statusCode: sendgridError.response?.statusCode
+            statusCode: statusCode,
+            errorBody: errorBody
           });
           
-          // If SendGrid fails with unauthorized, log detailed info
-          if (sendgridError.response?.statusCode === 401 || sendgridError.message?.includes('Unauthorized')) {
-            console.error('SendGrid authorization failed. Common causes:');
+          // If SendGrid fails with unauthorized/forbidden, skip it permanently for this request
+          if (statusCode === 401 || statusCode === 403 || sendgridError.message?.includes('Unauthorized')) {
+            console.error('SendGrid authorization failed. Skipping SendGrid and using Gmail only.');
+            console.error('Common causes:');
             console.error('  1. Invalid API key');
-            console.error('  2. From email (' + senderEmail + ') not verified in SendGrid');
-            console.error('  3. API key permissions insufficient');
+            console.error('  2. From email (' + senderEmail + ') not verified in SendGrid dashboard');
+            console.error('  3. API key lacks mail.send permission');
+            // Don't try SendGrid again - go straight to Gmail
+          } else {
+            console.log('SendGrid failed with non-auth error, will try Gmail as fallback');
           }
-          
-          console.log('Falling back to nodemailer/Gmail...');
-          // Fall through to nodemailer
         }
       } else {
-        console.log('SendGrid API key not configured, using nodemailer/Gmail');
+        console.log('SendGrid API key not configured, using nodemailer/Gmail directly');
       }
       
       // Use nodemailer if SendGrid is not configured or failed
       if (!emailSent) {
+        console.log('=== Attempting Gmail/nodemailer ===');
+        
         // For nodemailer/Gmail, we need EMAIL_USER for authentication
         // IMPORTANT: We must use EMAIL_USER (not senderEmail) because Gmail auth requires the actual Gmail account
         // But we use senderEmail (EMAIL_FROM or EMAIL_USER) as the "from" field in the email
         const emailUserForAuth = isValidEmailString(process.env.EMAIL_USER) ? process.env.EMAIL_USER.trim() : '';
         const emailPassword = process.env.EMAIL_PASSWORD && process.env.EMAIL_PASSWORD.trim() ? process.env.EMAIL_PASSWORD.trim() : '';
         
+        console.log('Gmail configuration check:');
+        console.log('  EMAIL_USER exists:', !!process.env.EMAIL_USER);
+        console.log('  EMAIL_USER length:', process.env.EMAIL_USER ? process.env.EMAIL_USER.length : 0);
+        console.log('  EMAIL_USER valid:', !!emailUserForAuth);
+        console.log('  EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
+        console.log('  EMAIL_PASSWORD length:', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0);
+        console.log('  EMAIL_PASSWORD valid:', !!emailPassword);
+        
         if (!emailUserForAuth || !emailPassword) {
-          console.error('Nodemailer configuration missing:', {
+          console.error('❌ Nodemailer configuration missing:', {
             EMAIL_USER: emailUserForAuth ? 'SET' : 'NOT SET',
             EMAIL_USER_length: emailUserForAuth ? emailUserForAuth.length : 0,
             EMAIL_PASSWORD: emailPassword ? 'SET' : 'NOT SET',
             EMAIL_PASSWORD_length: emailPassword ? emailPassword.length : 0
           });
-          throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD (both must be non-empty), or SENDGRID_API_KEY and EMAIL_FROM in server environment variables (check Render dashboard).');
+          throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD (both must be non-empty) in Render dashboard environment variables.');
         }
         
-        // Create nodemailer transporter - use EMAIL_USER for Gmail authentication
-        // Use secure: true for Gmail (port 465) or secure: false for port 587
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          secure: true, // Use TLS
+        console.log('Gmail credentials validated. Creating transporter...');
+        
+        // Create nodemailer transporter with explicit Gmail SMTP settings
+        // Using explicit SMTP is more reliable than 'gmail' service
+        // Remove spaces from password (Gmail App Passwords sometimes have spaces)
+        const cleanPassword = emailPassword.replace(/\s/g, '');
+        
+        console.log('Creating nodemailer transporter with Gmail SMTP...');
+        console.log('SMTP Host: smtp.gmail.com');
+        console.log('SMTP Port: 587 (TLS) - will fallback to 465 if needed');
+        console.log('Auth user:', emailUserForAuth);
+        console.log('Password length:', cleanPassword.length, '(spaces removed)');
+        
+        // Try port 587 first (TLS), then fallback to 465 (SSL) if it fails
+        let transporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false, // false for 587, true for 465
+          requireTLS: true, // Force TLS
           auth: {
             user: emailUserForAuth,
-            pass: emailPassword,
+            pass: cleanPassword, // Use cleaned password (spaces removed)
           },
+          tls: {
+            // Use modern TLS configuration
+            rejectUnauthorized: true, // Verify certificate (more secure)
+            minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
+          },
+          // Additional connection options
+          connectionTimeout: 30000, // 30 seconds (increased for better reliability)
+          greetingTimeout: 30000,
+          socketTimeout: 30000
         });
         
         const mailOptions = {
@@ -882,46 +979,111 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
         console.log('To:', email);
         console.log('Auth user:', emailUserForAuth);
         
-        // Skip verification - just try to send directly
-        // Verification can fail even when sending works, especially with Gmail
+        // Verify connection before sending
+        try {
+          console.log('Verifying SMTP connection...');
+          await transporter.verify();
+          console.log('✅ SMTP connection verified successfully');
+        } catch (verifyError) {
+          console.error('❌ SMTP connection verification failed:', verifyError.message);
+          console.error('Error code:', verifyError.code);
+          // Continue anyway - sometimes verify fails but sendMail works
+        }
+        
+        // Try sending email - if port 587 fails, try port 465 as fallback
+        let sendError = null;
         try {
           const info = await transporter.sendMail(mailOptions);
-          console.log('✅ Email sent successfully with nodemailer:', info.messageId);
-          console.log('Response:', info.response);
+          console.log('✅ Email sent successfully with nodemailer (port 587):', info.messageId);
           emailSent = true;
-        } catch (sendError) {
-          console.error('❌ Failed to send email with nodemailer:', {
-            message: sendError.message,
-            code: sendError.code,
-            command: sendError.command,
-            response: sendError.response,
-            responseCode: sendError.responseCode
+        } catch (firstError) {
+          sendError = firstError;
+          console.error('❌ Port 587 failed:', {
+            code: firstError.code,
+            message: firstError.message,
+            command: firstError.command,
+            response: firstError.response
           });
+          console.warn(`Port 587 failed (${firstError.code}), trying port 465 (SSL) as fallback...`);
           
-          // Provide detailed, actionable error information
-          let errorMessage = 'Failed to send email via Gmail/nodemailer. ';
+          // Try port 465 (SSL) as fallback
+          try {
+            const transporter465 = nodemailer.createTransport({
+              host: 'smtp.gmail.com',
+              port: 465,
+              secure: true,
+              auth: {
+                user: emailUserForAuth,
+                pass: cleanPassword,
+              },
+              tls: { 
+                rejectUnauthorized: true,
+                minVersion: 'TLSv1.2'
+              },
+              connectionTimeout: 30000,
+              greetingTimeout: 30000,
+              socketTimeout: 30000
+            });
+            
+            // Verify fallback connection
+            try {
+              await transporter465.verify();
+              console.log('✅ SMTP connection verified on port 465');
+            } catch (verifyError) {
+              console.warn('⚠️ SMTP verification failed on port 465, continuing anyway...');
+            }
+            
+            const info = await transporter465.sendMail(mailOptions);
+            console.log('✅ Email sent successfully with nodemailer (port 465):', info.messageId);
+            emailSent = true;
+          } catch (fallbackError) {
+            console.error('❌ Port 465 also failed:', {
+              code: fallbackError.code,
+              message: fallbackError.message,
+              command: fallbackError.command,
+              response: fallbackError.response
+            });
+            // Use the more specific error (auth errors are more helpful)
+            sendError = (fallbackError.code === 'EAUTH' || firstError.code !== 'ECONNECTION') ? fallbackError : firstError;
+          }
+        }
+        
+        // If email wasn't sent, throw error with helpful message
+        if (!emailSent && sendError) {
+          let errorMessage = 'Failed to send email via Gmail. ';
           
           if (sendError.code === 'EAUTH' || 
               sendError.message?.includes('Invalid login') || 
               sendError.message?.includes('authentication failed') ||
               sendError.message?.includes('Username and Password not accepted') ||
+              sendError.message?.includes('Invalid credentials') ||
               sendError.responseCode === 535) {
             errorMessage += 'Gmail authentication failed. Please verify:\n';
             errorMessage += '1. EMAIL_USER is your full Gmail address (e.g., yourname@gmail.com)\n';
-            errorMessage += '2. EMAIL_PASSWORD is a Gmail App Password (NOT your regular Gmail password)\n';
-            errorMessage += '3. To create an App Password:\n';
-            errorMessage += '   - Go to your Google Account → Security\n';
-            errorMessage += '   - Enable 2-Step Verification if not already enabled\n';
-            errorMessage += '   - Go to Security → App Passwords\n';
-            errorMessage += '   - Generate a new App Password for "Mail"\n';
-            errorMessage += '   - Use that 16-character password as EMAIL_PASSWORD';
+            errorMessage += '2. EMAIL_PASSWORD is a Gmail App Password (NOT your regular password)\n';
+            errorMessage += '3. Generate App Password at: https://myaccount.google.com/apppasswords\n';
+            errorMessage += '4. Enable 2-Step Verification first if needed\n';
+            errorMessage += '5. Update EMAIL_PASSWORD in Render dashboard and restart service';
           } else if (sendError.code === 'ECONNECTION' || sendError.code === 'ETIMEDOUT') {
-            errorMessage += 'Connection to Gmail servers failed. Please check your network connection.';
-          } else if (sendError.code === 'EENVELOPE' || sendError.responseCode === 550) {
-            errorMessage += 'Invalid recipient email address or Gmail rejected the email.';
+            errorMessage += 'Connection to Gmail SMTP servers failed. ';
+            errorMessage += 'Possible causes:\n';
+            errorMessage += '1. Network/firewall blocking SMTP ports (587/465)\n';
+            errorMessage += '2. Gmail blocking less secure app access (use App Password)\n';
+            errorMessage += '3. Server IP is blocked by Gmail\n';
+            errorMessage += '4. Check if "Allow less secure apps" is enabled (deprecated, use App Password instead)\n';
+            errorMessage += `\nError details: ${sendError.message || sendError.code}`;
+          } else if (sendError.code === 'ESOCKET' || sendError.code === 'ETIMEDOUT') {
+            errorMessage += 'Socket/Timeout error. ';
+            errorMessage += 'This usually means:\n';
+            errorMessage += '1. Network connectivity issues\n';
+            errorMessage += '2. Firewall blocking SMTP ports\n';
+            errorMessage += '3. Gmail rate limiting\n';
+            errorMessage += `\nError details: ${sendError.message || sendError.code}`;
           } else {
-            errorMessage += `Error: ${sendError.message || 'Unknown error occurred'}. `;
-            errorMessage += `Error code: ${sendError.code || sendError.responseCode || 'N/A'}`;
+            errorMessage += sendError.message || 'Unknown error occurred.';
+            if (sendError.code) {
+              errorMessage += ` (Error code: ${sendError.code})`;
+            }
           }
           
           throw new Error(errorMessage);
@@ -1004,11 +1166,248 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
   }
 });
 
+// Get form template by token (public route for form display)
+router.get('/form-by-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Find the form token
+    const formToken = await FormToken.findOne({ token }).populate('formTemplateId');
+    
+    if (!formToken) {
+      return res.status(404).json({ message: 'Invalid or expired token' });
+    }
+
+    // Check if token is already completed
+    if (formToken.status === 'completed') {
+      return res.status(400).json({ message: 'This form has already been completed' });
+    }
+
+    // If formTemplateId exists, fetch the form template
+    if (formToken.formTemplateId) {
+      const FormTemplate = (await import('../models/FormTemplate.js')).default;
+      const User = (await import('../models/User.js')).default;
+      const formTemplate = await FormTemplate.findById(formToken.formTemplateId);
+      
+      if (!formTemplate) {
+        return res.status(404).json({ message: 'Form template not found' });
+      }
+
+      // Fetch doctors for demographics questions (public access)
+      let doctors = [];
+      try {
+        doctors = await User.find({ role: 'doctor' }).select('_id firstName lastName');
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      }
+
+      return res.json({
+        success: true,
+        formTemplate: formTemplate,
+        doctors: doctors,
+        tokenInfo: {
+          email: formToken.email,
+          clientName: formToken.clientName,
+          language: formToken.language,
+          status: formToken.status
+        }
+      });
+    }
+
+    // If no form template, return token info only (for backward compatibility)
+    return res.json({
+      success: true,
+      formTemplate: null,
+      tokenInfo: {
+        email: formToken.email,
+        clientName: formToken.clientName,
+        language: formToken.language,
+        status: formToken.status
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching form by token:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Handle public form submission
 router.post('/form-submission/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const patientData = req.body;
+    const submissionData = req.body;
+    
+    // Check if this is a form template response submission
+    if (submissionData.formTemplate && submissionData.responses) {
+      // Handle form template response submission
+      const FormResponse = (await import('../models/FormResponse.js')).default;
+      const FormTemplate = (await import('../models/FormTemplate.js')).default;
+      
+      // Find the form token
+      const formToken = await FormToken.findOne({ token });
+      if (!formToken) {
+        return res.status(400).json({ message: 'Invalid or expired token' });
+      }
+      
+      if (formToken.status === 'completed') {
+        return res.status(400).json({ message: 'This form has already been submitted' });
+      }
+      
+      // Extract patient data from demographics response if patientId not provided
+      let patientId = submissionData.patientId || null;
+      
+      console.log('Form submission received:', {
+        hasFormTemplate: !!submissionData.formTemplate,
+        responsesCount: submissionData.responses?.length || 0,
+        hasPatientId: !!submissionData.patientId
+      });
+      
+      if (!patientId) {
+        // Find demographics response
+        const demographicsResponse = submissionData.responses.find(
+          (r) => r.questionType === 'demographics' && r.answer
+        );
+        
+        console.log('Demographics response search:', {
+          found: !!demographicsResponse,
+          responseKeys: demographicsResponse ? Object.keys(demographicsResponse) : [],
+          answerKeys: demographicsResponse?.answer ? Object.keys(demographicsResponse.answer) : []
+        });
+        
+        if (demographicsResponse && demographicsResponse.answer) {
+          const demoData = demographicsResponse.answer;
+          
+          console.log('Demographics response found:', JSON.stringify(demoData, null, 2));
+          
+          // Extract fields - handle both camelCase and fieldName formats
+          // The field names come from the form template, which might be "First Name", "Last Name", etc.
+          const firstName = demoData.firstName || demoData['First Name'] || demoData['firstName'] || '';
+          const lastName = demoData.lastName || demoData['Last Name'] || demoData['lastName'] || '';
+          const assignedDoctor = demoData.assignedDoctor || '';
+          
+          console.log('Extracted patient fields:', {
+            firstName,
+            lastName,
+            assignedDoctor,
+            hasAllRequired: !!(firstName && lastName && assignedDoctor)
+          });
+          
+          // Check if required fields are present
+          if (firstName && lastName && assignedDoctor) {
+            try {
+              // Build address from individual fields if address object doesn't exist
+              let address = demoData.address;
+              if (!address || typeof address !== 'object') {
+                address = {
+                  street: demoData.street || demoData['Street Address'] || '',
+                  city: demoData.city || demoData['City'] || '',
+                  state: demoData.state || demoData['State'] || '',
+                  zipCode: demoData.zipCode || demoData['Zip Code'] || '',
+                  country: 'USA'
+                };
+              }
+              
+              // Create patient from demographics data - use both formats for compatibility
+              const patient = new Patient({
+                dynamicData: {
+                  // Store in both formats for compatibility
+                  firstName: firstName,
+                  lastName: lastName,
+                  'First Name': firstName,
+                  'Last Name': lastName,
+                  dateOfBirth: demoData.dateOfBirth || demoData['Date of Birth'] || '',
+                  'Date of Birth': demoData.dateOfBirth || demoData['Date of Birth'] || '',
+                  gender: demoData.gender || demoData['Gender'] || '',
+                  'Gender': demoData.gender || demoData['Gender'] || '',
+                  email: demoData.email || demoData['Email'] || '',
+                  'Email': demoData.email || demoData['Email'] || '',
+                  phone: demoData.phone || demoData['Mobile Phone'] || demoData['Phone'] || '',
+                  'Mobile Phone': demoData.phone || demoData['Mobile Phone'] || demoData['Phone'] || '',
+                  address: address,
+                  medicalHistory: demoData.medicalHistory || { allergies: [], medications: [], conditions: [], surgeries: [], familyHistory: [] },
+                  subjective: demoData.subjective || {
+                    fullName: '', date: '', physical: [], sleep: [], cognitive: [], digestive: [], emotional: [],
+                    bodyPart: [], severity: '', quality: [], timing: '', context: '', exacerbatedBy: [], symptoms: [],
+                    notes: '', radiatingTo: '', radiatingRight: false, radiatingLeft: false, sciaticaRight: false, sciaticaLeft: false,
+                  }
+                },
+                assignedDoctor: assignedDoctor,
+                status: 'active',
+                formData: []
+              });
+              
+              await patient.save();
+              patientId = patient._id.toString();
+              
+              console.log('Patient created from form submission:', {
+                id: patientId,
+                firstName: firstName,
+                lastName: lastName,
+                email: demoData.email || demoData['Email'] || '',
+                assignedDoctor: assignedDoctor
+              });
+            } catch (error) {
+              console.error('Error creating patient from demographics:', error);
+              console.error('Error stack:', error.stack);
+              return res.status(500).json({ 
+                message: 'Error creating patient record', 
+                error: error.message 
+              });
+            }
+          } else {
+            console.log('Missing required fields for patient creation:', {
+              hasFirstName: !!firstName,
+              hasLastName: !!lastName,
+              hasAssignedDoctor: !!assignedDoctor,
+              demoDataKeys: Object.keys(demoData)
+            });
+          }
+        } else {
+          console.log('No demographics response found in submission');
+        }
+      }
+      
+      // Create form response
+      const formResponse = new FormResponse({
+        formTemplate: submissionData.formTemplate,
+        patient: patientId || null,
+        responses: submissionData.responses,
+        status: submissionData.status || 'completed',
+        completedAt: submissionData.completedAt ? new Date(submissionData.completedAt) : new Date(),
+        submittedVia: 'public_token',
+        formToken: token
+      });
+      
+      await formResponse.save();
+      
+      // Link patient to form token and update patient with form response
+      if (patientId) {
+        formToken.patientId = patientId;
+        
+        // Update patient to include form response
+        const patient = await Patient.findById(patientId);
+        if (patient) {
+          patient.formResponses = patient.formResponses || [];
+          patient.formResponses.push(formResponse._id);
+          await patient.save();
+        }
+      }
+      
+      // Update token status
+      formToken.status = 'completed';
+      formToken.completedAt = new Date();
+      await formToken.save();
+      
+      return res.json({
+        success: true,
+        message: 'Form submitted successfully',
+        formResponseId: formResponse._id,
+        patientId: patientId || null
+      });
+    }
+    
+    // Original patient data submission (backward compatibility)
+    const patientData = submissionData;
 
     // Validate the token
     if (!token) {

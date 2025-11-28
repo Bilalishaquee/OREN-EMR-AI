@@ -69,7 +69,7 @@ const AppointmentForm: React.FC = () => {
       setIsLoading(true);
       try {
         // Fetch patients
-        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients');
+        const patientsResponse = await axios.get('/api/patients');
         setPatients(patientsResponse.data.patients.map((p: any) => ({
     _id: p._id,
     firstName: p.firstName || p.dynamicData?.["First Name"] || "",
@@ -78,13 +78,13 @@ const AppointmentForm: React.FC = () => {
         
         // If user is admin, fetch doctors
         if (user?.role === 'admin') {
-          const doctorsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/auth/doctors');
+          const doctorsResponse = await axios.get('/api/auth/doctors');
           setDoctors(doctorsResponse.data);
         }
         
         // If in edit mode, fetch appointment data
         if (isEditMode) {
-          const appointmentResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments/${id}`);
+          const appointmentResponse = await axios.get(`/api/appointments/${id}`);
           const appointmentData = appointmentResponse.data;
           
           setFormData({
@@ -202,9 +202,9 @@ const AppointmentForm: React.FC = () => {
 
       let response;
       if (isEditMode) {
-        response = await axios.put(`https://oren-emr-ai-1.onrender.com/api/appointments/${id}`, appointmentData, config);
+        response = await axios.put(`/api/appointments/${id}`, appointmentData, config);
       } else {
-        response = await axios.post('https://oren-emr-ai-1.onrender.com/api/appointments', appointmentData, config);
+        response = await axios.post('/api/appointments', appointmentData, config);
       }
       
       console.log('Server response:', response.data);
@@ -226,7 +226,7 @@ const AppointmentForm: React.FC = () => {
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`https://oren-emr-ai-1.onrender.com/api/appointments/${id}`, {
+      await axios.delete(`/api/appointments/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -240,7 +240,7 @@ const AppointmentForm: React.FC = () => {
   const handleComplete = async () => {
     try {
       await axios.patch(
-        `https://oren-emr-ai-1.onrender.com/api/appointments/${id}/complete`,
+        `/api/appointments/${id}/complete`,
         { notes: formData.notes },
         {
           headers: {
@@ -258,7 +258,7 @@ const AppointmentForm: React.FC = () => {
   const handleCancel = async () => {
     try {
       await axios.patch(
-        `https://oren-emr-ai-1.onrender.com/api/appointments/${id}/cancel`,
+        `/api/appointments/${id}/cancel`,
         { notes: formData.notes },
         {
           headers: {

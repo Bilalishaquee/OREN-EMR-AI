@@ -442,8 +442,9 @@ const PatientIntakeFormBuilder: React.FC = () => {
         formTemplateId: id
       });
       
-      toast.success('Form sent successfully to client');
+      // Success notification is handled by SendFormModal component
       setShowSendModal(false);
+      return Promise.resolve();
     } catch (error) {
       console.error('Error sending form:', error);
       return Promise.reject(error);

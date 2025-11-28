@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTask } from '../../contexts/TaskContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaEdit, FaTrash, FaCheck, FaPlus, FaFilter, FaSearch } from 'react-icons/fa';
+import { Edit, Trash2, Check, Plus, Filter, Search, User, Calendar, Clock, CheckSquare } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 const TaskList: React.FC = () => {
@@ -88,174 +88,212 @@ const TaskList: React.FC = () => {
   };
   
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Tasks</h2>
-        <button
-          onClick={() => navigate('/tasks/new')}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <FaPlus className="mr-2" /> New Task
-        </button>
+    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-xl font-bold text-gray-900">All Tasks</h2>
+        </div>
       </div>
       
-      <div className="mb-6">
-        <div className="flex items-center mb-4">
-          <div className="flex-1 mr-4">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search tasks..."
-                className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
+      <div className="p-6">
+        {/* Search and Filters */}
+        <div className="mb-6">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex-1">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search tasks..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
             </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center px-4 py-2.5 border rounded-lg transition-all ${
+                showFilters 
+                  ? 'bg-blue-50 border-blue-300 text-blue-700' 
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Filter className="w-5 h-5 mr-2" />
+              Filters
+            </button>
+            <button
+              onClick={handleSearch}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md font-medium"
+            >
+              Search
+            </button>
           </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          >
-            <FaFilter className="mr-2" /> Filters
-          </button>
-          <button
-            onClick={handleSearch}
-            className="ml-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Search
-          </button>
+          
+          {showFilters && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-gray-50 rounded-xl border border-gray-200">
+              <div>
+                <label htmlFor="statusFilter" className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                <select
+                  id="statusFilter"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="priorityFilter" className="block text-sm font-semibold text-gray-700 mb-2">Priority</label>
+                <select
+                  id="priorityFilter"
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleFilterReset}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 font-medium transition-all"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-md">
-            <div>
-              <label htmlFor="statusFilter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                id="statusFilter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="priorityFilter" className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-              <select
-                id="priorityFilter"
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Priorities</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={handleFilterReset}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                Reset Filters
-              </button>
-            </div>
+        {loading ? (
+          <div className="flex flex-col justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-gray-500">Loading tasks...</p>
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-12">
+            <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium">No tasks found.</p>
+            <p className="text-sm text-gray-400 mt-1">Create a new task to get started</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <tr>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Task</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Patient</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Assigned To</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Priority</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Due Date</th>
+                  <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {tasks.map((task) => (
+                  <tr key={task._id} className="hover:bg-blue-50/50 transition-colors duration-150">
+                    <td className="px-6 py-5">
+                      <div className="text-sm font-semibold text-gray-900">{task.title}</div>
+                      {task.description && (
+                        <div className="text-sm text-gray-500 truncate max-w-xs mt-1">{task.description}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      {task.patient ? (
+                        <Link 
+                          to={`/patients/${task.patient._id}`} 
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center"
+                        >
+                          <User className="w-4 h-4 mr-1" />
+                          {task.patient.firstName} {task.patient.lastName}
+                        </Link>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">No patient</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 font-medium">
+                        {task.assignedTo.firstName} {task.assignedTo.lastName}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full border ${
+                        task.priority === 'high'
+                          ? 'bg-red-100 text-red-800 border-red-200'
+                          : task.priority === 'medium'
+                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                          : 'bg-green-100 text-green-800 border-green-200'
+                      }`}>
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full border ${
+                        task.status === 'completed'
+                          ? 'bg-green-100 text-green-800 border-green-200'
+                          : task.status === 'in-progress'
+                          ? 'bg-blue-100 text-blue-800 border-blue-200'
+                          : 'bg-gray-100 text-gray-800 border-gray-200'
+                      }`}>
+                        {task.status.charAt(0).toUpperCase() + task.status.slice(1).replace('-', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      {task.dueDate ? (
+                        <div className="flex items-center text-sm text-gray-900">
+                          <Calendar className="w-4 h-4 mr-1 text-gray-400" />
+                          {formatDate(task.dueDate.toString())}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">No due date</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-5 whitespace-nowrap text-right">
+                      <div className="flex items-center justify-end space-x-2">
+                        {task.status !== 'completed' && (
+                          <button
+                            onClick={() => handleComplete(task._id)}
+                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-all duration-150"
+                            title="Mark as Complete"
+                          >
+                            <Check className="w-5 h-5" />
+                          </button>
+                        )}
+                        <Link
+                          to={`/tasks/${task._id}/edit`}
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-150"
+                          title="Edit Task"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </Link>
+                        {(user?.role === 'admin' || user?.id === task.assignedBy._id) && (
+                          <button
+                            onClick={() => handleDelete(task._id)}
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all duration-150"
+                            title="Delete Task"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
-      
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="loader"></div>
-        </div>
-      ) : tasks.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No tasks found. Create a new task to get started.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {tasks.map((task) => (
-                <tr key={task._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{task.title}</div>
-                    {task.description && (
-                      <div className="text-sm text-gray-500 truncate max-w-xs">{task.description}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Link to={`/patients/${task.patient?._id}`} className="text-sm text-blue-600 hover:text-blue-800">
-                      {task.patient?.firstName} {task.patient?.lastName}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{task.assignedTo.firstName} {task.assignedTo.lastName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityClass(task.priority)}`}>
-                      {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(task.status)}`}>
-                      {task.status.charAt(0).toUpperCase() + task.status.slice(1).replace('-', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{task.dueDate ? formatDate(task.dueDate.toString()) : 'No due date'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex space-x-2">
-                      {task.status !== 'completed' && (
-                        <button
-                          onClick={() => handleComplete(task._id)}
-                          className="text-green-600 hover:text-green-900"
-                          title="Mark as Complete"
-                        >
-                          <FaCheck />
-                        </button>
-                      )}
-                      <Link
-                        to={`/tasks/${task._id}/edit`}
-                        className="text-blue-600 hover:text-blue-900"
-                        title="Edit Task"
-                      >
-                        <FaEdit />
-                      </Link>
-                      {(user?.role === 'admin' || user?.id === task.assignedBy._id) && (
-                        <button
-                          onClick={() => handleDelete(task._id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete Task"
-                        >
-                          <FaTrash />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 };

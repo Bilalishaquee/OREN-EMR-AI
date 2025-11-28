@@ -68,16 +68,26 @@ const TaskSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field on save
-TaskSchema.pre('save', function(next) {
+TaskSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
-  
+
   // If status is changed to completed, set completedAt
   if (this.isModified('status') && this.status === 'completed' && !this.completedAt) {
     this.completedAt = Date.now();
   }
-  
+
   next();
 });
+
+// Add indices for better query performance
+TaskSchema.index({ assignedTo: 1 });
+TaskSchema.index({ assignedBy: 1 });
+TaskSchema.index({ patient: 1 });
+TaskSchema.index({ status: 1 });
+TaskSchema.index({ dueDate: 1 });
+// Compound indices for common queries
+TaskSchema.index({ assignedTo: 1, status: 1 });
+TaskSchema.index({ patient: 1, status: 1 });
 
 const Task = mongoose.model('Task', TaskSchema);
 

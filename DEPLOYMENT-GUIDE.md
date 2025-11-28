@@ -101,12 +101,6 @@ GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URL=https://your-backend-name.onrender.com/api/google-calendar/callback
 
-# QuickBooks API
-QUICKBOOKS_CLIENT_ID=your_quickbooks_client_id
-QUICKBOOKS_CLIENT_SECRET=your_quickbooks_client_secret
-QUICKBOOKS_REALM_ID=your_quickbooks_realm_id
-QUICKBOOKS_REFRESH_TOKEN=your_quickbooks_refresh_token
-
 # Stripe
 STRIPE_SECRET_KEY=sk_live_your_stripe_secret_key
 STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_publishable_key
@@ -191,16 +185,6 @@ VITE_API_URL=https://your-backend-name.onrender.com
    https://your-backend-name.onrender.com/api/google-calendar/callback
    ```
 5. Click **"Save"**
-
-### Step 4.2: QuickBooks Redirect URL
-1. Go to [QuickBooks Developer Dashboard](https://developer.intuit.com/app/developer/dashboard)
-2. Select your app
-3. Go to **Keys & Credentials**
-4. Add redirect URI:
-   ```
-   https://your-backend-name.onrender.com/api/quickbooks/callback
-   ```
-5. Save changes
 
 ---
 
@@ -328,7 +312,6 @@ For now, files will work but may be lost on service restarts. This is acceptable
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth secret |
 | `GOOGLE_REDIRECT_URL` | Google OAuth redirect |
-| `QUICKBOOKS_*` | QuickBooks credentials |
 | `STRIPE_SECRET_KEY` | Stripe secret key |
 | `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
 

@@ -59,7 +59,7 @@ const PatientIntakeFormPage: React.FC = () => {
         formTemplateId: template?._id
       });
       
-      toast.success('Form sent successfully to client');
+      // Success notification is handled by SendFormModal component
       return Promise.resolve();
     } catch (error) {
       console.error('Error sending form:', error);

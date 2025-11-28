@@ -12,7 +12,7 @@ A comprehensive Electronic Medical Records (EMR) system designed specifically fo
   - ER Operative Reports
   - OR Operative Reports
 - **Appointment Scheduling**: Calendar integration with Google Calendar sync
-- **Billing & Payments**: Integration with QuickBooks and Stripe for invoicing and payments
+- **Billing & Payments**: Integration with Stripe for invoicing and payments
 - **Form Builder**: Dynamic patient intake form builder with multiple question types
 - **Task Management**: Task assignment and tracking system
 - **Notifications**: Real-time notification system
@@ -40,7 +40,6 @@ A comprehensive Electronic Medical Records (EMR) system designed specifically fo
 - **JWT** for authentication
 - **OpenAI API** for AI note generation
 - **Stripe** for payment processing
-- **QuickBooks API** for accounting integration
 - **Google Calendar API** for calendar sync
 - **Multer** for file uploads
 
@@ -82,7 +81,7 @@ cd ..
 Create a `.env` file in the root directory (if needed):
 
 ```env
-VITE_API_URL=http://localhost:5001
+VITE_API_URL=http://localhost:5000
 ```
 
 ### Backend Environment Variables
@@ -94,7 +93,7 @@ Create a `.env` file in the `server` directory with the following variables:
 MONGODB_URI=mongodb://localhost:27017/orenemr
 
 # Server Configuration
-PORT=5001
+PORT=5000
 NODE_ENV=development
 
 # JWT Secret
@@ -110,13 +109,7 @@ EMAIL_PASSWORD=your-app-password
 # Google Calendar API Configuration
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URL=http://localhost:5001/api/google-calendar/callback
-
-# QuickBooks API Configuration
-QUICKBOOKS_CLIENT_ID=your_quickbooks_client_id
-QUICKBOOKS_CLIENT_SECRET=your_quickbooks_client_secret
-QUICKBOOKS_REALM_ID=your_quickbooks_realm_id
-QUICKBOOKS_REFRESH_TOKEN=your_quickbooks_refresh_token
+GOOGLE_REDIRECT_URL=http://localhost:5000/api/google-calendar/callback
 
 # Stripe Configuration
 STRIPE_SECRET_KEY=your_stripe_secret_key
@@ -138,8 +131,12 @@ FRONTEND_URL=http://localhost:5173
 #### Google Calendar API
 See [README-GOOGLE-CALENDAR.md](./README-GOOGLE-CALENDAR.md) for detailed setup instructions.
 
-#### QuickBooks API
-See [QUICKBOOKS-SETUP.md](./QUICKBOOKS-SETUP.md) for detailed setup instructions.
+#### Stripe API
+1. Go to [Stripe Dashboard](https://dashboard.stripe.com/)
+2. Sign up or log in
+3. Navigate to Developers > API keys
+4. Copy your Secret key and Publishable key
+5. Add them to your `.env` file
 
 ## 🚀 Running the Application
 
@@ -165,7 +162,7 @@ npm run server
 
 The application will be available at:
 - **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:5001
+- **Backend API**: http://localhost:5000
 
 ### Production Build
 
@@ -249,10 +246,10 @@ The system uses OpenAI's GPT-4 to generate clinical notes based on:
 
 ### Billing Integration
 
-- QuickBooks integration for accounting
 - Stripe integration for payment processing
 - Invoice generation
 - Payment tracking
+- Email notifications for invoices and payment reminders
 
 ## 🔐 Authentication
 
@@ -317,7 +314,7 @@ npm run lint
 
 **Port Already in Use**
 - Change `PORT` in server `.env` file
-- Kill process using the port: `lsof -ti:5001 | xargs kill`
+- Kill process using the port: `lsof -ti:5000 | xargs kill`
 
 **CORS Errors**
 - Verify `FRONTEND_URL` matches your frontend URL
@@ -326,7 +323,6 @@ npm run lint
 ## 📚 Additional Documentation
 
 - [Google Calendar Setup](./README-GOOGLE-CALENDAR.md)
-- [QuickBooks Setup](./QUICKBOOKS-SETUP.md)
 
 ## 🤝 Contributing
 

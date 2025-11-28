@@ -10,7 +10,11 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Activity
+  Activity,
+  Home,
+  TrendingUp,
+  ArrowRight,
+  Eye
 } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
@@ -57,19 +61,19 @@ const Dashboard: React.FC = () => {
         const nextWeek = new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0];
         
         // Fetch patients count
-        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?limit=1');
+        const patientsResponse = await axios.get('/api/patients?limit=1');
         
         // Fetch today's appointments
-        const todayAppointmentsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments?startDate=${today}&endDate=${tomorrow}`);
+        const todayAppointmentsResponse = await axios.get(`/api/appointments?startDate=${today}&endDate=${tomorrow}`);
         
         // Fetch upcoming appointments
-        const upcomingAppointmentsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments?startDate=${tomorrow}&endDate=${nextWeek}`);
+        const upcomingAppointmentsResponse = await axios.get(`/api/appointments?startDate=${tomorrow}&endDate=${nextWeek}`);
         
         // Fetch billing summary
-        const billingSummaryResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/billing/summary/dashboard');
+        const billingSummaryResponse = await axios.get('/api/billing/summary/dashboard');
         
         // Fetch recent appointments
-        const recentAppointmentsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/appointments?limit=5');
+        const recentAppointmentsResponse = await axios.get('/api/appointments?limit=5');
         
         // Calculate appointment stats
         const allAppointments = [...todayAppointmentsResponse.data, ...upcomingAppointmentsResponse.data];
@@ -151,89 +155,94 @@ const Dashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-gray-500">Loading dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 py-6">
+      {/* Header Section */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          Welcome, {user?.firstName} {user?.lastName}
-        </h1>
-        <p className="text-gray-600">
+        <div className="flex items-center mb-2">
+          <Home className="w-8 h-8 mr-3 text-blue-600" />
+          <h1 className="text-3xl font-bold text-gray-900">
+            Welcome, {user?.firstName} {user?.lastName}
+          </h1>
+        </div>
+        <p className="text-gray-500 text-lg ml-11">
           {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-md">
               <Users className="h-6 w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-500 font-medium">Total Patients</p>
-              <p className="text-2xl font-semibold text-gray-800">{stats.patientCount}</p>
-            </div>
+            <TrendingUp className="h-5 w-5 text-blue-500" />
           </div>
-          <div className="mt-4">
-            <Link to="/patients" className="text-sm text-blue-600 hover:text-blue-800">
-              View all patients →
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Total Patients</p>
+            <p className="text-3xl font-bold text-gray-900 mb-4">{stats.patientCount}</p>
+            <Link to="/patients" className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+              View all patients
+              <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 text-green-600">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white shadow-md">
               <Calendar className="h-6 w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-500 font-medium">Today's Appointments</p>
-              <p className="text-2xl font-semibold text-gray-800">{stats.appointmentsToday}</p>
-            </div>
+            <TrendingUp className="h-5 w-5 text-green-500" />
           </div>
-          <div className="mt-4">
-            <Link to="/appointments" className="text-sm text-green-600 hover:text-green-800">
-              View schedule →
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Today's Appointments</p>
+            <p className="text-3xl font-bold text-gray-900 mb-4">{stats.appointmentsToday}</p>
+            <Link to="/appointments" className="inline-flex items-center text-sm font-semibold text-green-600 hover:text-green-800 transition-colors">
+              View schedule
+              <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-md">
               <Clock className="h-6 w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-500 font-medium">Upcoming Appointments</p>
-              <p className="text-2xl font-semibold text-gray-800">{stats.appointmentsUpcoming}</p>
-            </div>
+            <TrendingUp className="h-5 w-5 text-purple-500" />
           </div>
-          <div className="mt-4">
-            <Link to="/appointments" className="text-sm text-purple-600 hover:text-purple-800">
-              View upcoming →
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Upcoming Appointments</p>
+            <p className="text-3xl font-bold text-gray-900 mb-4">{stats.appointmentsUpcoming}</p>
+            <Link to="/appointments" className="inline-flex items-center text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors">
+              View upcoming
+              <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md">
               <DollarSign className="h-6 w-6" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-500 font-medium">Outstanding Balance</p>
-              <p className="text-2xl font-semibold text-gray-800">${billingStats.outstanding.toFixed(2)}</p>
-            </div>
+            <TrendingUp className="h-5 w-5 text-amber-500" />
           </div>
-          <div className="mt-4">
-            <Link to="/billing" className="text-sm text-yellow-600 hover:text-yellow-800">
-              View billing →
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Outstanding Balance</p>
+            <p className="text-3xl font-bold text-gray-900 mb-4">${billingStats.outstanding.toFixed(2)}</p>
+            <Link to="/billing" className="inline-flex items-center text-sm font-semibold text-amber-600 hover:text-amber-800 transition-colors">
+              View billing
+              <ArrowRight className="w-4 h-4 ml-1" />
             </Link>
           </div>
         </div>
@@ -242,8 +251,11 @@ const Dashboard: React.FC = () => {
       {/* Charts and Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Appointment Status Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Appointment Status</h2>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <div className="flex items-center mb-6">
+            <Activity className="w-6 h-6 mr-2 text-blue-600" />
+            <h2 className="text-xl font-bold text-gray-900">Appointment Status</h2>
+          </div>
           <div className="h-64">
             <Doughnut 
               data={appointmentChartData} 
@@ -252,6 +264,13 @@ const Dashboard: React.FC = () => {
                 plugins: {
                   legend: {
                     position: 'bottom',
+                    labels: {
+                      padding: 15,
+                      font: {
+                        size: 12,
+                        weight: '500'
+                      }
+                    }
                   },
                 },
               }} 
@@ -260,8 +279,11 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Billing Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Monthly Billing Overview</h2>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <div className="flex items-center mb-6">
+            <TrendingUp className="w-6 h-6 mr-2 text-green-600" />
+            <h2 className="text-xl font-bold text-gray-900">Monthly Billing Overview</h2>
+          </div>
           <div className="h-64">
             <Bar 
               data={billingChartData} 
@@ -275,6 +297,11 @@ const Dashboard: React.FC = () => {
                 scales: {
                   y: {
                     beginAtZero: true,
+                    ticks: {
+                      callback: function(value) {
+                        return '$' + value.toLocaleString();
+                      }
+                    }
                   },
                 },
               }} 
@@ -284,67 +311,87 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Recent Appointments */}
-      <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-800">Recent Appointments</h2>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden mb-8">
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Calendar className="w-6 h-6 mr-2 text-blue-600" />
+              <h2 className="text-xl font-bold text-gray-900">Recent Appointments</h2>
+            </div>
+            <Link to="/appointments" className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center">
+              View all
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Link>
+          </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Patient
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Date & Time
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-100">
               {recentAppointments.length > 0 ? (
                 recentAppointments.map((appointment: any) => (
-                  <tr key={appointment._id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-  {appointment.patient?.firstName && appointment.patient?.lastName
-    ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
-    : 'Unknown Patient'}
-</div>
-
+                  <tr key={appointment._id} className="hover:bg-blue-50/50 transition-colors duration-150">
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {appointment.patient?.firstName && appointment.patient?.lastName
+                          ? `${appointment.patient.firstName} ${appointment.patient.lastName}`
+                          : 'Unknown Patient'}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(appointment.date).toLocaleDateString()}
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {new Date(appointment.date).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {appointment.time.start} - {appointment.time.end}
+                        {appointment.time?.start} - {appointment.time?.end}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 capitalize">
-                        {appointment.type}
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 capitalize">
+                        {appointment.type || 'N/A'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                          appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : 
-                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' : 
-                          'bg-yellow-100 text-yellow-800'}`}>
-                        {appointment.status}
+                    <td className="px-6 py-5 whitespace-nowrap">
+                      <span className={`px-3 py-1 inline-flex text-xs font-bold rounded-full border ${
+                        appointment.status === 'completed' 
+                          ? 'bg-green-100 text-green-800 border-green-200' 
+                          : appointment.status === 'scheduled' 
+                          ? 'bg-blue-100 text-blue-800 border-blue-200' 
+                          : appointment.status === 'cancelled' 
+                          ? 'bg-red-100 text-red-800 border-red-200' 
+                          : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                      }`}>
+                        {appointment.status?.charAt(0).toUpperCase() + appointment.status?.slice(1) || 'Unknown'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <Link to={`/appointments/${appointment._id}/edit`} className="text-blue-600 hover:text-blue-900 mr-3">
+                    <td className="px-6 py-5 whitespace-nowrap text-right">
+                      <Link 
+                        to={`/appointments/${appointment._id}/edit`} 
+                        className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
                         View
                       </Link>
                     </td>
@@ -352,45 +399,53 @@ const Dashboard: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                    No recent appointments
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center">
+                      <Calendar className="w-12 h-12 text-gray-300 mb-3" />
+                      <p className="text-sm font-medium text-gray-500">No recent appointments</p>
+                      <p className="text-xs text-gray-400 mt-1">Schedule an appointment to get started</p>
+                    </div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div className="px-6 py-4 border-t border-gray-200">
-          <Link to="/appointments" className="text-sm text-blue-600 hover:text-blue-800">
-            View all appointments →
-          </Link>
-        </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+        <div className="flex items-center mb-6">
+          <Activity className="w-6 h-6 mr-2 text-blue-600" />
+          <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             to="/forms/questionnaires"
-            className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="flex items-center p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:from-blue-100 hover:to-blue-200 transition-all duration-200 border border-blue-200 shadow-sm hover:shadow-md"
           >
-            <Users className="h-6 w-6 text-blue-600 mr-3" />
-            <span className="text-blue-700 font-medium">Add New Patient</span>
+            <div className="p-3 rounded-lg bg-blue-600 text-white mr-4">
+              <Users className="h-6 w-6" />
+            </div>
+            <span className="text-blue-700 font-semibold">Add New Patient</span>
           </Link>
           <Link
             to="/appointments/new"
-            className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            className="flex items-center p-5 bg-gradient-to-br from-green-50 to-green-100 rounded-xl hover:from-green-100 hover:to-green-200 transition-all duration-200 border border-green-200 shadow-sm hover:shadow-md"
           >
-            <Calendar className="h-6 w-6 text-green-600 mr-3" />
-            <span className="text-green-700 font-medium">Schedule Appointment</span>
+            <div className="p-3 rounded-lg bg-green-600 text-white mr-4">
+              <Calendar className="h-6 w-6" />
+            </div>
+            <span className="text-green-700 font-semibold">Schedule Appointment</span>
           </Link>
           <Link
             to="/billing/new"
-            className="flex items-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
+            className="flex items-center p-5 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl hover:from-amber-100 hover:to-amber-200 transition-all duration-200 border border-amber-200 shadow-sm hover:shadow-md"
           >
-            <DollarSign className="h-6 w-6 text-yellow-600 mr-3" />
-            <span className="text-yellow-700 font-medium">Create Invoice</span>
+            <div className="p-3 rounded-lg bg-amber-600 text-white mr-4">
+              <DollarSign className="h-6 w-6" />
+            </div>
+            <span className="text-amber-700 font-semibold">Create Invoice</span>
           </Link>
         </div>
       </div>

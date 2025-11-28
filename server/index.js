@@ -24,7 +24,7 @@ console.log('Loaded MONGODB_URI:', process.env.MONGODB_URI);
 import express from 'express';
 import mongoose from 'mongoose';
 import visitRoutes from './routes/visits.js';
-import cors from 'cors'; 
+import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { authenticateToken } from './middleware/authMiddleware.js';
@@ -43,20 +43,19 @@ import notificationRoutes from './routes/notifications.js';
 import formTemplateRoutes from './routes/formTemplates.js';
 import formResponseRoutes from './routes/formResponses.js';
 import intakeFormDataRoutes from './routes/intakeFormData.js';
-import quickbooksRoutes from './routes/quickbooks.js';
+import stripeRoutes from './routes/stripe.js';
 import emailRoutes from './routes/email.js';
 import payment from './routes/payments.js'
 import Template from './routes/Template.js';
 
 const app = express();
-const PORT = process.env.PORT || 5001; // Changed port to 5001 to avoid conflict
+const PORT = process.env.PORT || 5000;
 
 // CORS configuration
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://oren-emr-ai-ashen.vercel.app',
-  process.env.FRONTEND_URL,
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
 app.use(cors({
@@ -82,21 +81,93 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use('/uploads', express.static('uploads'));
 
+// MongoDB connection check middleware (except for health check)
+app.use((req, res, next) => {
+  // Allow health check endpoint without MongoDB connection
+  if (req.path === '/api/health') {
+    return next();
+  }
+
+  // Check if MongoDB is connected
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      message: 'Database connection not available. Please try again in a moment.',
+      error: 'DATABASE_NOT_CONNECTED',
+      readyState: mongoose.connection.readyState
+    });
+  }
+
+  next();
+});
+
 // Connect to MongoDB
 if (!process.env.MONGODB_URI) {
   console.error('❌ MONGODB_URI is not defined in environment variables');
   process.exit(1);
 }
 
-console.log('🔄 Attempting to connect to MongoDB...');
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+// MongoDB connection options
+const mongooseOptions = {
+  serverSelectionTimeoutMS: 30000, // 30 seconds
+  socketTimeoutMS: 45000, // 45 seconds
+  connectTimeoutMS: 30000, // 30 seconds
+  maxPoolSize: 10,
+  minPoolSize: 5,
+  retryWrites: true,
+  w: 'majority',
+};
+
+// Handle MongoDB connection events
+mongoose.connection.on('connected', () => {
+  console.log('✅ MongoDB connected successfully');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ MongoDB connection error:', err.message);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️ MongoDB disconnected');
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('🔄 MongoDB reconnected');
+});
+
+// Connect to MongoDB and start server only after connection
+async function startServer() {
+  try {
+    console.log('🔄 Attempting to connect to MongoDB...');
+    console.log('MongoDB URI:', process.env.MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Hide credentials
+
+    await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
     console.log('✅ Connected to MongoDB successfully');
-  })
-  .catch((error) => {
-    console.error('❌ MongoDB connection error:', error.message);
+
+    // Start server only after MongoDB connection is established
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to connect to MongoDB:', error.message);
+    console.error('Error details:', {
+      name: error.name,
+      code: error.code,
+      message: error.message
+    });
+
+    // Provide helpful troubleshooting tips
+    if (error.message.includes('ETIMEOUT') || error.message.includes('queryTxt')) {
+      console.error('\n💡 Troubleshooting tips:');
+      console.error('1. Check your internet connection');
+      console.error('2. Verify MongoDB Atlas IP whitelist includes your IP (0.0.0.0/0 for all)');
+      console.error('3. Check if MongoDB Atlas cluster is running');
+      console.error('4. Verify MONGODB_URI is correct in .env file');
+      console.error('5. Try using a local MongoDB instance for development');
+    }
+
     process.exit(1);
-  });
+  }
+}
 
 // Register routes
 app.use('/api/auth', authRoutes);
@@ -112,7 +183,7 @@ app.use('/api/notifications', authenticateToken, notificationRoutes);
 app.use('/api/form-templates', authenticateToken, formTemplateRoutes);
 app.use('/api/form-responses', authenticateToken, formResponseRoutes);
 app.use('/api/intake-form-data', authenticateToken, intakeFormDataRoutes);
-app.use('/api/quickbooks', authenticateToken, quickbooksRoutes);
+app.use('/api/stripe', authenticateToken, stripeRoutes);
 app.use('/api/email', authenticateToken, emailRoutes);
 
 // Health check
@@ -124,14 +195,12 @@ app.use('/api/reports', authenticateToken, reportsRoutes);
 app.use('/api/visits', authenticateToken, visitRoutes);
 app.use('/api/payments', authenticateToken, payment)
 // PDF Templates route
-app.use('/api/templates',  Template);
+app.use('/api/templates', Template);
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
 
-// ✅ Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+// ✅ Start server after MongoDB connection
+startServer();

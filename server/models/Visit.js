@@ -26,6 +26,14 @@ const baseVisitSchema = new mongoose.Schema(
   }
 );
 
+// Add indices for better query performance
+baseVisitSchema.index({ patient: 1 });
+baseVisitSchema.index({ doctor: 1 });
+baseVisitSchema.index({ date: 1 });
+baseVisitSchema.index({ visitType: 1 });
+// Compound index for common queries
+baseVisitSchema.index({ patient: 1, date: 1 });
+
 const Visit = mongoose.model('Visit', baseVisitSchema);
 
 const initialVisitSchema = new mongoose.Schema({

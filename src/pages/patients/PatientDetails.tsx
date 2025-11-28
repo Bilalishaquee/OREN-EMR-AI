@@ -11,7 +11,6 @@ import BillingList from '../billing/BillingList';
 import PatientNotes from '../../components/patients/PatientNotes';
 import {
   ArrowLeft,
-  Edit,
   Calendar,
   FileText,
   DollarSign,
@@ -19,7 +18,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  FileArchive
+  FileArchive,
+  StickyNote
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 
@@ -198,38 +198,37 @@ const PatientDetails: React.FC<{}> = () => {
   // Using _ prefix to indicate this is intentionally unused
   // const [_invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoiceCount, setInvoiceCount] = useState(0);
+  const [notesCount, setNotesCount] = useState(0);
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-
-  // All sections are always expanded
-  const expandedSections = {
-    personalInfo: true,
-    contactInfo: true,
-    medicalHistory: true,
-  };
-
-  const getResponseByType = (type: string) => {
-    return formData?.[0]?.responses?.find((r: any) => r.questionType === type)?.answer || null;
-  };
 
   useEffect(() => {
     const fetchPatientData = async () => {
       setIsLoading(true);
       try {
         // Fetch patient details
-        const patientResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${id}`);
+        const patientResponse = await axios.get(`/api/patients/${id}`);
         setPatient(patientResponse.data);
 
         // Fetch patient appointments
-        const appointmentsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/appointments?patient=${id}`);
+        const appointmentsResponse = await axios.get(`/api/appointments?patient=${id}`);
         setAppointments(appointmentsResponse.data);
 
         // Fetch invoice count for the patient using the dedicated endpoint
-        const invoiceCountResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/count/${id}`);
+        const invoiceCountResponse = await axios.get(`/api/billing/count/${id}`);
         setInvoiceCount(invoiceCountResponse.data.totalInvoices);
 
-        const patientFormData = await axios.get(`https://oren-emr-ai-1.onrender.com/api/form-responses/patient-details/${id}`);
+        // Fetch notes count for the patient
+        try {
+          const notesResponse = await axios.get(`/api/notes/patient/${id}`);
+          setNotesCount(Array.isArray(notesResponse.data) ? notesResponse.data.length : 0);
+        } catch (error) {
+          console.error('Error fetching notes count:', error);
+          setNotesCount(0);
+        }
+
+        const patientFormData = await axios.get(`/api/form-responses/patient-details/${id}`);
         setFormData(patientFormData.data);
         // We don't need to fetch invoices here anymore as BillingList will handle it
         // setInvoices([]); // Clear the local invoices state
@@ -334,12 +333,6 @@ const PatientDetails: React.FC<{}> = () => {
     );
   }
 
-  const demographicsAnswer = getResponseByType('demographics');
-  const primaryInsurance = getResponseByType('primaryInsurance');
-  const secondaryInsurance = getResponseByType('secondaryInsurance');
-  const workersComp = getResponseByType('workersComp');
-  const autoInsurance = getResponseByType('autoInsurance');
-
   return (
     <div className="container mx-auto px-4">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -351,75 +344,72 @@ const PatientDetails: React.FC<{}> = () => {
             <ArrowLeft className="h-5 w-5 text-gray-600" />
           </button>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-800">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {patient.firstName} {patient.lastName}
             </h1>
-            <p className="text-gray-600">
-              {calculateAge(patient.dynamicData?.["Date of Birth"] || patient.dateOfBirth)} years • {patient.gender} • {patient.status}
-            </p>
+            <div className="flex items-center gap-2 text-gray-600">
+              <span className="text-base font-medium">
+                {calculateAge(patient.dynamicData?.["Date of Birth"] || patient.dateOfBirth)} years
+              </span>
+              <span className="text-gray-400">•</span>
+              <span className="text-base font-medium capitalize">{patient.gender}</span>
+              <span className="text-gray-400">•</span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                patient.status === 'active'
+                  ? 'bg-green-100 text-green-800'
+                  : patient.status === 'inactive'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {patient.status}
+              </span>
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            to={`/patients/${id}/edit`}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Link>
-          <Link
-            to={`/patients/${id}/intake-form`}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Dynamic Intake Form
-          </Link>
+          {notesCount > 0 ? (
+            <button
+              onClick={() => {
+                setActiveTab('notes');
+                // Scroll to notes section
+                setTimeout(() => {
+                  const notesElement = document.querySelector('[data-notes-section]');
+                  if (notesElement) {
+                    notesElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }, 100);
+              }}
+              className="inline-flex items-center px-5 py-2.5 border border-transparent rounded-lg shadow-md text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+            >
+              <StickyNote className="mr-2 h-4 w-4" />
+              Check Notes ({notesCount})
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('notes')}
+              disabled
+              className="inline-flex items-center px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-semibold text-gray-400 bg-gray-100 cursor-not-allowed opacity-60"
+            >
+              <StickyNote className="mr-2 h-4 w-4" />
+              Check Notes (No notes)
+            </button>
+          )}
           {user?.role === 'doctor' && (
-            <>
-              <Link
-                to={`/appointments/new?patient=${id}`}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                Schedule
-              </Link>
-              {/* {visits.length > 0 ? (
-                <>
-                  <Link
-                    to={`/patients/${id}/visits/followup`}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    New Follow-up
-                  </Link>
-                  {patient.status !== 'discharged' && (
-                    <Link
-                      to={`/patients/${id}/visits/discharge`}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Discharge
-                    </Link>
-                  )}
-                </>
-              ) : (
-                <Link
-                  to={`/patients/${id}/visits/initial`}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Initial Visit
-                </Link>
-              )} */}
-            </>
+            <Link
+              to={`/appointments/new?patient=${id}`}
+              className="inline-flex items-center px-5 py-2.5 border border-transparent rounded-lg shadow-md text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              Schedule
+            </Link>
           )}
           <button
             onClick={handlePrint}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="inline-flex items-center px-5 py-2.5 border border-gray-300 rounded-lg shadow-md text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all duration-200"
           >
             <Printer className="mr-2 h-4 w-4" />
             Print
           </button>
-
         </div>
       </div>
 
@@ -452,7 +442,7 @@ const PatientDetails: React.FC<{}> = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
-              Notes
+              Notes ({notesCount})
             </button>
             <button
               onClick={() => setActiveTab('billing')}
@@ -469,480 +459,372 @@ const PatientDetails: React.FC<{}> = () => {
 
       <div ref={printRef}>
         {activeTab === 'notes' && (
-          <div className="bg-white shadow rounded-lg overflow-hidden p-6">
+          <div className="bg-white shadow rounded-lg overflow-hidden p-6" data-notes-section>
             <PatientNotes patientId={id || ''} />
           </div>
         )}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Personal Information */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Personal Information</h2>
-              </div>
-              {expandedSections.personalInfo && (
-                <div className="px-6 py-4">
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Full Name</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {(demographicsAnswer?.["First Name"] || patient.firstName || patient.dynamicData?.["First Name"]) + " " + (demographicsAnswer?.["Last Name"] || patient.lastName || patient.dynamicData?.["Last Name"])}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Date of Birth</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {(demographicsAnswer?.["Date of Birth"] || patient.dynamicData?.["Date of Birth"] || patient.dateOfBirth)
-                          ? new Date(demographicsAnswer?.["Date of Birth"] || patient.dynamicData?.["Date of Birth"] || patient.dateOfBirth).toLocaleDateString()
-                          : new Date(patient.dateOfBirth).toLocaleDateString()
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-medium text-gray-900">Patient Overview</h2>
+            </div>
+            <div className="px-6 py-4">
+              {(() => {
+                // Helper function to format field names
+                const formatFieldName = (key: string): string => {
+                  // Handle camelCase
+                  key = key.replace(/([A-Z])/g, ' $1');
+                  // Handle spaces and capitalize first letter
+                  return key.split(' ').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                  ).join(' ');
+                };
+
+                // Helper function to format field values
+                const formatFieldValue = (value: any, key?: string): any => {
+                  if (value === null || value === undefined || value === '') {
+                    return 'N/A';
+                  }
+                  
+                  // Handle dates
+                  if (key && (key.toLowerCase().includes('date') || key.toLowerCase().includes('dob') || key.toLowerCase().includes('birth'))) {
+                    try {
+                      const date = new Date(value);
+                      if (!isNaN(date.getTime())) {
+                        const formattedDate = date.toLocaleDateString();
+                        // Add age for date of birth
+                        if (key.toLowerCase().includes('birth') || key.toLowerCase().includes('dob')) {
+                          const age = calculateAge(value);
+                          return `${formattedDate} (${age} years)`;
                         }
-                        {" "}
-                        ({calculateAge(demographicsAnswer?.["Date of Birth"] || patient.dynamicData?.["Date of Birth"] || patient.dateOfBirth)} years)
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Gender</dt>
-                      <dd className="mt-1 text-sm text-gray-900 capitalize">
-                        {demographicsAnswer?.["Gender"] || patient.dynamicData?.["Gender"] || patient.gender}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Sex</dt>
-                      <dd className="mt-1 text-sm text-gray-900 capitalize">
-                        {demographicsAnswer?.["Sex"] || patient.dynamicData?.["Sex"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Marital Status</dt>
-                      <dd className="mt-1 text-sm text-gray-900 capitalize">
-                        {demographicsAnswer?.["Marital Status"] || patient.dynamicData?.["Marital Status"] || patient.maritalStatus || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Occupation</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Occupation"] || patient.dynamicData?.["Occupation"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Nature of Complaint</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Nature of Complaint"] || patient.dynamicData?.["Nature of Complaint"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Laterality of Injury</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Laterality of Injury"] || patient.dynamicData?.["Laterality of Injury"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Status</dt>
-                      <dd className="mt-1 text-sm">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${patient.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : patient.status === 'inactive'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
-                            }`}
-                        >
-                          {patient.status}
-                        </span>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Assigned Doctor</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        Dr. {patient.assignedDoctor?.firstName} {patient.assignedDoctor?.lastName}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Patient Since</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {new Date(patient.createdAt).toLocaleDateString()}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              )}
-            </div>
+                        return formattedDate;
+                      }
+                    } catch (e) {
+                      // Not a valid date
+                    }
+                  }
 
-            {/* Contact Information */}
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Contact Information</h2>
-              </div>
-              {expandedSections.contactInfo && (
-                <div className="px-6 py-4">
-                  <dl className="grid grid-cols-1 gap-y-6">
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Email</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Email"] || patient.dynamicData?.["Email"] || patient.email}
-                      </dd>
+                  // Handle arrays
+                  if (Array.isArray(value)) {
+                    if (value.length === 0) return 'N/A';
+                    // Handle array of objects (e.g., bodyPart, matrixResponses, fileAttachments)
+                    if (value[0] && typeof value[0] === 'object') {
+                      // Handle matrix responses
+                      if (value[0].rowIndex !== undefined && value[0].columnIndex !== undefined) {
+                        return value.map((item: any) => `Row ${item.rowIndex + 1}, Col ${item.columnIndex + 1}: ${item.value || 'N/A'}`).join('\n');
+                      }
+                      // Handle body map markings
+                      if (value[0].x !== undefined && value[0].y !== undefined) {
+                        return value.map((item: any) => 
+                          `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
+                        ).join('\n');
+                      }
+                      // Handle file attachments
+                      if (value[0].fileName || value[0].originalName) {
+                        return value.map((file: any) => {
+                          const fileName = file.fileName || file.originalName || 'Unknown file';
+                          const fileSize = file.fileSize ? ` (${(file.fileSize / 1024).toFixed(2)} KB)` : '';
+                          const fileUrl = file.fileUrl ? ` - ${file.fileUrl}` : '';
+                          return `${fileName}${fileSize}${fileUrl}`;
+                        }).join('\n');
+                      }
+                      // Handle mixed controls responses
+                      if (value[0].controlId !== undefined || value[0].index !== undefined) {
+                        return value.map((control: any) => {
+                          const controlLabel = control.controlId || `Control ${(control.index || 0) + 1}`;
+                          const controlValue = control.value !== null && control.value !== undefined ? control.value : 'N/A';
+                          return `${controlLabel}: ${controlValue}`;
+                        }).join('\n');
+                      }
+                      // Handle bodyPart objects
+                      if (value[0].part && value[0].side) {
+                        return value.map((item: any) => `${item.part} (${item.side})`).join(', ');
+                      }
+                      // Handle body map with description and markings
+                      if (value.description || (value.markings && Array.isArray(value.markings))) {
+                        let result = '';
+                        if (value.description) {
+                          result += `Description: ${value.description}\n`;
+                        }
+                        if (value.markings && Array.isArray(value.markings) && value.markings.length > 0) {
+                          result += value.markings.map((item: any) => 
+                            `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
+                          ).join('\n');
+                        }
+                        return result || 'N/A';
+                      }
+                      // Generic object array - format nicely
+                      return value.map((item: any, index: number) => {
+                        if (typeof item === 'object') {
+                          const entries = Object.entries(item).filter(([_, v]) => v !== null && v !== undefined && v !== '');
+                          if (entries.length === 0) return `Item ${index + 1}: N/A`;
+                          return `Item ${index + 1}: ${entries.map(([k, v]) => `${formatFieldName(k)}: ${v}`).join(', ')}`;
+                        }
+                        return `Item ${index + 1}: ${item}`;
+                      }).join('\n');
+                    }
+                    // Handle simple arrays (strings, numbers, etc.) - like multipleChoiceMultiple
+                    return value.filter(Boolean).join(', ');
+                  }
+
+                  // Handle objects
+                  if (typeof value === 'object' && value !== null) {
+                    // Handle body map with description and markings (when passed as object)
+                    if (value.description !== undefined || (value.markings && Array.isArray(value.markings))) {
+                      let result = '';
+                      if (value.description) {
+                        result += `Description: ${value.description}\n`;
+                      }
+                      if (value.markings && Array.isArray(value.markings) && value.markings.length > 0) {
+                        result += value.markings.map((item: any) => 
+                          `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
+                        ).join('\n');
+                      }
+                      return result || 'N/A';
+                    }
+                    // Handle address objects
+                    if (value.street || value.city || value.state) {
+                      const parts = [];
+                      if (value.street) parts.push(value.street);
+                      if (value.city || value.state || value.zipCode) {
+                        const cityState = [value.city, value.state, value.zipCode].filter(Boolean).join(', ');
+                        if (cityState) parts.push(cityState);
+                      }
+                      if (value.country) parts.push(value.country);
+                      return parts.length > 0 ? parts.join('\n') : 'N/A';
+                    }
+                    // Handle signature objects
+                    if (value.signatureData || value.signedAt || (typeof value === 'object' && 'signature' in value)) {
+                      const sig = value.signatureData ? value : (value.signature || value);
+                      if (typeof sig === 'string') {
+                        return 'Signature provided';
+                      }
+                      return `Signed by ${sig.signedBy || 'Unknown'} on ${sig.signedAt ? new Date(sig.signedAt).toLocaleDateString() : 'Unknown date'}`;
+                    }
+                    // Handle question-answer objects from dynamicData
+                    if (value.question && value.answer !== undefined) {
+                      return formatFieldValue(value.answer);
+                    }
+                    // Handle other objects - display as key-value pairs
+                    const objEntries = Object.entries(value).filter(([_, v]) => v !== null && v !== undefined && v !== '');
+                    if (objEntries.length === 0) return 'N/A';
+                    return objEntries.map(([k, v]) => `${formatFieldName(k)}: ${formatFieldValue(v, k)}`).join('\n');
+                  }
+
+                  // Handle booleans
+                  if (typeof value === 'boolean') {
+                    return value ? 'Yes' : 'No';
+                  }
+
+                  // Handle HTML content (from smartEditor)
+                  if (typeof value === 'string' && (value.includes('<p>') || value.includes('<div>') || value.includes('<br'))) {
+                    // Strip HTML tags for display, but preserve line breaks
+                    const text = value
+                      .replace(/<br\s*\/?>/gi, '\n')
+                      .replace(/<\/p>/gi, '\n')
+                      .replace(/<\/div>/gi, '\n')
+                      .replace(/<[^>]+>/g, '')
+                      .trim();
+                    return text || 'N/A';
+                  }
+
+                  return String(value);
+                };
+
+                // Collect all form response data
+                const allFormData: { [key: string]: any } = {};
+
+                // Process all form responses - ensure ALL questions are displayed
+                if (formData && Array.isArray(formData) && formData.length > 0) {
+                  formData.forEach((formResponse: any) => {
+                    if (formResponse.responses && Array.isArray(formResponse.responses)) {
+                      formResponse.responses.forEach((response: any) => {
+                        // Skip section titles (they're not questions with answers)
+                        if (response.questionType === 'sectionTitle' || response.questionType === 'section') {
+                          return;
+                        }
+
+                        const questionText = response.questionText || response.question || 'Question';
+                        const questionType = response.questionType || 'unknown';
+                        const questionId = response.questionId || '';
+
+                        // Check if response has any data (answer, matrix, bodyMap, files, signature, etc.)
+                        const hasAnswer = response.answer !== null && response.answer !== undefined && response.answer !== '';
+                        const hasMatrix = response.matrixResponses && Array.isArray(response.matrixResponses) && response.matrixResponses.length > 0;
+                        const hasBodyMap = response.bodyMapMarkings && Array.isArray(response.bodyMapMarkings) && response.bodyMapMarkings.length > 0;
+                        const hasMixedControls = response.mixedControlsResponses && Array.isArray(response.mixedControlsResponses) && response.mixedControlsResponses.length > 0;
+                        const hasFiles = response.fileAttachments && Array.isArray(response.fileAttachments) && response.fileAttachments.length > 0;
+                        const hasSignature = response.signature !== null && response.signature !== undefined && response.signature !== '';
+                        const hasDescription = response.description && response.description !== '';
+
+                        // Skip if no data at all
+                        if (!hasAnswer && !hasMatrix && !hasBodyMap && !hasMixedControls && !hasFiles && !hasSignature && !hasDescription) {
+                          return;
+                        }
+
+                        // Handle demographics - flatten into individual fields
+                        if (questionType === 'demographics' && hasAnswer && typeof response.answer === 'object') {
+                          Object.keys(response.answer).forEach(key => {
+                            const value = response.answer[key];
+                            if (value !== null && value !== undefined && value !== '') {
+                              // Use field name as key, or combine with question text if needed
+                              const fieldKey = formatFieldName(key);
+                              allFormData[fieldKey] = value;
+                            }
+                          });
+                        }
+                        // Handle insurance types - prefix with insurance type
+                        else if ((questionType === 'primaryInsurance' || questionType === 'secondaryInsurance' || 
+                                  questionType === 'workersComp' || questionType === 'autoInsurance') && 
+                                 hasAnswer && typeof response.answer === 'object') {
+                          const insurancePrefix = questionType === 'primaryInsurance' ? 'Primary Insurance' :
+                                                  questionType === 'secondaryInsurance' ? 'Secondary Insurance' :
+                                                  questionType === 'workersComp' ? 'Workers Compensation' :
+                                                  'Auto Insurance';
+                          Object.keys(response.answer).forEach(key => {
+                            const value = response.answer[key];
+                            if (value !== null && value !== undefined && value !== '') {
+                              allFormData[`${insurancePrefix} - ${formatFieldName(key)}`] = value;
+                            }
+                          });
+                        }
+                        // Handle matrix responses
+                        else if (hasMatrix) {
+                          allFormData[questionText] = response.matrixResponses;
+                        }
+                        // Handle body map with description
+                        else if (hasBodyMap) {
+                          let bodyMapValue = response.bodyMapMarkings;
+                          if (hasDescription) {
+                            bodyMapValue = {
+                              description: response.description,
+                              markings: response.bodyMapMarkings
+                            };
+                          }
+                          allFormData[questionText] = bodyMapValue;
+                        }
+                        // Handle mixed controls
+                        else if (hasMixedControls) {
+                          allFormData[questionText] = response.mixedControlsResponses;
+                        }
+                        // Handle file attachments
+                        else if (hasFiles) {
+                          allFormData[questionText] = response.fileAttachments;
+                        }
+                        // Handle signature
+                        else if (hasSignature) {
+                          allFormData[questionText] = response.signature;
+                        }
+                        // Handle all other question types with answer field
+                        // This includes: blank, openAnswer, smartEditor, multipleChoiceSingle, 
+                        // multipleChoiceMultiple, date, text, dropdown, checkbox, radio, allergies, etc.
+                        else if (hasAnswer) {
+                          // Use question text as key, but ensure uniqueness if duplicate question texts exist
+                          let key = questionText;
+                          if (questionId) {
+                            // If we already have this question text, append question ID to make it unique
+                            if (allFormData.hasOwnProperty(key)) {
+                              key = `${questionText} (${questionId})`;
+                            }
+                          }
+                          allFormData[key] = response.answer;
+                        }
+                        // Handle description only (for body map without markings)
+                        else if (hasDescription) {
+                          allFormData[questionText] = response.description;
+                        }
+                      });
+                    }
+                  });
+                }
+
+                // Add basic patient info (not from forms but needed for context)
+                if (patient.assignedDoctor) {
+                  allFormData['Assigned Doctor'] = `Dr. ${patient.assignedDoctor.firstName} ${patient.assignedDoctor.lastName}`;
+                }
+                if (patient.status) {
+                  allFormData['Status'] = patient.status;
+                }
+                if (patient.createdAt) {
+                  allFormData['Patient Since'] = new Date(patient.createdAt).toLocaleDateString();
+                }
+
+                // If no form data exists, show message
+                if (Object.keys(allFormData).length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500 text-sm">No form data available for this patient.</p>
+                      <p className="text-gray-400 text-xs mt-2">Please complete a patient intake form to see information here.</p>
                     </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Mobile Phone</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Mobile Phone"] || patient.dynamicData?.["Mobile Phone"] || patient.phone}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Home Phone</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Home Phone"] || patient.dynamicData?.["Home Phone"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Work Phone</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Work Phone"] || patient.dynamicData?.["Work Phone"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Address</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Street Address"] || patient.dynamicData?.["Street Address"] || patient.address?.street} {demographicsAnswer?.["Apt/Unit #"] || patient.dynamicData?.["Apt/Unit #"] ? `(${demographicsAnswer["Apt/Unit #"] || patient.dynamicData["Apt/Unit #"]})` : ''}<br />
-                        {demographicsAnswer?.["City"] || patient.dynamicData?.["City"] || patient.address?.city}, {demographicsAnswer?.["State"] || patient.dynamicData?.["State"] || patient.address?.state} {demographicsAnswer?.["Zip Code"] || patient.dynamicData?.["Zip Code"] || patient.address?.zipCode}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Preferred Contact Method</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Preferred contact method"] || patient.dynamicData?.["Preferred contact method"] || "-"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Emergency Contact</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Emergency Contact Name"] || patient.dynamicData?.["Emergency Contact Name"] ? 
-                          `${demographicsAnswer["Emergency Contact Name"] || patient.dynamicData["Emergency Contact Name"]} (${demographicsAnswer["Emergency Contact Relationship"] || patient.dynamicData["Emergency Contact Relationship"] || 'N/A'}) - ${demographicsAnswer["Emergency Contact Phone #"] || patient.dynamicData["Emergency Contact Phone #"] || 'N/A'}` 
-                          : 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Non-Encrypted Text Messaging</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Non Encrypted Text Messaging Requested"] || patient.dynamicData?.["Non Encrypted Text Messaging Requested"] || 'N/A'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Non-Encrypted Email</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        {demographicsAnswer?.["Non Encrypted Email Requested"] || patient.dynamicData?.["Non Encrypted Email Requested"] || 'N/A'}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              )}
-            </div>
+                  );
+                }
 
-            {/* Medical History */}
-            <div className="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Medical History</h2>
-              </div>
-              {expandedSections.medicalHistory && (
-                <div className="px-6 py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Allergies</h3>
-                      {patient?.medicalHistory?.allergies.length > 0 && patient?.medicalHistory?.allergies[0] ? (
-                        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                          {patient?.medicalHistory?.allergies.map((allergy, index) => (
-                            allergy && <li key={index}>{allergy}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">No known allergies</p>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Current Medications</h3>
-                      {patient?.medicalHistory?.medications.length > 0 && patient?.medicalHistory?.medications[0] ? (
-                        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                          {patient?.medicalHistory?.medications.map((medication, index) => (
-                            medication && <li key={index}>{medication}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">No current medications</p>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Medical Conditions</h3>
-                      {patient?.medicalHistory?.conditions.length > 0 && patient?.medicalHistory?.conditions[0] ? (
-                        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                          {patient?.medicalHistory?.conditions.map((condition, index) => (
-                            condition && <li key={index}>{condition}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">No known medical conditions</p>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Past Surgeries</h3>
-                      {patient?.medicalHistory?.surgeries.length > 0 && patient?.medicalHistory?.surgeries[0] ? (
-                        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                          {patient?.medicalHistory?.surgeries.map((surgery, index) => (
-                            surgery && <li key={index}>{surgery}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">No past surgeries</p>
-                      )}
-                    </div>
-                    <div className="md:col-span-2">
-                      <h3 className="text-sm font-medium text-gray-900 mb-3">Family History</h3>
-                      {patient?.medicalHistory?.familyHistory.length > 0 && patient?.medicalHistory?.familyHistory[0] ? (
-                        <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                          {patient?.medicalHistory?.familyHistory.map((history, index) => (
-                            history && <li key={index}>{history}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500">No family history provided</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                // Sort keys for better organization (prioritize common fields)
+                const priorityFields = [
+                  'First Name', 'Last Name', 'Full Name', 'Date of Birth', 'Age',
+                  'Gender', 'Sex', 'Email', 'Mobile Phone', 'Phone', 'Home Phone', 'Work Phone',
+                  'Address', 'Street Address', 'City', 'State', 'Zip Code', 'Country',
+                  'Status', 'Assigned Doctor', 'Patient Since'
+                ];
 
-            {/* Subjective Intake */}
-            <div className="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
-              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900">Subjective Intake</h2>
-              </div>
-              <div className="px-6 py-4">
-                <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+                const sortedKeys = Object.keys(allFormData).sort((a, b) => {
+                  const aIndex = priorityFields.findIndex(f => a.includes(f) || f.includes(a));
+                  const bIndex = priorityFields.findIndex(f => b.includes(f) || f.includes(b));
+                  
+                  if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                  if (aIndex !== -1) return -1;
+                  if (bIndex !== -1) return 1;
+                  return a.localeCompare(b);
+                });
 
-                  <div className="md:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Body Parts</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.subjective?.bodyPart?.length
-                        ? patient.subjective.bodyPart.map(bp => `${bp.part} (${bp.side})`).join(', ')
-                        : 'N/A'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Severity</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.severity || 'N/A'}</dd>
-                  </div>
+                // Display all form data in a grid
+                return (
+                  <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                    {sortedKeys.map((key) => {
+                      const value = allFormData[key];
+                      const formattedValue = formatFieldValue(value, key);
+                      const displayKey = formatFieldName(key);
 
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Timing</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.timing || 'N/A'}</dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Context</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.context || 'N/A'}</dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Quality</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.subjective?.quality?.length
-                        ? patient.subjective.quality.join(', ')
-                        : 'N/A'}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Exacerbated By</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.subjective?.exacerbatedBy?.length
-                        ? patient.subjective.exacerbatedBy.join(', ')
-                        : 'N/A'}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Symptoms</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.subjective?.symptoms?.length
-                        ? patient.subjective.symptoms.join(', ')
-                        : 'N/A'}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Radiating To</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{patient.subjective?.radiatingTo || 'N/A'}</dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Radiating Pain</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {[
-                        patient.subjective?.radiatingLeft && 'Left',
-                        patient.subjective?.radiatingRight && 'Right',
-                      ].filter(Boolean).join(', ') || 'None'}
-                    </dd>
-                  </div>
-
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Sciatica</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {[
-                        patient.subjective?.sciaticaLeft && 'Left',
-                        patient.subjective?.sciaticaRight && 'Right',
-                      ].filter(Boolean).join(', ') || 'None'}
-                    </dd>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Notes</dt>
-                    <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{patient.subjective?.notes || 'N/A'}</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-
-
-            {/* Attorney Information */}
-            <div className="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Attorney Information</h2>
-              </div>
-              <div className="px-6 py-4">
-                <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Attorney Name</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.attorney?.name || 'Not provided'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Firm Name</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.attorney?.firm || 'Not provided'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.attorney?.phone || 'Not provided'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Email</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.attorney?.email || 'Not provided'}
-                    </dd>
-                  </div>
-                  <div className="md:col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Address</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.attorney?.address?.street ? (
-                        <>
-                          <p>{patient.attorney.address.street}</p>
-                          <p>{patient.attorney.address.city}, {patient.attorney.address.state} {patient.attorney.address.zipCode}</p>
-                          {patient.attorney.address.country && <p>{patient.attorney.address.country}</p>}
-                        </>
-                      ) : (
-                        'Not provided'
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Case Number</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {patient.attorney?.caseNumber || 'Not provided'}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-
-            {/* Primary and Secondary Insurance */}
-            <div className="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Insurance Information</h2>
-              </div>
-              <div className="px-6 py-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Primary Insurance */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Primary Insurance</h3>
-                    {primaryInsurance ? (
-                      <dl className="space-y-2">
-                        {Object.entries(primaryInsurance).map(([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-sm font-medium text-gray-500">{key.replace(/([A-Z])/g, ' $1')}</span>
-                            <span className="text-sm text-gray-900">{value || 'N/A'}</span>
+                      // Special handling for Status field
+                      if (key === 'Status' && typeof value === 'string') {
+                        return (
+                          <div key={key} className="md:col-span-1">
+                            <dt className="text-sm font-medium text-gray-500">{displayKey}</dt>
+                            <dd className="mt-1 text-sm">
+                              <span
+                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  value === 'active'
+                                    ? 'bg-green-100 text-green-800'
+                                    : value === 'inactive'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {value}
+                              </span>
+                            </dd>
                           </div>
-                        ))}
-                      </dl>
-                    ) : (
-                      <p className="text-sm text-gray-500">No primary insurance information provided</p>
-                    )}
-                  </div>
-                  {/* Secondary Insurance */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Secondary Insurance</h3>
-                    {secondaryInsurance ? (
-                      <dl className="space-y-2">
-                        {Object.entries(secondaryInsurance).map(([key, value]) => (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-sm font-medium text-gray-500">{key.replace(/([A-Z])/g, ' $1')}</span>
-                            <span className="text-sm text-gray-900">{value || 'N/A'}</span>
-                          </div>
-                        ))}
-                      </dl>
-                    ) : (
-                      <p className="text-sm text-gray-500">No secondary insurance information provided</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+                        );
+                      }
 
-            {/* Workers Compensation / Liability Insurance */}
-            <div className="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Workers Compensation / Liability Insurance</h2>
-              </div>
-              <div className="px-6 py-4">
-                {workersComp ? (
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-                    {Object.entries(workersComp).map(([key, value]) => (
-                      <div key={key}>
-                        <dt className="text-sm font-medium text-gray-500">{key.replace(/([A-Z])/g, ' $1')}</dt>
-                        <dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd>
-                      </div>
-                    ))}
+                      // Special handling for multi-line values (addresses, notes, arrays)
+                      const isMultiline = typeof formattedValue === 'string' && 
+                        (formattedValue.includes('\n') || key.toLowerCase().includes('address') || 
+                         key.toLowerCase().includes('note') || key.toLowerCase().includes('description'));
+
+                      return (
+                        <div key={key} className={isMultiline ? 'md:col-span-2 lg:col-span-3' : 'md:col-span-1'}>
+                          <dt className="text-sm font-medium text-gray-500">{displayKey}</dt>
+                          <dd className={`mt-1 text-sm text-gray-900 ${isMultiline ? 'whitespace-pre-line' : ''}`}>
+                            {formattedValue}
+                          </dd>
+                        </div>
+                      );
+                    })}
                   </dl>
-                ) : (
-                  <p className="text-sm text-gray-500">No workers compensation information provided</p>
-                )}
-              </div>
+                );
+              })()}
             </div>
-
-            {/* Auto Insurance */}
-            <div className="bg-white shadow rounded-lg overflow-hidden md:col-span-2">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Auto Insurance</h2>
-              </div>
-              <div className="px-6 py-4">
-                {autoInsurance ? (
-                  <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
-                    {Object.entries(autoInsurance).map(([key, value]) => (
-                      <div key={key}>
-                        <dt className="text-sm font-medium text-gray-500">{key.replace(/([A-Z])/g, ' $1')}</dt>
-                        <dd className="mt-1 text-sm text-gray-900">{value || 'N/A'}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <p className="text-sm text-gray-500">No auto insurance information provided</p>
-                )}
-              </div>
-            </div>
-
           </div>
         )}
 

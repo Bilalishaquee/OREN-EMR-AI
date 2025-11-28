@@ -558,13 +558,46 @@ const handleSubmit = async () => {
       }
     });
 
-    // 5) Send
-    await axios.post('/api/form-responses', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-
-    alert('Form submitted successfully!');
-    navigate(patientId ? '/patients' : `/forms/templates/${id}`);
+    // 5) Send - Check if we have a token for public form submission
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token') || sessionStorage.getItem('formToken');
+    
+    if (token) {
+      // Use token-based submission for public forms
+      sessionStorage.removeItem('formToken');
+      
+      // For token-based submission, we need to send as JSON (not FormData)
+      // File attachments will need to be handled separately or converted
+      const submissionPayload = {
+        formTemplate: id,
+        patientId: patientId || null,
+        responses: formattedResponses,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      };
+      
+      // If there are file attachments, we need to handle them
+      // For now, we'll send the payload and note that files need to be uploaded separately
+      // In a production system, you'd want to upload files first and include URLs
+      try {
+        await axios.post(`/api/patients/form-submission/${token}`, submissionPayload, {
+          headers: { 'Content-Type': 'application/json' },
+        });
+        alert('Form submitted successfully!');
+        navigate(`/patients/thank-you?lang=${language}`);
+      } catch (error: any) {
+        console.error('Error submitting form:', error);
+        alert(error.response?.data?.message || 'Error submitting form. Please try again.');
+        throw error;
+      }
+    } else {
+      // Regular authenticated submission with file uploads
+      await axios.post('/api/form-responses', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      alert('Form submitted successfully!');
+      navigate(patientId ? '/patients' : `/forms/templates/${id}`);
+    }
   } catch (error) {
     console.error('Error submitting form:', error);
     alert('Error submitting form. Please try again.');

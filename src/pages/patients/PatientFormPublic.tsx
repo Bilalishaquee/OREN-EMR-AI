@@ -1,524 +1,669 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { FiArrowLeft } from 'react-icons/fi';
-
-// Import components from PatientWizardForm
-import WizardProgressBar from '../../components/patients/WizardProgressBar';
-import WizardFormStep from '../../components/patients/WizardFormStep';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 // Types
-interface Address {
-  street: string;
-  city: string;
-  state: string;
-  zipCode: string;
+interface FormItem {
+  id: string;
+  type: string;
+  questionText: string;
+  isRequired: boolean;
+  options?: string[];
+  placeholder?: string;
+  instructions?: string;
+  multipleLines?: boolean;
+  demographicFields?: {
+    fieldName: string;
+    fieldType: string;
+    required: boolean;
+    options?: string[];
+  }[];
+  insuranceFields?: {
+    fieldName: string;
+    fieldType: string;
+    required: boolean;
+    options?: string[];
+  }[];
+  matrix?: {
+    rowHeader?: string;
+    columnHeaders: string[];
+    columnTypes: string[];
+    rows: string[];
+    dropdownOptions: string[][];
+    displayTextBox: boolean;
+  };
+  mixedControlsConfig?: {
+    label: string;
+    controlType: string;
+    required: boolean;
+    options?: string[];
+    placeholder?: string;
+  }[];
+  fileTypes?: string[];
+  maxFileSize?: number;
+  signaturePrompt?: string;
+  bodyMapType?: string;
+  allowPatientMarkings?: boolean;
+  editorContent?: string;
 }
 
-interface Attorney {
-  name: string;
-  email: string;
-  phone: string;
-  caseNumber: string;
-  address: Address;
+interface FormTemplate {
+  _id?: string;
+  title: string;
+  description: string;
+  isActive: boolean;
+  isPublic: boolean;
+  language: string;
+  items: FormItem[];
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-interface Patient {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  gender: string;
-  email: string;
-  phone: string;
-  address: Address;
-  emergencyContact: {
-    name: string;
-    relationship: string;
-    phone: string;
-  };
-  insurance: {
-    provider: string;
-    policyNumber: string;
-    groupNumber: string;
-  };
-  attorney: Attorney;
-  medicalHistory: {
-    allergies: string[];
-    medications: string[];
-    conditions: string[];
-    surgeries: string[];
-    familyHistory: string[];
-  };
-  subjective: {
-    chiefComplaint: string;
-    historyOfPresentIllness: string;
-    bodyParts: Array<{
-      name: string;
-      side: string;
-    }>;
-  };
-  preferredLanguage: string;
-  forSomeoneElse: boolean;
-  assignedDoctor: string;
-}
+// Quill modules and formats configuration
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic'],
+    [{ color: ['#000000', '#ff0000', '#00ff00', '#0000ff'] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+  ],
+};
+
+const quillFormats = [
+  'header',
+  'bold',
+  'italic',
+  'color',
+  'list',
+  'bullet',
+];
 
 const PatientFormPublic: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
   const language = searchParams.get('lang') || 'english';
-  const navigate = useNavigate();
   
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const quillRef = useRef<ReactQuill>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [formTemplate, setFormTemplate] = useState<FormTemplate | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formData, setFormData] = useState<Patient>({
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    gender: '',
-    email: '',
-    phone: '',
-    address: {
-      street: '',
-      city: '',
-      state: '',
-      zipCode: ''
-    },
-    emergencyContact: {
-      name: '',
-      relationship: '',
-      phone: ''
-    },
-    insurance: {
-      provider: '',
-      policyNumber: '',
-      groupNumber: ''
-    },
-    attorney: {
-      name: '',
-      email: '',
-      phone: '',
-      caseNumber: '',
-      address: {
-        street: '',
-        city: '',
-        state: '',
-        zipCode: ''
-      }
-    },
-    medicalHistory: {
-      allergies: [],
-      medications: [],
-      conditions: [],
-      surgeries: [],
-      familyHistory: []
-    },
-    subjective: {
-      chiefComplaint: '',
-      historyOfPresentIllness: '',
-      bodyParts: []
-    },
-    preferredLanguage: language,
-    forSomeoneElse: false,
-    assignedDoctor: ''
-  });
-  
-  // Define wizard steps based on language
-  const wizardStepsEnglish = [
-    'Introduction',
-    'Personal Info',
-    'Address',
-    'Insurance',
-    'Attorney',
-    'Medical History',
-    'Visit Details',
-    'Subjective Info',
-    'Review'
-  ];
-  
-  const wizardStepsSpanish = [
-    'Introducción',
-    'Información Personal',
-    'Dirección',
-    'Seguro',
-    'Abogado',
-    'Historia Médica',
-    'Detalles de Visita',
-    'Información Subjetiva',
-    'Revisar'
-  ];
-  
-  const wizardSteps = formData.preferredLanguage === 'spanish' ? wizardStepsSpanish : wizardStepsEnglish;
-  
-  // Validate token on component mount
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [responses, setResponses] = useState<Record<string, any>>({});
+  const [doctors, setDoctors] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
+  const [tokenInfo, setTokenInfo] = useState<any>(null);
+
+  // Fetch form template by token
   useEffect(() => {
-    // In a real implementation, you would validate the token with the server
-    // For now, we'll just simulate a loading state
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-  }, [token]);
-  
-  // Handle form field changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    
-    // Handle nested properties
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent as keyof Patient],
-          [child]: value
+    const fetchFormByToken = async () => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const response = await axios.get(`/api/patients/form-by-token/${token}`);
+        
+        if (response.data.success && response.data.formTemplate) {
+          // Process form template items
+          let formData = response.data.formTemplate;
+          
+          if (formData && Array.isArray(formData.items)) {
+            formData.items = formData.items.map((item: any, index: number) => {
+              let correctedType = item.type || 'openAnswer';
+              if (item.questionText?.toLowerCase().includes('(section)')) {
+                correctedType = 'section';
+              } else if (item.questionText?.toLowerCase().includes('upload') || item.questionText?.toLowerCase().includes('image')) {
+                correctedType = 'fileAttachment';
+              } else if (item.questionText?.toLowerCase().includes('signature')) {
+                correctedType = 'eSignature';
+              } else if (item.questionText?.toLowerCase().includes('check the boxes') || item.questionText?.toLowerCase().includes('select one or more')) {
+                correctedType = 'multipleChoiceMultiple';
+              } else if (item.questionText?.toLowerCase().includes('language preference')) {
+                correctedType = 'multipleChoiceSingle';
+              }
+
+              return {
+                ...item,
+                id: item.id || item._id || `q_${Math.random().toString(36).substring(2, 15)}`,
+                questionText: item.questionText || 'Untitled Question',
+                type: correctedType,
+                isRequired: item.isRequired ?? false,
+                options: correctedType === 'multipleChoiceSingle' || correctedType === 'multipleChoiceMultiple' ? item.options || ['Yes', 'No'] : item.options,
+                fileTypes: correctedType === 'fileAttachment' ? item.fileTypes || ['image/jpeg', 'image/png', 'application/pdf'] : item.fileTypes,
+                maxFileSize: correctedType === 'fileAttachment' ? item.maxFileSize || 5 : item.maxFileSize,
+                bodyMapType: correctedType === 'bodyMap' ? item.bodyMapType || 'fullBody' : item.bodyMapType,
+                allowPatientMarkings: correctedType === 'bodyMap' ? item.allowPatientMarkings ?? true : item.allowPatientMarkings,
+                editorContent: correctedType === 'smartEditor' ? item.editorContent || '<p>Enter your content here...</p>' : item.editorContent,
+              };
+            });
+          }
+
+          setFormTemplate(formData);
+          setTokenInfo(response.data.tokenInfo);
+          
+          // Set doctors from response (included in form-by-token endpoint)
+          if (response.data.doctors) {
+            setDoctors(response.data.doctors);
+          }
+        } else {
+          // No form template - show error
+          setFormTemplate(null);
         }
-      }));
-    } else {
-      setFormData(prev => ({
+      } catch (error: any) {
+        console.error('Error fetching form by token:', error);
+        setFormTemplate(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFormByToken();
+  }, [token]);
+
+  // Filter items based on language
+  const filteredItems = formTemplate?.items
+    .filter(item => {
+      if (item.type === 'section') return true;
+      if (item.questionText?.includes('Language Preference')) return true;
+      if (language === 'english') {
+        return !item.questionText?.toLowerCase().includes('español') && !item.questionText?.includes('¿');
+      }
+      if (language === 'spanish') {
+        return item.questionText?.toLowerCase().includes('español') || item.questionText?.includes('¿');
+      }
+      return true;
+    })
+    .sort((a, b) => a.type === 'demographics' ? -1 : b.type === 'demographics' ? 1 : 0)
+    || [];
+
+  const currentQuestion = filteredItems[currentStep];
+
+  // Handle input changes
+  const handleInputChange = (
+    questionId: string,
+    value: any,
+    fieldName?: string,
+    rowIndex?: number,
+    columnIndex?: number
+  ) => {
+    if (fieldName) {
+      // For nested fields (demographics, insurance)
+      setResponses(prev => ({
         ...prev,
-        [name]: value
+        [`${questionId}_${fieldName}`]: value
+      }));
+    } else if (rowIndex !== undefined && columnIndex !== undefined) {
+      // For matrix questions
+      setResponses(prev => {
+        const existing = Array.isArray(prev[questionId]) ? prev[questionId] : [];
+        const filtered = existing.filter((item: any) => !(item.rowIndex === rowIndex && item.columnIndex === columnIndex));
+        return {
+          ...prev,
+          [questionId]: [...filtered, { rowIndex, columnIndex, value }]
+        };
+      });
+    } else {
+      // Regular input
+      setResponses(prev => ({
+        ...prev,
+        [questionId]: value
       }));
     }
   };
-  
-  // Handle array field changes (for medical history)
-  const handleArrayChange = (arrayName: string, index: number, value: string) => {
-    setFormData(prev => {
-      const newArray = [...prev.medicalHistory[arrayName as keyof typeof prev.medicalHistory]];
-      newArray[index] = value;
-      
-      return {
+
+  // Handle file uploads
+  const handleFileChange = (questionId: string, files: FileList | null) => {
+    if (files) {
+      const fileArray = Array.from(files);
+      setResponses(prev => ({
         ...prev,
-        medicalHistory: {
-          ...prev.medicalHistory,
-          [arrayName]: newArray
-        }
-      };
-    });
+        [questionId]: fileArray
+      }));
+    }
   };
-  
-  // Add item to array (for medical history)
-  const addArrayItem = (arrayName: string) => {
-    setFormData(prev => {
-      return {
-        ...prev,
-        medicalHistory: {
-          ...prev.medicalHistory,
-          [arrayName]: [...prev.medicalHistory[arrayName as keyof typeof prev.medicalHistory], '']
-        }
-      };
-    });
-  };
-  
-  // Remove item from array (for medical history)
-  const removeArrayItem = (arrayName: string, index: number) => {
-    setFormData(prev => {
-      const newArray = [...prev.medicalHistory[arrayName as keyof typeof prev.medicalHistory]];
-      newArray.splice(index, 1);
-      
-      return {
-        ...prev,
-        medicalHistory: {
-          ...prev.medicalHistory,
-          [arrayName]: newArray
-        }
-      };
-    });
-  };
-  
-  // Handle body part changes
-  const addBodyPart = () => {
-    setFormData(prev => ({
-      ...prev,
-      subjective: {
-        ...prev.subjective,
-        bodyParts: [...prev.subjective.bodyParts, { name: '', side: '' }]
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (!formTemplate || !token) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Build formatted responses
+      const formattedResponses = formTemplate.items
+        .filter(item => !item.questionText?.includes('Language Preference') && item.type !== 'section')
+        .map(question => {
+          const qid = question.id;
+          const type = question.type;
+          const record: any = { questionId: qid, questionType: type, questionText: question.questionText };
+
+          if (type === 'blank' || type === 'openAnswer' || type === 'smartEditor') {
+            record.answer = responses[qid] || '';
+          } else if (type === 'demographics') {
+            record.answer = {};
+            question.demographicFields?.forEach(field => {
+              const k = `${qid}_${field.fieldName}`;
+              if (responses[k]) record.answer[field.fieldName] = responses[k];
+            });
+            if (responses[`${qid}_assignedDoctor`] || responses['assignedDoctor']) {
+              record.answer['assignedDoctor'] = responses[`${qid}_assignedDoctor`] || responses['assignedDoctor'];
+            }
+          } else if (type === 'primaryInsurance' || type === 'secondaryInsurance') {
+            record.answer = {};
+            question.insuranceFields?.forEach(field => {
+              const k = `${qid}_${field.fieldName}`;
+              if (responses[k]) record.answer[field.fieldName] = responses[k];
+            });
+          } else if (type === 'allergies' || type === 'matrix' || type === 'matrixSingleAnswer') {
+            const matrixResponses = Array.isArray(responses[qid])
+              ? responses[qid].filter((item: any) => item && typeof item.rowIndex === 'number' && typeof item.columnIndex === 'number' && item.value !== undefined)
+              : [];
+            record.matrixResponses = matrixResponses;
+            if (responses[`${qid}_additionalInfo`]) record.additionalInfo = responses[`${qid}_additionalInfo`];
+          } else if (type === 'multipleChoiceSingle') {
+            record.answer = responses[qid] || '';
+          } else if (type === 'multipleChoiceMultiple') {
+            record.answer = Array.isArray(responses[qid]) ? responses[qid] : [];
+          } else if (type === 'date') {
+            record.answer = responses[qid] || '';
+          } else if (type === 'fileAttachment') {
+            record.fileAttachments = [];
+          } else if (type === 'eSignature') {
+            record.signature = responses[qid] || null;
+          } else if (type === 'bodyMap') {
+            record.bodyMapMarkings = responses[qid]?.markings || [];
+            record.description = responses[qid]?.description || '';
+          } else if (type === 'mixedControls') {
+            record.mixedControlsResponses = question.mixedControlsConfig?.map((_, idx) => ({
+              index: idx,
+              value: responses[`${qid}_${idx}`] || '',
+            })) || [];
+          } else {
+            record.answer = responses[qid] || '';
+          }
+
+          return record;
+        })
+        .filter(r =>
+          r.answer ||
+          (r.matrixResponses && r.matrixResponses.length) ||
+          (r.fileAttachments && r.fileAttachments.length) ||
+          r.signature ||
+          (r.bodyMapMarkings && r.bodyMapMarkings.length) ||
+          (r.mixedControlsResponses && r.mixedControlsResponses.length) ||
+          r.description
+        );
+
+      if (formattedResponses.length === 0) {
+        alert('No responses to submit. Please fill out at least one question.');
+        setIsSubmitting(false);
+        return;
       }
-    }));
-  };
-  
-  const removeBodyPart = (index: number) => {
-    setFormData(prev => {
-      const newBodyParts = [...prev.subjective.bodyParts];
-      newBodyParts.splice(index, 1);
+
+      // Validate demographics if present (backend will create patient)
+      const demographicQuestion = formTemplate.items.find(item => item.type === 'demographics');
       
-      return {
-        ...prev,
-        subjective: {
-          ...prev.subjective,
-          bodyParts: newBodyParts
+      if (demographicQuestion && demographicQuestion.demographicFields) {
+        const assignedDoctor = responses[`${demographicQuestion.id}_assignedDoctor`] || responses['assignedDoctor'] || '';
+        if (!assignedDoctor) {
+          alert('Assigned Doctor is required');
+          setIsSubmitting(false);
+          return;
         }
+      }
+
+      // Submit form response - backend will create patient from demographics if needed
+      const submissionPayload = {
+        formTemplate: formTemplate._id,
+        patientId: null, // Let backend create patient from demographics
+        responses: formattedResponses,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
       };
-    });
+
+      const response = await axios.post(`/api/patients/form-submission/${token}`, submissionPayload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      // Show success message and stay on the form page
+      setSubmissionSuccess(true);
+      window.scrollTo(0, 0);
+    } catch (error: any) {
+      console.error('Error submitting form:', error);
+      alert(error.response?.data?.message || 'Error submitting form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  
-  const changeBodyPart = (index: number, field: string, value: string) => {
-    setFormData(prev => {
-      const newBodyParts = [...prev.subjective.bodyParts];
-      newBodyParts[index] = {
-        ...newBodyParts[index],
-        [field]: value
-      };
-      
-      return {
-        ...prev,
-        subjective: {
-          ...prev.subjective,
-          bodyParts: newBodyParts
-        }
-      };
-    });
-  };
-  
-  // Navigation functions
+
+  // Navigation
   const nextStep = () => {
-    if (currentStep < wizardSteps.length - 1) {
+    if (currentStep < filteredItems.length - 1) {
       setCurrentStep(currentStep + 1);
       window.scrollTo(0, 0);
     }
   };
-  
+
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
       window.scrollTo(0, 0);
     }
   };
-  
-  const goToStep = (step: number) => {
-    if (step >= 0 && step < wizardSteps.length) {
-      setCurrentStep(step);
-      window.scrollTo(0, 0);
-    }
-  };
-  
-  // Form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      setIsSubmitting(true);
-      
-      // Send the form data to the server along with the token for validation
-      const response = await axios.post(`/api/patients/form-submission/${token}`, formData);
-      
-      console.log('Form submitted successfully:', response.data);
-      
-      // Redirect to thank you page
-      navigate(`/patients/thank-you?lang=${formData.preferredLanguage}`);
-    } catch (error: any) {
-      console.error('Form submission error:', error);
-      
-      // Provide more specific error messages based on the error response
-      let errorMessage = formData.preferredLanguage === 'spanish'
-        ? 'Error al enviar el formulario. Por favor, inténtelo de nuevo.'
-        : 'Error submitting form. Please try again.';
-      
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        if (error.response.data && error.response.data.message) {
-          errorMessage = error.response.data.message;
-          
-          // Translate common error messages if language is Spanish
-          if (formData.preferredLanguage === 'spanish') {
-            if (errorMessage === 'Invalid or expired token') {
-              errorMessage = 'Token inválido o expirado';
-            } else if (errorMessage === 'This form has already been submitted') {
-              errorMessage = 'Este formulario ya ha sido enviado';
-            } else if (errorMessage.includes('Missing required fields')) {
-              errorMessage = 'Faltan campos obligatorios';
-            }
-          }
-        } else if (error.response.status === 400) {
-          errorMessage = formData.preferredLanguage === 'spanish'
-            ? 'Datos de formulario inválidos. Por favor, verifique la información.'
-            : 'Invalid form data. Please check your information.';
-        } else if (error.response.status === 500) {
-          errorMessage = formData.preferredLanguage === 'spanish'
-            ? 'Error del servidor. Por favor, inténtelo de nuevo más tarde.'
-            : 'Server error. Please try again later.';
-        }
-      } else if (error.request) {
-        // The request was made but no response was received
-        errorMessage = formData.preferredLanguage === 'spanish'
-          ? 'No se recibió respuesta del servidor. Por favor, verifique su conexión.'
-          : 'No response from server. Please check your connection.';
-      }
-      
-      alert(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  // Loading state
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading form...</p>
+        </div>
       </div>
     );
   }
-  
-  // Render the form
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          {formData.preferredLanguage === 'spanish' ? 'Formulario Médico del Paciente' : 'Patient Medical Form'}
-        </h1>
+
+  if (submissionSuccess) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="text-center bg-white p-8 rounded-lg shadow-md max-w-md">
+          <div className="mb-4">
+            <svg className="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Form Submitted Successfully!</h2>
+          <p className="text-gray-600 mb-6">Thank you for completing the form. Your information has been received.</p>
+        </div>
       </div>
-      
-      {/* Progress bar */}
-      <WizardProgressBar 
-        steps={wizardSteps} 
-        currentStep={currentStep} 
-        onStepClick={goToStep}
-        language={formData.preferredLanguage}
-      />
-      
-      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6">
-        {/* Step 1: Introduction & Language Preference */}
-        <WizardFormStep 
-          title="Introduction & Language Preference" 
-          spanishTitle="Introducción y Preferencia de Idioma"
-          isActive={currentStep === 0}
-          language={formData.preferredLanguage}
-        >
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {formData.preferredLanguage === 'spanish' ? 'Bienvenido a nuestro formulario médico' : 'Welcome to our medical form'}
-              </h3>
-              <p className="text-gray-600">
-                {formData.preferredLanguage === 'spanish' 
-                  ? 'Por favor complete este formulario con su información médica. Esta información nos ayudará a brindarle la mejor atención posible.'
-                  : 'Please complete this form with your medical information. This information will help us provide you with the best possible care.'}
-              </p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {formData.preferredLanguage === 'spanish' ? '¿Es este formulario para usted mismo o para otra persona?' : 'Is this form for yourself or someone else?'}
-              </label>
-              <div className="flex space-x-4">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name="forSomeoneElse"
-                    value="false"
-                    checked={!formData.forSomeoneElse}
-                    onChange={() => setFormData({...formData, forSomeoneElse: false})}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-gray-700">
-                    {formData.preferredLanguage === 'spanish' ? 'Para mí mismo' : 'For myself'}
-                  </span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name="forSomeoneElse"
-                    value="true"
-                    checked={formData.forSomeoneElse}
-                    onChange={() => setFormData({...formData, forSomeoneElse: true})}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-gray-700">
-                    {formData.preferredLanguage === 'spanish' ? 'Para otra persona' : 'For someone else'}
-                  </span>
-                </label>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {formData.preferredLanguage === 'spanish' ? 'Idioma Preferido' : 'Preferred Language'}
-              </label>
-              <div className="flex space-x-4">
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name="preferredLanguage"
-                    value="english"
-                    checked={formData.preferredLanguage === 'english'}
-                    onChange={() => setFormData({...formData, preferredLanguage: 'english'})}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-gray-700">English</span>
-                </label>
-                <label className="inline-flex items-center">
-                  <input
-                    type="radio"
-                    name="preferredLanguage"
-                    value="spanish"
-                    checked={formData.preferredLanguage === 'spanish'}
-                    onChange={() => setFormData({...formData, preferredLanguage: 'spanish'})}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <span className="ml-2 text-gray-700">Español</span>
-                </label>
-              </div>
+    );
+  }
+
+  if (!formTemplate || !formTemplate.items.length) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="text-center bg-white p-8 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Form not found</h2>
+          <p className="text-gray-600">The form you're looking for doesn't exist or has expired.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600">Error loading question</h2>
+          <p className="mt-2 text-gray-600">There was a problem loading the current question.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const progress = ((currentStep + 1) / filteredItems.length) * 100;
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+        {/* Progress bar */}
+        <div className="h-2 bg-gray-200">
+          <div
+            className="h-2 bg-blue-600 transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+
+        <div className="p-6">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{formTemplate.title}</h1>
+            <div className="text-sm text-gray-500">
+              {currentStep + 1} / {filteredItems.length}
             </div>
           </div>
-          
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={nextStep}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {formData.preferredLanguage === 'spanish' ? 'Siguiente' : 'Next'}
-            </button>
+
+          {/* Question */}
+          <div className="mb-8">
+            {currentQuestion.type === 'section' ? (
+              <h2 className="text-2xl font-semibold text-gray-900">{currentQuestion.questionText.replace('(section)', '')}</h2>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {currentQuestion.questionText}
+                  {currentQuestion.isRequired && <span className="text-red-500 ml-1">*</span>}
+                </h2>
+                {currentQuestion.instructions && (
+                  <p className="mt-2 text-gray-600">{currentQuestion.instructions}</p>
+                )}
+              </>
+            )}
           </div>
-        </WizardFormStep>
-        
-        {/* Additional form steps would be implemented here */}
-        {/* For brevity, I'm only showing the first step */}
-        {/* In a real implementation, you would add all the steps from PatientWizardForm */}
-        
-        {/* Navigation buttons */}
-        {currentStep > 0 && (
-          <div className="mt-6 flex justify-between">
+
+          {/* Answer Input */}
+          {currentQuestion.type !== 'section' && (
+            <div className="mb-8">
+              {(currentQuestion.type === 'blank' || currentQuestion.type === 'openAnswer') ? (
+                <div>
+                  {currentQuestion.multipleLines ? (
+                    <textarea
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      rows={4}
+                      placeholder={currentQuestion.placeholder || 'Enter your answer here'}
+                      value={responses[currentQuestion.id] || ''}
+                      onChange={(e) => handleInputChange(currentQuestion.id, e.target.value)}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder={currentQuestion.placeholder || 'Enter your answer here'}
+                      value={responses[currentQuestion.id] || ''}
+                      onChange={(e) => handleInputChange(currentQuestion.id, e.target.value)}
+                    />
+                  )}
+                </div>
+              ) : currentQuestion.type === 'demographics' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentQuestion.demographicFields?.map((field, index) => (
+                    <div key={index}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.fieldName}{field.required && <span className="text-red-500">*</span>}
+                      </label>
+                      {field.fieldType === 'text' && (
+                        <input
+                          type="text"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          placeholder={`Enter ${field.fieldName.toLowerCase()}`}
+                          value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                          onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
+                        />
+                      )}
+                      {field.fieldType === 'date' && (
+                        <input
+                          type="date"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                          onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
+                        />
+                      )}
+                      {field.fieldType === 'dropdown' && (
+                        <select
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                          onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
+                        >
+                          <option value="">Select {field.fieldName}</option>
+                          {field.options?.map((option, i) => (
+                            <option key={i} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ))}
+                  <div className="col-span-1 md:col-span-2 mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Assigned Doctor<span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      value={responses[`${currentQuestion.id}_assignedDoctor`] || responses['assignedDoctor'] || ''}
+                      onChange={(e) => {
+                        handleInputChange(currentQuestion.id, e.target.value, 'assignedDoctor');
+                        setResponses(prev => ({
+                          ...prev,
+                          'assignedDoctor': e.target.value,
+                        }));
+                      }}
+                      required
+                    >
+                      <option value="">Select a doctor</option>
+                      {doctors.map((doctor) => (
+                        <option key={doctor._id} value={doctor._id}>
+                          Dr. {doctor.firstName} {doctor.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : currentQuestion.type === 'primaryInsurance' || currentQuestion.type === 'secondaryInsurance' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {currentQuestion.insuranceFields?.map((field, index) => (
+                    <div key={index}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {field.fieldName}{field.required && <span className="text-red-500">*</span>}
+                      </label>
+                      {field.fieldType === 'text' && (
+                        <input
+                          type="text"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          placeholder={`Enter ${field.fieldName.toLowerCase()}`}
+                          value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                          onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
+                        />
+                      )}
+                      {field.fieldType === 'dropdown' && (
+                        <select
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                          value={responses[`${currentQuestion.id}_${field.fieldName}`] || ''}
+                          onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, field.fieldName)}
+                        >
+                          <option value="">Select {field.fieldName}</option>
+                          {field.options?.map((option, i) => (
+                            <option key={i} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : currentQuestion.type === 'multipleChoiceSingle' ? (
+                <div className="space-y-3">
+                  {currentQuestion.options?.map((option, index) => (
+                    <div key={index} className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        id={`${currentQuestion.id}_option_${index}`}
+                        name={`${currentQuestion.id}_options`}
+                        value={option}
+                        checked={responses[currentQuestion.id] === option}
+                        onChange={() => handleInputChange(currentQuestion.id, option)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor={`${currentQuestion.id}_option_${index}`} className="text-gray-700">
+                        {option}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : currentQuestion.type === 'multipleChoiceMultiple' ? (
+                <div className="space-y-3">
+                  {currentQuestion.options?.map((option, index) => {
+                    const selectedOptions = responses[currentQuestion.id] || [];
+                    const isChecked = Array.isArray(selectedOptions) && selectedOptions.includes(option);
+                    return (
+                      <div key={index} className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id={`${currentQuestion.id}_option_${index}`}
+                          value={option}
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const current = Array.isArray(responses[currentQuestion.id]) ? responses[currentQuestion.id] : [];
+                            if (e.target.checked) {
+                              handleInputChange(currentQuestion.id, [...current, option]);
+                            } else {
+                              handleInputChange(currentQuestion.id, current.filter((o: string) => o !== option));
+                            }
+                          }}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor={`${currentQuestion.id}_option_${index}`} className="text-gray-700">
+                          {option}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : currentQuestion.type === 'fileAttachment' ? (
+                <div>
+                  <input
+                    type="file"
+                    multiple
+                    accept={currentQuestion.fileTypes?.join(',') || '*'}
+                    onChange={(e) => handleFileChange(currentQuestion.id, e.target.files)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
+                    Max file size: {currentQuestion.maxFileSize || 5}MB
+                  </p>
+                </div>
+              ) : (
+                <p className="text-gray-500">Question type not yet supported in public form</p>
+              )}
+            </div>
+          )}
+
+          {/* Navigation buttons */}
+          <div className="flex justify-between mt-8">
             <button
               type="button"
               onClick={prevStep}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={currentStep === 0}
+              className="flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {formData.preferredLanguage === 'spanish' ? 'Anterior' : 'Previous'}
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Previous
             </button>
-            
-            {currentStep < wizardSteps.length - 1 ? (
+            {currentStep < filteredItems.length - 1 ? (
               <button
                 type="button"
                 onClick={nextStep}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
-                {formData.preferredLanguage === 'spanish' ? 'Siguiente' : 'Next'}
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
               </button>
             ) : (
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
               >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    {formData.preferredLanguage === 'spanish' ? 'Enviando...' : 'Submitting...'}
-                  </>
-                ) : (
-                  formData.preferredLanguage === 'spanish' ? 'Enviar Formulario' : 'Submit Form'
-                )}
+                {isSubmitting ? 'Submitting...' : 'Submit Form'}
               </button>
             )}
           </div>
-        )}
-      </form>
+        </div>
+      </div>
     </div>
   );
 };

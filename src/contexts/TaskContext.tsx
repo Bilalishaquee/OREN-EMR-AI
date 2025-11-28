@@ -86,7 +86,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       });
       
       const response = await axios.get(
-        `https://oren-emr-ai-1.onrender.com/api/tasks?${queryParams.toString()}`,
+        `/api/tasks?${queryParams.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -111,7 +111,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     try {
       const queryParams = status ? `?status=${status}` : '';
       const response = await axios.get(
-        `https://oren-emr-ai-1.onrender.com/api/tasks/my-tasks${queryParams}`,
+        `/api/tasks/my-tasks${queryParams}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -135,7 +135,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       const response = await axios.get(
-        `https://oren-emr-ai-1.onrender.com/api/tasks/${id}`,
+        `/api/tasks/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -160,7 +160,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       const response = await axios.post(
-        'https://oren-emr-ai-1.onrender.com/api/tasks',
+        '/api/tasks',
         taskData,
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -195,7 +195,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       const response = await axios.put(
-        `https://oren-emr-ai-1.onrender.com/api/tasks/${id}`,
+        `/api/tasks/${id}`,
         taskData,
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -240,7 +240,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     
     try {
       await axios.delete(
-        `https://oren-emr-ai-1.onrender.com/api/tasks/${id}`,
+        `/api/tasks/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }

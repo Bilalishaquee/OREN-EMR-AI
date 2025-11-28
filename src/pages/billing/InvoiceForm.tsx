@@ -40,7 +40,7 @@ const InvoiceForm: React.FC = () => {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
-  const [quickbooksStatus, setQuickbooksStatus] = useState<any>(null);
+  const [stripeStatus, setStripeStatus] = useState<any>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [cart, setCart] = useState([]);
 
@@ -66,7 +66,7 @@ const InvoiceForm: React.FC = () => {
   const fetchAppointments = async (patientId: string) => {
     try {
       // ✅ point to your appointments route (adjust base path if different)
-      const { data } = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${patientId}/appointments`);
+      const { data } = await axios.get(`/api/billing/${patientId}/appointments`);
       const normalized = (data.appointments || []).map((a: any) => ({
         _id: a._id,
         // turn {start,end} → "start - end"
@@ -85,29 +85,29 @@ const InvoiceForm: React.FC = () => {
     }
   };
   const markAppointmentBilled = async (appointmentId: string) => {
-  try {
-    const { data } = await axios.put(
-      `https://oren-emr-ai-1.onrender.com/api/billing/${appointmentId}/updatestatus`
-    );
-    console.log("Updated appointment:", data);
+    try {
+      const { data } = await axios.put(
+        `/api/billing/${appointmentId}/updatestatus`
+      );
+      console.log("Updated appointment:", data);
 
-    // Optionally update local state so dropdown reflects new status
-    setAppointments(prev =>
-      prev.map(a =>
-        a._id === appointmentId ? { ...a, paymentStatus: data.paymentStatus } : a
-      )
-    );
-  } catch (error) {
-    console.error("Error updating appointment status:", error);
-  }
-};
+      // Optionally update local state so dropdown reflects new status
+      setAppointments(prev =>
+        prev.map(a =>
+          a._id === appointmentId ? { ...a, paymentStatus: data.paymentStatus } : a
+        )
+      );
+    } catch (error) {
+      console.error("Error updating appointment status:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
         // Fetch patients
-        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients');
+        const patientsResponse = await axios.get('/api/patients');
         setPatients(
           patientsResponse.data.patients.map((p: any) => ({
             _id: p._id,
@@ -118,7 +118,7 @@ const InvoiceForm: React.FC = () => {
 
         // If in edit mode, fetch invoice data
         if (isEditMode) {
-          const invoiceResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`);
+          const invoiceResponse = await axios.get(`/api/billing/${id}`);
           const invoiceData = invoiceResponse.data;
 
           setFormData({
@@ -136,13 +136,13 @@ const InvoiceForm: React.FC = () => {
             status: invoiceData.status || 'draft',
             notes: invoiceData.notes || '',
             paymentMethod: invoiceData.paymentMethod || 'cash',
-            
+
           });
 
 
           // Fetch visits for this patient
           if (invoiceData.patient._id) {
-            // const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${invoiceData.patient._id}/visits`);
+            // const visitsResponse = await axios.get(`/api/patients/${invoiceData.patient._id}/visits`);
             // setVisits(visitsResponse.data);
             await fetchAppointments(invoiceData.patient._id);
           }
@@ -154,7 +154,7 @@ const InvoiceForm: React.FC = () => {
             setFormData(prev => ({ ...prev, patient: patientId }));
 
             // Fetch visits for this patient
-            const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${patientId}/visits`);
+            const visitsResponse = await axios.get(`/api/patients/${patientId}/visits`);
             setVisits(visitsResponse.data);
           }
         }
@@ -191,13 +191,13 @@ const InvoiceForm: React.FC = () => {
       fetchAppointments(value);
     }
     if (name === "appointment" && value) {
-  markAppointmentBilled(value);
-}
+      markAppointmentBilled(value);
+    }
   };
 
   const fetchPatientVisits = async (patientId: string) => {
     try {
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${patientId}/visits`);
+      const response = await axios.get(`/api/patients/${patientId}/visits`);
       setVisits(response.data);
     } catch (error) {
       console.error('Error fetching patient visits:', error);
@@ -259,22 +259,24 @@ const InvoiceForm: React.FC = () => {
     }));
   };
 
-  // QuickBooks integration functions
-  const createQuickBooksInvoice = async () => {
+  // Stripe integration functions
+  const createStripePaymentLink = async () => {
     try {
       setIsSaving(true);
-      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/quickbooks/create-invoice/${id}`, {
-        recipientEmail: emailAddress
+      const response = await axios.post(`/api/stripe/create-payment-link/${id}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
 
       if (response.data.success) {
-        setQuickbooksStatus(response.data.data);
+        setStripeStatus(response.data.data);
         setShowEmailModal(false);
-        alert('Invoice created in QuickBooks and email sent successfully!');
+        alert('Stripe payment link created successfully!');
       }
     } catch (error) {
-      console.error('Error creating QuickBooks invoice:', error);
-      alert('Failed to create QuickBooks invoice. Please try again.');
+      console.error('Error creating Stripe payment link:', error);
+      alert('Failed to create Stripe payment link. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -296,7 +298,7 @@ const InvoiceForm: React.FC = () => {
     try {
       setIsSendingEmail(true);
       const response = await axios.post(
-        `https://oren-emr-ai-1.onrender.com/api/quickbooks/send-invoice-email/${id}`,
+        `/api/stripe/send-invoice-email/${id}`,
         { recipientEmail: emailAddress },
         {
           timeout: 30000, // 30 second timeout (reduced since backend is faster now)
@@ -339,7 +341,7 @@ const InvoiceForm: React.FC = () => {
     try {
       setIsSendingEmail(true);
       const response = await axios.post(
-        `https://oren-emr-ai-1.onrender.com/api/quickbooks/send-reminder/${id}`,
+        `/api/stripe/send-reminder/${id}`,
         { recipientEmail: emailAddress },
         {
           timeout: 30000, // 30 second timeout (reduced since backend is faster now)
@@ -362,14 +364,18 @@ const InvoiceForm: React.FC = () => {
     }
   };
 
-  const getQuickBooksStatus = async () => {
+  const getStripeStatus = async () => {
     try {
-      const response = await axios.get(`/api/quickbooks/invoice-status/${id}`);
+      const response = await axios.get(`/api/stripe/invoice-status/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       if (response.data.success) {
-        setQuickbooksStatus(response.data.data);
+        setStripeStatus(response.data.data);
       }
     } catch (error) {
-      console.error('Error getting QuickBooks status:', error);
+      console.error('Error getting Stripe status:', error);
     }
   };
 
@@ -440,9 +446,9 @@ const InvoiceForm: React.FC = () => {
 
 
       if (isEditMode) {
-        await axios.put(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`, invoiceData);
+        await axios.put(`/api/billing/${id}`, invoiceData);
       } else {
-        await axios.post('https://oren-emr-ai-1.onrender.com/api/billing', invoiceData);
+        await axios.post('/api/billing', invoiceData);
       }
 
       navigate(`/patients/${formData.patient}`);
@@ -869,27 +875,27 @@ const InvoiceForm: React.FC = () => {
           )}
         </div>
 
-        {/* QuickBooks Status Display */}
-        {quickbooksStatus && (
+        {/* Stripe Status Display */}
+        {stripeStatus && (
           <div className="mt-6 p-4 bg-gray-50 rounded-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">QuickBooks Status</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Stripe Payment Status</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="font-medium">Status:</span> {quickbooksStatus.quickbooksStatus}
+                <span className="font-medium">Status:</span> {stripeStatus.stripeStatus || stripeStatus.invoiceStatus}
               </div>
-              {quickbooksStatus.balance !== undefined && (
+              {stripeStatus.balance !== undefined && (
                 <div>
-                  <span className="font-medium">Balance:</span> ${quickbooksStatus.balance}
+                  <span className="font-medium">Balance:</span> ${stripeStatus.balance}
                 </div>
               )}
               <div>
-                <span className="font-medium">Email Sent:</span> {quickbooksStatus.emailSent ? 'Yes' : 'No'}
+                <span className="font-medium">Email Sent:</span> {stripeStatus.emailSent ? 'Yes' : 'No'}
               </div>
-              {quickbooksStatus.paymentLink && (
+              {stripeStatus.paymentLink && (
                 <div className="col-span-2">
                   <span className="font-medium">Payment Link:</span>
                   <a
-                    href={quickbooksStatus.paymentLink}
+                    href={stripeStatus.paymentLink}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="ml-2 text-blue-600 hover:text-blue-800 underline"

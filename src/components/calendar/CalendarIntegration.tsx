@@ -18,7 +18,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
   useEffect(() => {
     const run = async () => {
       try {
-        const res = await axios.get('https://oren-emr-ai-1.onrender.com/api/google-calendar/status', {
+        const res = await axios.get('/api/google-calendar/status', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setIsConnected(!!res.data?.connected);
@@ -44,7 +44,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
 
   const handleConnect = async () => {
     try {
-      const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/google-calendar/auth', {
+      const response = await axios.get('/api/google-calendar/auth', {
         headers: { Authorization: `Bearer ${token}` }
       });
       window.location.href = response.data.authUrl; // go to Google
@@ -58,7 +58,7 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
     try {
       setIsSyncing(true);
       const response = await axios.post(
-        'https://oren-emr-ai-1.onrender.com/api/google-calendar/sync-all',
+        '/api/google-calendar/sync-all',
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -74,28 +74,38 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold flex items-center">
-          <Calendar className="mr-2 h-5 w-5 text-blue-500" />
-          Google Calendar Integration
-        </h2>
+    <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+        <div className="flex items-center">
+          <div className="p-2 bg-blue-100 rounded-lg mr-3">
+            <Calendar className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Google Calendar Integration</h3>
+            <p className="text-sm text-gray-500">Sync your appointments with Google Calendar</p>
+          </div>
+        </div>
         {isConnected && (
-          <span className="flex items-center text-sm text-green-600">
-            <CheckCircle className="mr-1 h-4 w-4" />
+          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+            <CheckCircle className="mr-1.5 h-4 w-4" />
             Connected
           </span>
         )}
       </div>
 
       {!isConnected ? (
-        <div className="text-center">
-          <p className="mb-4 text-gray-600">
-            Connect your Google Calendar to sync patient appointments.
+        <div className="text-center py-8">
+          <div className="flex justify-center mb-4">
+            <div className="h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center">
+              <Calendar className="h-10 w-10 text-blue-600" />
+            </div>
+          </div>
+          <p className="mb-6 text-gray-600 max-w-md mx-auto">
+            Connect your Google Calendar to automatically sync patient appointments and keep your schedule up to date.
           </p>
           <button
             onClick={handleConnect}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center justify-center mx-auto"
+            className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg shadow-md hover:from-blue-700 hover:to-blue-800 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
           >
             <Calendar className="mr-2 h-5 w-5" />
             Connect Google Calendar
@@ -103,19 +113,21 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
         </div>
       ) : (
         <div>
-          <p className="mb-4 text-gray-600">
-            Your Google Calendar is connected. You can sync your appointments to keep them in sync.
-          </p>
-          <div className="flex flex-col space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-gray-700 leading-relaxed">
+              <span className="font-semibold text-blue-900">Your Google Calendar is connected.</span> You can sync your appointments to keep them in sync across both platforms.
+            </p>
+          </div>
+          <div className="space-y-4">
             <button
               onClick={handleSyncAll}
               disabled={isSyncing}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center justify-center"
+              className="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg shadow-md hover:from-blue-700 hover:to-blue-800 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isSyncing ? (
                 <>
                   <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                  Syncing...
+                  Syncing Appointments...
                 </>
               ) : (
                 <>
@@ -125,9 +137,11 @@ const CalendarIntegration: React.FC<CalendarIntegrationProps> = ({ onSync }) => 
               )}
             </button>
             {lastSynced && (
-              <p className="text-sm text-gray-500 text-center">
-                Last synced: {lastSynced}
-              </p>
+              <div className="text-center pt-2">
+                <p className="text-xs text-gray-500">
+                  Last synced: <span className="font-medium text-gray-700">{lastSynced}</span>
+                </p>
+              </div>
             )}
           </div>
         </div>

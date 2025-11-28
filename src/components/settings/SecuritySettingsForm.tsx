@@ -66,7 +66,7 @@ const SecuritySettingsForm: React.FC = () => {
     try {
       // This endpoint would need to be implemented on the server
       const response = await axios.put(
-        'https://oren-emr-ai-1.onrender.com/api/auth/change-password',
+        '/api/auth/change-password',
         {
           currentPassword: formData.currentPassword,
           newPassword: formData.newPassword

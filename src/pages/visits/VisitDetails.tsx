@@ -128,7 +128,7 @@ const VisitDetails: React.FC = () => {
     const fetchVisit = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${id}`);
+        const response = await axios.get(`/api/patients/visits/${id}`);
         setVisit(response.data);
       } catch (error) {
         console.error('Error fetching visit:', error);

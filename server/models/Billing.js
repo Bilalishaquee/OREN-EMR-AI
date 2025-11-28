@@ -10,7 +10,7 @@ const billingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Visit'
   },
-  appointment:{
+  appointment: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointment'
   },
@@ -82,15 +82,16 @@ const billingSchema = new mongoose.Schema({
     reference: String,
     notes: String
   }],
-  paymentMethod:{
+  paymentMethod: {
     type: String,
     enum: ['cash', 'credit', 'insurance', 'other']
   },
   notes: String,
-  // QuickBooks integration fields
-  quickbooksInvoiceId: String,
-  quickbooksCustomerId: String,
-  paymentLink: String,
+  // Stripe integration fields
+  stripeSessionId: String,
+  stripePaymentLink: String,
+  stripeCustomerId: String,
+  paymentLink: String, // Keep for backward compatibility
   emailSent: {
     type: Boolean,
     default: false
@@ -108,13 +109,13 @@ const billingSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field on save
-billingSchema.pre('save', function(next) {
+billingSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
 // Generate invoice number
-billingSchema.pre('save', function(next) {
+billingSchema.pre('save', function (next) {
   if (!this.invoiceNumber) {
     const date = new Date();
     const year = date.getFullYear().toString().substr(-2);
@@ -124,6 +125,17 @@ billingSchema.pre('save', function(next) {
   }
   next();
 });
+
+// Add indices for better query performance
+billingSchema.index({ patient: 1 });
+billingSchema.index({ visit: 1 });
+billingSchema.index({ appointment: 1 });
+billingSchema.index({ status: 1 });
+billingSchema.index({ dateIssued: 1 });
+billingSchema.index({ dueDate: 1 });
+billingSchema.index({ invoiceNumber: 1 }); // Already unique, but ensure indexed
+// Compound index for common queries
+billingSchema.index({ patient: 1, status: 1 });
 
 const Billing = mongoose.model('Billing', billingSchema);
 

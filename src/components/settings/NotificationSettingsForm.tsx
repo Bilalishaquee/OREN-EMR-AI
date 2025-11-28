@@ -23,7 +23,7 @@ const NotificationSettingsForm: React.FC = () => {
     const loadPreferences = async () => {
       try {
         // This would be replaced with an actual API call
-        // const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/auth/notification-preferences', {
+        // const response = await axios.get('/api/auth/notification-preferences', {
         //   headers: { Authorization: `Bearer ${token}` }
         // });
         // setSettings(response.data.preferences);
@@ -60,7 +60,7 @@ const NotificationSettingsForm: React.FC = () => {
     try {
       // In a real application, you would save the settings to the server
       // await axios.put(
-      //   'https://oren-emr-ai-1.onrender.com/api/auth/notification-preferences',
+      //   '/api/auth/notification-preferences',
       //   settings,
       //   {
       //     headers: {

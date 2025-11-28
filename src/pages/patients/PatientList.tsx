@@ -5,14 +5,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   Search, 
   Plus, 
-  Edit, 
   Eye, 
   Trash2, 
   ChevronLeft, 
   ChevronRight,
-  FileText,
   Calendar,
-  ClipboardList
+  Mail,
+  Phone,
+  User,
+  Users
 } from 'lucide-react';
 
 interface Patient {
@@ -46,7 +47,7 @@ const PatientList: React.FC = () => {
   const fetchPatients = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients?page=${currentPage}&search=${searchTerm}`);
+      const response = await axios.get(`/api/patients?page=${currentPage}&search=${searchTerm}`);
       setPatients(response.data.patients);
       setTotalPages(response.data.totalPages);
     } catch (error) {
@@ -73,7 +74,7 @@ const PatientList: React.FC = () => {
 
   const deletePatient = async () => {
     try {
-      await axios.delete(`https://oren-emr-ai-1.onrender.com/api/patients/${selectedPatient}`);
+      await axios.delete(`/api/patients/${selectedPatient}`);
       setShowDeleteModal(false);
       fetchPatients();
     } catch (error) {
@@ -97,165 +98,198 @@ const PatientList: React.FC = () => {
     return age;
   };
 
+  const getInitials = (firstName: string, lastName: string) => {
+    const first = firstName?.charAt(0)?.toUpperCase() || '';
+    const last = lastName?.charAt(0)?.toUpperCase() || '';
+    return first + last || '?';
+  };
+
   return (
-    <div className="container mx-auto px-4">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-4 md:mb-0">Patients</h1>
-        <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-2">
-          <form onSubmit={handleSearch} className="flex">
-            <div className="relative flex-grow">
-              <input
-                type="text"
-                placeholder="Search patients..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="absolute right-0 top-0 h-full px-3 text-gray-500 hover:text-gray-700"
+    <div className="container mx-auto px-4 py-6">
+      {/* Header Section */}
+      <div className="mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div className="mb-4 md:mb-0">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+              <Users className="w-8 h-8 mr-3 text-blue-600" />
+              Patients
+            </h1>
+            <p className="text-sm text-gray-500">Manage and view all patient records</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <form onSubmit={handleSearch} className="flex">
+              <div className="relative flex-grow">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search patients..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Link
+                to="/forms/questionnaires"
+                className="flex items-center px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-r-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg font-medium"
               >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-            <Link
-              to="/forms/questionnaires"
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5 mr-1" />
-              <span>New</span>
-            </Link>
-          </form>
+                <Plus className="w-5 h-5 mr-2" />
+                <span>New Patient</span>
+              </Link>
+            </form>
+          </div>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="flex items-center justify-center h-64 bg-white rounded-xl shadow-sm">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading patients...</p>
+          </div>
         </div>
       ) : (
         <>
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Patient
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Contact
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Age/Gender
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Doctor
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-100">
                   {patients.length > 0 ? (
                     patients.map((patient) => {
                       const data = patient.dynamicData || {};
+                      const firstName = data.firstName || data["First Name"] || "";
+                      const lastName = data.lastName || data["Last Name"] || "";
+                      const fullName = `${firstName} ${lastName}`.trim() || "Unknown Patient";
+                      const email = data.email || data["Email"] || "";
+                      const phone = data.phone || data["Phone"] || "";
+                      const age = calculateAge(data.dateOfBirth || data["Date of Birth"]);
+                      const gender = data.gender || data["Gender"] || "";
+                      
                       return (
-                        <tr key={patient._id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
+                        <tr 
+                          key={patient._id} 
+                          className="hover:bg-blue-50/50 transition-colors duration-150 border-b border-gray-100"
+                        >
+                          <td className="px-6 py-5">
                             <div className="flex items-center">
+                              <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-lg shadow-md mr-4">
+                                {getInitials(firstName, lastName)}
+                              </div>
                               <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {data.firstName || data["First Name"] || "-"} {data.lastName || data["Last Name"] || ""}
+                                <div className="text-sm font-semibold text-gray-900 mb-1">
+                                  {fullName}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  Added on {new Date(patient.createdAt).toLocaleDateString()}
+                                <div className="text-xs text-gray-500 flex items-center">
+                                  <Calendar className="w-3 h-3 mr-1" />
+                                  Added {new Date(patient.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{data.email || data["Email"] || "-"}</div>
-                            <div className="text-sm text-gray-500">{data.phone || data["Phone"] || "-"}</div>
+                          <td className="px-6 py-5">
+                            {email && email !== "-" ? (
+                              <div className="flex items-center text-sm text-gray-900 mb-1">
+                                <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                                <span className="truncate max-w-xs">{email}</span>
+                              </div>
+                            ) : null}
+                            {phone && phone !== "-" ? (
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                                <span>{phone}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400 italic">No contact info</span>
+                            )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {calculateAge(data.dateOfBirth || data["Date of Birth"])} years
-                            </div>
-                            <div className="text-sm text-gray-500 capitalize">{data.gender || data["Gender"] || "-"}</div>
+                          <td className="px-6 py-5">
+                            {age ? (
+                              <div className="text-sm font-medium text-gray-900 mb-1">
+                                {age} years
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-400 italic">-</div>
+                            )}
+                            {gender && gender !== "-" ? (
+                              <div className="text-xs text-gray-500 capitalize flex items-center">
+                                <User className="w-3 h-3 mr-1" />
+                                {gender}
+                              </div>
+                            ) : null}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              Dr. {patient.assignedDoctor?.firstName || "-"} {patient.assignedDoctor?.lastName || ""}
-                            </div>
+                          <td className="px-6 py-5">
+                            {patient.assignedDoctor ? (
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs mr-2">
+                                  {patient.assignedDoctor.firstName?.charAt(0) || "D"}
+                                </div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  Dr. {patient.assignedDoctor.firstName} {patient.assignedDoctor.lastName}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-400 italic">Not assigned</span>
+                            )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-5">
                             <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                                 patient.status === 'active'
-                                  ? 'bg-green-100 text-green-800'
+                                  ? 'bg-green-100 text-green-800 border border-green-200'
                                   : patient.status === 'inactive'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-red-100 text-red-800'
+                                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                  : 'bg-red-100 text-red-800 border border-red-200'
                               }`}
                             >
-                              {patient.status}
+                              <span className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                                patient.status === 'active'
+                                  ? 'bg-green-500'
+                                  : patient.status === 'inactive'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              }`}></span>
+                              {patient.status?.charAt(0).toUpperCase() + patient.status?.slice(1) || 'Unknown'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-2">
+                          <td className="px-6 py-5">
+                            <div className="flex items-center justify-end space-x-2">
                               <Link
                                 to={`/patients/${patient._id}`}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-all duration-150"
                                 title="View Details"
                               >
                                 <Eye className="w-5 h-5" />
                               </Link>
                               <Link
-                                to={`/patients/${patient._id}/edit`}
-                                className="text-yellow-600 hover:text-yellow-900"
-                                title="Edit Patient"
+                                to={`/appointments/new?patient=${patient._id}`}
+                                className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-all duration-150"
+                                title="Schedule Appointment"
                               >
-                                <Edit className="w-5 h-5" />
+                                <Calendar className="w-5 h-5" />
                               </Link>
-                              <Link
-                                to={`/forms/patient-responses/${patient._id}`}
-                                className="text-indigo-600 hover:text-indigo-900"
-                                title="View Form Responses"
-                              >
-                                <ClipboardList className="w-5 h-5" />
-                              </Link>
-                              {user?.role === 'doctor' && (
-                                <>
-                                  <Link
-                                    to={`/patients/${patient._id}/visits/initial`}
-                                    className="text-green-600 hover:text-green-900"
-                                    title="New Visit"
-                                  >
-                                    <FileText className="w-5 h-5" />
-                                  </Link>
-                                  <Link
-                                    to={`/appointments/new?patient=${patient._id}`}
-                                    className="text-purple-600 hover:text-purple-900"
-                                    title="Schedule Appointment"
-                                  >
-                                    <Calendar className="w-5 h-5" />
-                                  </Link>
-                                </>
-                              )}
-                              {user?.role === 'admin' && (
-                                <button
-                                  onClick={() => confirmDelete(patient._id)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Delete Patient"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -263,8 +297,12 @@ const PatientList: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                        No patients found
+                      <td colSpan={6} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center">
+                          <Users className="w-12 h-12 text-gray-300 mb-3" />
+                          <p className="text-sm font-medium text-gray-500">No patients found</p>
+                          <p className="text-xs text-gray-400 mt-1">Try adjusting your search criteria</p>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -272,15 +310,15 @@ const PatientList: React.FC = () => {
               </table>
             </div>
             {totalPages > 1 && (
-              <div className="px-6 py-3 flex items-center justify-between border-t border-gray-200">
+              <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg transition-all ${
                       currentPage === 1
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                        : 'bg-white text-gray-700 hover:bg-gray-50 shadow-sm'
                     }`}
                   >
                     Previous
@@ -288,10 +326,10 @@ const PatientList: React.FC = () => {
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg transition-all ${
                       currentPage === totalPages
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                        : 'bg-white text-gray-700 hover:bg-gray-50 shadow-sm'
                     }`}
                   >
                     Next
@@ -299,20 +337,20 @@ const PatientList: React.FC = () => {
                 </div>
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm text-gray-700">
-                      Showing page <span className="font-medium">{currentPage}</span> of{' '}
-                      <span className="font-medium">{totalPages}</span>
+                    <p className="text-sm text-gray-600">
+                      Showing page <span className="font-semibold text-gray-900">{currentPage}</span> of{' '}
+                      <span className="font-semibold text-gray-900">{totalPages}</span>
                     </p>
                   </div>
                   <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <nav className="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px" aria-label="Pagination">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
+                        className={`relative inline-flex items-center px-3 py-2 rounded-l-lg border border-gray-300 bg-white text-sm font-medium transition-all ${
                           currentPage === 1
                             ? 'text-gray-300 cursor-not-allowed'
-                            : 'text-gray-500 hover:bg-gray-50'
+                            : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
                         }`}
                       >
                         <span className="sr-only">Previous</span>
@@ -322,11 +360,11 @@ const PatientList: React.FC = () => {
                         <button
                           key={page}
                           onClick={() => handlePageChange(page)}
-                          className={`relative inline-flex items-center px-4 py-2 border ${
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium transition-all ${
                             currentPage === page
-                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          } text-sm font-medium`}
+                              ? 'z-10 bg-blue-600 border-blue-600 text-white shadow-md'
+                              : 'bg-white border-gray-300 text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                          }`}
                         >
                           {page}
                         </button>
@@ -334,10 +372,10 @@ const PatientList: React.FC = () => {
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
+                        className={`relative inline-flex items-center px-3 py-2 rounded-r-lg border border-gray-300 bg-white text-sm font-medium transition-all ${
                           currentPage === totalPages
                             ? 'text-gray-300 cursor-not-allowed'
-                            : 'text-gray-500 hover:bg-gray-50'
+                            : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
                         }`}
                       >
                         <span className="sr-only">Next</span>

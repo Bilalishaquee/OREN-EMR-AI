@@ -63,7 +63,7 @@ const NotePrintView: React.FC = () => {
       
       try {
         setLoading(true);
-        const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/notes/${id}`);
+        const response = await axios.get(`/api/notes/${id}`);
         setNote(response.data);
       } catch (error) {
         console.error('Error fetching note:', error);

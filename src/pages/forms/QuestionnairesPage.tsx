@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import QuestionnairesSection from '../../components/forms/QuestionnairesSection';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { FileText, Plus, Upload } from 'lucide-react';
 
 interface FormTemplate {
   _id: string;
@@ -188,41 +189,94 @@ const QuestionnairesPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">MY FORMS</h1>
+              <p className="text-sm text-gray-600">Manage and access all your custom forms and questionnaires</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleUploadExisting}
+                className="inline-flex items-center justify-center px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg shadow-sm hover:bg-gray-50 hover:shadow-md transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <Upload className="w-5 h-5 mr-2" />
+                Upload Form
+              </button>
+              <button
+                onClick={handleCreateNew}
+                className="inline-flex items-center justify-center px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg shadow-md hover:from-blue-700 hover:to-blue-800 hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create New
+              </button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Custom Forms Section */}
-          <QuestionnairesSection
-            title="Custom Forms"
-            forms={formTemplates.map(mapTemplateToForm)}
-            onFormClick={handleFormClick}
-            onCreateNew={handleCreateNew}
-            onUploadExisting={handleUploadExisting}
-          />
-          
-          {/* Questionnaires Section */}
-          {/* <QuestionnairesSection
-            title="Questionnaires"
-            forms={questionnaires}
-            onFormClick={handleFormClick}
-            onCreateNew={handleCreateNew}
-            onUploadExisting={handleUploadExisting}
-          /> */}
-          
-          {/* Consent Forms Section */}
-          {/* <QuestionnairesSection
-            title="Consent Forms"
-            forms={consentForms}
-            onFormClick={handleFormClick}
-            onCreateNew={handleCreateNew}
-            onUploadExisting={handleUploadExisting}
-          /> */}
-        </>
-      )}
+
+        {/* Content Section */}
+        {isLoading ? (
+          <div className="flex flex-col justify-center items-center h-96 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-600 mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading forms...</p>
+          </div>
+        ) : (
+          <>
+            {/* Custom Forms Section */}
+            {formTemplates.length > 0 ? (
+              <QuestionnairesSection
+                title="Custom Forms"
+                forms={formTemplates.map(mapTemplateToForm)}
+                onFormClick={handleFormClick}
+                onCreateNew={handleCreateNew}
+                onUploadExisting={handleUploadExisting}
+              />
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <div className="max-w-md mx-auto">
+                  <div className="flex justify-center mb-4">
+                    <div className="h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center">
+                      <FileText className="h-10 w-10 text-blue-600" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No forms found</h3>
+                  <p className="text-gray-600 mb-6">
+                    Get started by creating your first custom form.
+                  </p>
+                  <button
+                    onClick={handleCreateNew}
+                    className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Create Your First Form
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Questionnaires Section */}
+            {/* <QuestionnairesSection
+              title="Questionnaires"
+              forms={questionnaires}
+              onFormClick={handleFormClick}
+              onCreateNew={handleCreateNew}
+              onUploadExisting={handleUploadExisting}
+            /> */}
+            
+            {/* Consent Forms Section */}
+            {/* <QuestionnairesSection
+              title="Consent Forms"
+              forms={consentForms}
+              onFormClick={handleFormClick}
+              onCreateNew={handleCreateNew}
+              onUploadExisting={handleUploadExisting}
+            /> */}
+          </>
+        )}
+      </div>
     </div>
   );
 };

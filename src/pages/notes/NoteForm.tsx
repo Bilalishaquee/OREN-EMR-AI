@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -76,6 +76,46 @@ interface SOAPFormData {
   plan: string;
 }
 
+interface CorrespondingFormData {
+  mrn: string;
+  assessment: string;
+  plan: string;
+  medications: string;
+  therapy: string;
+  outsideImaging: string;
+  splint: string;
+  splintType: string;
+  injections: string;
+  injectionLocation: string;
+  injectionMedication: string;
+  workSchoolStatus: string;
+  specificComments: string;
+}
+
+interface ERCorrespondingFormData {
+  mrn: string;
+  surgeon: string;
+  implants: string;
+  woundClass: string;
+  preoperativeDiagnosis: string;
+  postoperativeDiagnosis: string;
+  procedureList: string;
+  specificNotes: string;
+}
+
+interface ORCorrespondingFormData {
+  mrn: string;
+  surgeon: string;
+  assistantSurgeon: string;
+  anesthesiaType: string;
+  implants: string;
+  woundClass: string;
+  preoperativeDiagnosis: string;
+  postoperativeDiagnosis: string;
+  procedureList: string;
+  specificNotes: string;
+}
+
 const NoteForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEditMode = Boolean(id);
@@ -101,7 +141,7 @@ const NoteForm: React.FC = () => {
 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
   const [diagnosisSearch, setDiagnosisSearch] = useState<string>('');
@@ -117,6 +157,46 @@ const NoteForm: React.FC = () => {
   const [consultationNoteData, setConsultationNoteData] = useState<any>(null);
   const [showJsonView, setShowJsonView] = useState<boolean>(false);
   const [showSOAPForm, setShowSOAPForm] = useState<boolean>(false);
+  const [showCorrespondingForm, setShowCorrespondingForm] = useState<boolean>(false);
+  const [showERCorrespondingForm, setShowERCorrespondingForm] = useState<boolean>(false);
+  const [showORCorrespondingForm, setShowORCorrespondingForm] = useState<boolean>(false);
+  const [correspondingFormData, setCorrespondingFormData] = useState<CorrespondingFormData>({
+    mrn: '',
+    assessment: '',
+    plan: '',
+    medications: 'None',
+    therapy: 'None',
+    outsideImaging: 'None',
+    splint: 'None',
+    splintType: '',
+    injections: 'None (Default)',
+    injectionLocation: '',
+    injectionMedication: 'Kenalog',
+    workSchoolStatus: 'No Restrictions',
+    specificComments: '',
+  });
+  const [erCorrespondingFormData, setERCorrespondingFormData] = useState<ERCorrespondingFormData>({
+    mrn: '',
+    surgeon: '',
+    implants: '',
+    woundClass: 'Contaminated',
+    preoperativeDiagnosis: '',
+    postoperativeDiagnosis: '',
+    procedureList: '',
+    specificNotes: '',
+  });
+  const [orCorrespondingFormData, setORCorrespondingFormData] = useState<ORCorrespondingFormData>({
+    mrn: '',
+    surgeon: '',
+    assistantSurgeon: '',
+    anesthesiaType: '',
+    implants: '',
+    woundClass: 'Clean',
+    preoperativeDiagnosis: '',
+    postoperativeDiagnosis: '',
+    procedureList: '',
+    specificNotes: '',
+  });
   const [soapFormData, setSoapFormData] = useState<SOAPFormData>({
     patientName: '',
     patientDOB: '',
@@ -138,6 +218,8 @@ const NoteForm: React.FC = () => {
   const [existingTemplates, setExistingTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [useExistingTemplate, setUseExistingTemplate] = useState<boolean>(false);
+  const [headerPreviewUrl, setHeaderPreviewUrl] = useState<string>('');
+  const [footerPreviewUrl, setFooterPreviewUrl] = useState<string>('');
 
   const quillModules = {
     toolbar: [
@@ -156,19 +238,15 @@ const NoteForm: React.FC = () => {
     return `
 <h2>SOAP Note - Progress Note</h2>
 <p><strong>Patient Information:</strong></p>
-<ul>
-  <li><strong>Patient Name:</strong> ${formData.patientName || '[To be filled from patient selection]'}</li>
-  <li><strong>Patient Date of Birth:</strong> ${formData.patientDOB || '[To be filled from patient data]'}</li>
-  <li><strong>Location:</strong> ${formData.location || '[To be pulled from appointment settings]'}</li>
-  <li><strong>Date of Service:</strong> ${formData.dateOfService}</li>
-  <li><strong>MRN:</strong> ${formData.mrn || '[Internal MRN not hospital MRN]'}</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${formData.patientName || '[To be filled from patient selection]'}</p>
+<p>• <strong>Patient Date of Birth:</strong> ${formData.patientDOB || '[To be filled from patient data]'}</p>
+<p>• <strong>Location:</strong> ${formData.location || '[To be pulled from appointment settings]'}</p>
+<p>• <strong>Date of Service:</strong> ${formData.dateOfService}</p>
+<p>• <strong>MRN:</strong> ${formData.mrn || '[Internal MRN not hospital MRN]'}</p>
 <h3>Corresponding Form</h3>
-<ul>
-  <li><strong>Key points about the subjective:</strong> ${formData.subjectiveKeyPoints || '[To be filled]'}</li>
-  <li><strong>Key physical exam findings:</strong> ${formData.physicalExamFindings || '[To be filled]'}</li>
-  <li><strong>Plan:</strong> ${formData.planKeyPoints || '[To be filled]'}</li>
-</ul>
+<p>• <strong>Key points about the subjective:</strong> ${formData.subjectiveKeyPoints || '[To be filled]'}</p>
+<p>• <strong>Key physical exam findings:</strong> ${formData.physicalExamFindings || '[To be filled]'}</p>
+<p>• <strong>Plan:</strong> ${formData.planKeyPoints || '[To be filled]'}</p>
 <h3>SOAP Note</h3>
 <h4>Subjective:</h4>
 <p>${formData.subjective || '[The subjective portion should be written in paragraph format and must include...]'}</p>
@@ -186,43 +264,35 @@ const NoteForm: React.FC = () => {
   };
 
   // Consultation Note Template
-  const getConsultTemplate = (selectedPatient?: Patient) => {
+  const getConsultTemplate = (selectedPatient?: Patient, formData?: CorrespondingFormData) => {
     const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '';
     const patientDOB = selectedPatient && selectedPatient.dateOfBirth ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '';
     const currentDate = new Date().toLocaleDateString();
+    
+    const cf = formData || correspondingFormData;
 
     return `<h2>Consultation Note</h2>
 
 <p><strong>I expect that the following will be carried over directly from the intake form or EMR:</strong></p>
-<ul>
-  <li><strong>Patient Name:</strong> ${patientName || '[To be filled from patient selection]'}</li>
-  <li><strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled from patient data]'}</li>
-  <li><strong>Location:</strong> should be pulled from the appointment settings</li>
-  <li><strong>Date of Service:</strong> should be pulled from the appointment settings</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${patientName || '[To be filled from patient selection]'}</p>
+<p>• <strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled from patient data]'}</p>
+<p>• <strong>Location:</strong> should be pulled from the appointment settings</p>
+<p>• <strong>Date of Service:</strong> should be pulled from the appointment settings</p>
 
 <h3>Corresponding Form</h3>
-<ul>
-  <li><strong>MRN:</strong> [To be filled]</li>
-  <li><strong>Assessment:</strong> [To be filled]</li>
-  <li><strong>Plan:</strong> [To be filled]</li>
-  <li><strong>Medications:</strong> None, Ordered Antibiotics, Discontinue antibiotics, other_____</li>
-  <li><strong>Therapy:</strong> None, Ordered, Continue, Discontinue, Offered and Declined</li>
-  <li><strong>Outside Imaging or Nerve Study:</strong> None, Prescription Provided for ______</li>
-  <li><strong>Splint:</strong> Options should be provided, ordered, discontinued or continued
-    <ul>
-      <li><strong>Type:</strong> ________</li>
-    </ul>
-  </li>
-  <li><strong>Injections:</strong> None (Default), Fluoroscopy guided, not fluoroscopy guided
-    <ul>
-      <li><strong>Location:</strong> [To be filled]</li>
-      <li><strong>Medication:</strong> Kenalog, Kenalog</li>
-    </ul>
-  </li>
-  <li><strong>Work/School Status:</strong> No Restrictions, One handed duty, 5Lbs restriction, 10lbs restriction, 15lbs Restriction, 20lbs restriction, no gym class</li>
-  <li><strong>Specific Comments:</strong> [To be filled]</li>
-</ul>
+<p>• <strong>MRN:</strong> ${cf.mrn || '[To be filled]'}</p>
+<p>• <strong>Assessment:</strong> ${cf.assessment || '[To be filled]'}</p>
+<p>• <strong>Plan:</strong> ${cf.plan || '[To be filled]'}</p>
+<p>• <strong>Medications:</strong> ${cf.medications || 'None, Ordered Antibiotics, Discontinue antibiotics, other_____'}</p>
+<p>• <strong>Therapy:</strong> ${cf.therapy || 'None, Ordered, Continue, Discontinue, Offered and Declined'}</p>
+<p>• <strong>Outside Imaging or Nerve Study:</strong> ${cf.outsideImaging || 'None, Prescription Provided for ______'}</p>
+<p>• <strong>Splint:</strong> ${cf.splint || 'Options should be provided, ordered, discontinued or continued'}</p>
+${cf.splintType ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Type:</strong> ${cf.splintType}</p>` : '<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Type:</strong> ________</p>'}
+<p>• <strong>Injections:</strong> ${cf.injections || 'None (Default), Fluoroscopy guided, not fluoroscopy guided'}</p>
+${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</strong> ${cf.injectionLocation}</p>` : '<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</strong> [To be filled]</p>'}
+<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Medication:</strong> ${cf.injectionMedication || 'Kenalog, Kenalog'}</p>
+<p>• <strong>Work/School Status:</strong> ${cf.workSchoolStatus || 'No Restrictions, One handed duty, 5Lbs restriction, 10lbs restriction, 15lbs Restriction, 20lbs restriction, no gym class'}</p>
+<p>• <strong>Specific Comments:</strong> ${cf.specificComments || '[To be filled]'}</p>
 
 <h3>Consult Note Generation Prompt</h3>
 <p>You are an expert surgeon specializing in hand surgery, peripheral nerve surgery, and microsurgery. Your target audience for this consult note includes insurance auditors, judges, or juries, where fine details are critical.</p>
@@ -232,80 +302,69 @@ const NoteForm: React.FC = () => {
 <p>All responses must be overly detailed. Every piece of information provided in the prompt is essential; no details should be removed. If any details are missing or unclear, you must add or clarify them. Please pull detail from the intake forms, visit forms, and any uploaded images or PDFs. For Any images or PDF of reports please analyze the text and focus on the interpretation or results section if present.</p>
 
 <h4>Appointment Details:</h4>
-<ul>
-  <li><strong>Patient Name:</strong> ${patientName}</li>
-  <li><strong>Date of Birth:</strong> ${patientDOB}</li>
-  <li><strong>Date of Service:</strong> [should be pulled from the appointment settings]</li>
-  <li><strong>Location:</strong> [should be pulled from the appointment settings]</li>
-  <li><strong>Place of Service:</strong> [To be filled]</li>
-  <li><strong>MRN:</strong> [To be filled]</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${patientName}</p>
+<p>• <strong>Date of Birth:</strong> ${patientDOB}</p>
+<p>• <strong>Date of Service:</strong> [should be pulled from the appointment settings]</p>
+<p>• <strong>Location:</strong> [should be pulled from the appointment settings]</p>
+<p>• <strong>Place of Service:</strong> [To be filled]</p>
+<p>• <strong>MRN:</strong> [To be filled]</p>
 
 <h4>Chief Complaint:</h4>
 <p>Short description of why the consult is conducted</p>
 
 <h4>HPI:</h4>
 <p>This is a subjective portion should always be written in paragraph format. It must include:</p>
-<ul>
-  <li>The patient's age and gender.</li>
-  <li>The time elapsed since any injury (e.g., "7 days after the patient fell and broke her wrist").</li>
-  <li>Any prehospital care received, how the arrived at the hospital (eg. Ambulance or if they were driven.)</li>
-  <li>Any care received in the hospital before I arrived.</li>
-  <li>The patients medical history, surgical history and allergies should be included in this section.</li>
-  <li>Any pain or sensory complaints the patient has should be included here as well.</li>
-  <li>The specific laterality of the injury should always be mentioned</li>
-  <li>The specific body part should be mentioned when known and possible for example wrist, or thumb or metacarpal. The more specific the better. The laterality should always be mentioned.</li>
-  <li>If there are studies/reports uploaded such as, labs, imaging, nerve studies please include these here.</li>
-</ul>
+<p>• The patient's age and gender.</p>
+<p>• The time elapsed since any injury (e.g., "7 days after the patient fell and broke her wrist").</p>
+<p>• Any prehospital care received, how the arrived at the hospital (eg. Ambulance or if they were driven.)</p>
+<p>• Any care received in the hospital before I arrived.</p>
+<p>• The patients medical history, surgical history and allergies should be included in this section.</p>
+<p>• Any pain or sensory complaints the patient has should be included here as well.</p>
+<p>• The specific laterality of the injury should always be mentioned</p>
+<p>• The specific body part should be mentioned when known and possible for example wrist, or thumb or metacarpal. The more specific the better. The laterality should always be mentioned.</p>
+<p>• If there are studies/reports uploaded such as, labs, imaging, nerve studies please include these here.</p>
 
 <h4>Objective:</h4>
 <p>A standard exam that would be expected given the information provided. For heart and lungs I often don't oscultate. So describe in terms of things that could be seen without listening. For example Heart: Regular rate and rhythm (that can be checked by palpating the radial artery), Lungs: Regular respiratory rate and pattern no respiratory distress. All other things do as normal.</p>
 
 <h4>Assessment:</h4>
-<ul>
-  <li>Provide a comprehensive summary of the patient's medical condition in sentence format.</li>
-  <li>Follow this with a numbered list of diagnoses, each with the correct ICD-10 codes.</li>
-</ul>
+<p>• Provide a comprehensive summary of the patient's medical condition in sentence format.</p>
+<p>• Follow this with a numbered list of diagnoses, each with the correct ICD-10 codes.</p>
 
 <h4>Plan:</h4>
 <p>For anything that is not applicable put not applicable</p>
 <p>Structure the plan as a numbered list and sub lists.</p>
 <p>Divide the plan into services provided during today's visit.</p>
-<ul>
-  <li><strong>Prescriptions Provided:</strong> Therapy, splint, antibiotics, imaging or other.</li>
-  <li><strong>Dressing or Splint care:</strong> [To be filled]</li>
-  <li><strong>Activity:</strong> Showering weight limits</li>
-  <li><strong>Work or school status:</strong> [To be filled]</li>
-  <li><strong>Follow up:</strong> [To be filled]</li>
-</ul>`;
+<p>• <strong>Prescriptions Provided:</strong> Therapy, splint, antibiotics, imaging or other.</p>
+<p>• <strong>Dressing or Splint care:</strong> [To be filled]</p>
+<p>• <strong>Activity:</strong> Showering weight limits</p>
+<p>• <strong>Work or school status:</strong> [To be filled]</p>
+<p>• <strong>Follow up:</strong> [To be filled]</p>`;
   };
 
-  const getEROperativeTemplate = (selectedPatient?: Patient) => {
+  const getEROperativeTemplate = (selectedPatient?: Patient, formData?: ERCorrespondingFormData) => {
     const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '';
     const patientDOB = selectedPatient && selectedPatient.dateOfBirth ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '';
     const currentDate = new Date().toLocaleDateString();
+    const cf = formData || erCorrespondingFormData;
 
     return `<h2>ER Operative Report</h2>
 
 <p><strong>I expect that the following will be carried over directly from the intake form or EMR:</strong></p>
-<ul>
-  <li><strong>Patient Name:</strong> ${patientName || '[To be filled from patient selection]'}</li>
-  <li><strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled from patient data]'}</li>
-  <li><strong>Location:</strong> should be pulled from the appointment settings</li>
-  <li><strong>Date of Service:</strong> should be pulled from the appointment settings</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${patientName || '[To be filled from patient selection]'}</p>
+<p>• <strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled from patient data]'}</p>
+<p>• <strong>Location:</strong> should be pulled from the appointment settings</p>
+<p>• <strong>Date of Service:</strong> should be pulled from the appointment settings</p>
 
 <h3>Corresponding Form</h3>
-<ul>
-  <li><strong>MRN:</strong> [To be filled]</li>
-  <li><strong>Surgeon:</strong> [To be filled]</li>
-  <li><strong>Implants:</strong> [To be filled]</li>
-  <li><strong>Wound Class:</strong> (Contaminated, Dirty) this should be a dropdown</li>
-  <li><strong>Preoperative Diagnosis:</strong> [To be filled]</li>
-  <li><strong>Postoperative Diagnosis:</strong> If left blank should be the same as above</li>
-  <li><strong>Procedure List:</strong> [To be filled]</li>
-  <li><strong>Specific notes about the surgery:</strong> [To be filled]</li>
-</ul>
+<p>• <strong>MRN:</strong> ${cf.mrn || '[To be filled]'}</p>
+<p>• <strong>Surgeon:</strong> ${cf.surgeon || '[To be filled]'}</p>
+<p>• <strong>Implants:</strong> ${cf.implants || '[To be filled]'}</p>
+<p>• <strong>Wound Class:</strong> ${cf.woundClass || '(Contaminated, Dirty) this should be a dropdown'}</p>
+<p>• <strong>Preoperative Diagnosis:</strong> ${cf.preoperativeDiagnosis || '[To be filled]'}</p>
+<p>• <strong>Postoperative Diagnosis:</strong> ${cf.postoperativeDiagnosis || 'If left blank should be the same as above'}</p>
+<p>• <strong>Procedure List:</strong> ${cf.procedureList || '[To be filled]'}</p>
+<p>• <strong>Specific notes about the surgery:</strong> ${cf.specificNotes || '[To be filled]'}</p>
 
 <h3>Operative Report Prompt Instructions</h3>
 <p><strong>Role:</strong></p>
@@ -315,20 +374,18 @@ const NoteForm: React.FC = () => {
 <p>Every operative report must follow this standardized template:</p>
 
 <h4>Operative Dictation:</h4>
-<ul>
-  <li><strong>Patient Name:</strong> ${patientName || '[To be filled]'}</li>
-  <li><strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled]'}</li>
-  <li><strong>Location:</strong> (Which hospital)</li>
-  <li><strong>Place of Service:</strong> Emergency Room</li>
-  <li><strong>MRN:</strong> [To be filled]</li>
-  <li><strong>Date of Service:</strong> [should be pulled from the appointment settings]</li>
-  <li><strong>Surgeon:</strong> Oren Michaeli, DO</li>
-  <li><strong>Assistant Surgeon (if applicable):</strong> If not specified then there was none.</li>
-  <li><strong>Anesthesia Type:</strong> Local (unless sedation is used from reduction of dislocations)</li>
-  <li><strong>Estimated Blood Loss:</strong> Less than 10 ml (unless otherwise stated)</li>
-  <li><strong>Implants:</strong> (List any applicable: Nerve grafts, Nerve wraps, K-wires, integra)</li>
-  <li><strong>Wound Class:</strong> (Contaminated, Dirty)</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${patientName || '[To be filled]'}</p>
+<p>• <strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled]'}</p>
+<p>• <strong>Location:</strong> (Which hospital)</p>
+<p>• <strong>Place of Service:</strong> Emergency Room</p>
+<p>• <strong>MRN:</strong> [To be filled]</p>
+<p>• <strong>Date of Service:</strong> [should be pulled from the appointment settings]</p>
+<p>• <strong>Surgeon:</strong> Oren Michaeli, DO</p>
+<p>• <strong>Assistant Surgeon (if applicable):</strong> If not specified then there was none.</p>
+<p>• <strong>Anesthesia Type:</strong> Local (unless sedation is used from reduction of dislocations)</p>
+<p>• <strong>Estimated Blood Loss:</strong> Less than 10 ml (unless otherwise stated)</p>
+<p>• <strong>Implants:</strong> (List any applicable: Nerve grafts, Nerve wraps, K-wires, integra)</p>
+<p>• <strong>Wound Class:</strong> (Contaminated, Dirty)</p>
 
 <h4>Preoperative Diagnosis:</h4>
 <p>Provide numbered list.</p>
@@ -356,94 +413,88 @@ const NoteForm: React.FC = () => {
 
 <h4>Specific Procedure Descriptions depending on the procedure list provided. These details must be included although it is ok to paraphrase or expand on it. Always repeat multiple times the specific laterality and body part example left small finger or right wrist.</h4>
 
-<ol>
-  <li><strong>Sterile Preparation</strong>
+<p><strong>1. Sterile Preparation</strong></p>
     <p>Contaminated or Dirty cases (if applicable):</p>
     <p>The extremity was prepared using a betadine-based solution in accordance with contaminated or infected wound protocols unless otherwise stated.</p>
-  </li>
-  <li><strong>A1 Pully release</strong>
+
+<p><strong>2. A1 Pully release</strong></p>
     <p>When discussing this step always say that the A1 pully was sharply cut under direct visualization ensuring the protection of neighboring neurovascular bundles. Always mention that the flexor tendon was not injured during the release.</p>
-  </li>
-  <li><strong>Flexor Tendon washout</strong>
+
+<p><strong>3. Flexor Tendon washout</strong></p>
     <p>This have a bruner incision with the incision over the distal phalanx and the palm this will be accompanied by an A1 release (see above for how to describe that). After that happens describe making a knick in the tendon sheath revealing cloudy fluid unless otherwise specified and the advancement of an 18 gauge Angiocatheter from proximal to distal into the sheath and irrigated with 200cc of saline with the effluent being clear. These will always be loosely closed to allow for drainage.</p>
-  </li>
-  <li><strong>Digital Block</strong>
+
+<p><strong>4. Digital Block</strong></p>
     <p>Always 3ml of 1% lidocaine without epinephrine to the volar base of the finger to anesthetize the volar ulnar and radial digital nerve and 2ml to the dorsal base of the finger to anesthetize the dorsal digital sensory nerves.</p>
-  </li>
-  <li><strong>Nailbed Repair</strong>
+
+<p><strong>5. Nailbed Repair</strong></p>
     <p>Start with devitalized nailbed is sharply excised with a tenotomy scissor. The nailbed ends are then approximated using a 5-0 chromic suture at 2mm intervals with a horizontal mattress suture. The aluminum from the suture packaging is cut to the shape of a nail plate and placed under the eponychium and paronychium to allow for healing and splint of the wound.</p>
-  </li>
-  <li><strong>Nail Plate Removal</strong>
+
+<p><strong>6. Nail Plate Removal</strong></p>
     <p>This is always done with a freer elevator advanced below the nailplate to elevate it off the nailbed and above the nail plate to separate from the eponychium.</p>
-  </li>
-  <li><strong>Light wound debridement</strong>
+
+<p><strong>7. Light wound debridement</strong></p>
     <p>Describe using a surgical scissor to remove 1-2 grams of devitalized and contaminated skin and fatty tissue needed to decrease infection risk and allow for proper healing.</p>
-  </li>
-  <li><strong>Tendon debridement</strong>
+
+<p><strong>8. Tendon debridement</strong></p>
     <p>Describe the poor condition of the tendon edges and the need to debride to healthy tissue to decrease infection and facilitate repair.</p>
-  </li>
-  <li><strong>Bone debridement or open fracture debridement</strong>
+
+<p><strong>9. Bone debridement or open fracture debridement</strong></p>
     <p>If the distal end is amputated from the fracture state that a rongour was used and 1-2mm of bone was removed. If it is an open fracture due to a finger tip and it is accompanied by a nailbed repair say it was debrided with the sharp end of a scissor but don't specify the exact amount just say it was needed to remove contaminants and allow a thorough washout.</p>
-  </li>
-  <li><strong>Rotational flap of the nail bed</strong>
+
+<p><strong>10. Rotational flap of the nail bed</strong></p>
     <p>Must mention elevating of the nail bed off the nail plate and mobilizing the nail bed mention needing to make a back cut to facilitate the mobility and advancing it over the defect to cover the distal phalanx periosteum. Then describe suturing it to the adjacent nail bed tissue with a 5-0 chromic suture.</p>
-  </li>
-  <li><strong>Finger arthrotomy</strong>
+
+<p><strong>11. Finger arthrotomy</strong></p>
     <p>A longitudinal incision made over the dorsum of the (MCP of PIP or DIP or IP) joint. Care taken to avoid injury to the extensor mechanism. The joint capsule is incised, if infected say and immediately, cloudy fluid was expressed. Cultures were taken for aerobic, anaerobic, and fungal organisms. These will be left to heal by secondary intention Unless otherwise stated earlier in the prompt.</p>
-  </li>
-  <li><strong>Full Thickness skin graft</strong>
+
+<p><strong>12. Full Thickness skin graft</strong></p>
     <p>This will always be accompanied by the procedure "Advancement flap and primary closure of right medial forearm defect" which should be listed separately. This is how that should be described. 7cc of lidocaine with epinephrine is injected for its hemostatic and anesthetic affect and given 10 min to work. A full-thickness skin graft was harvested using a #15 scalpel blade, from the medial forearm. All adipose tissue sharply debrided. This graft was sutured onto the finger (specify which finger) defect using 4-0 chromic sutures.</p>
     <p>Due to significant tension on the medial forearm defect which was approximately 3cm X 3cm (approximately 28cm squared), dissections were performed along medial and lateral subcutaneous planes to elevate vascularized skin flaps. Following adequate mobilization of these flaps, a deep dermal approximation was carried out using 3-0 Vicryl sutures. Skin closure was then completed with a 5-0 subcuticular suture, reinforced with Steri-Strips.</p>
-  </li>
-  <li><strong>Extensor Tendon Repair</strong>
+
+<p><strong>13. Extensor Tendon Repair</strong></p>
     <p>For the repair of the extensor digitorum communis tendon, I employed a 4-0 PDS suture. The repair technique consisted of two central figure-of-eight stitches complemented by two peripheral horizontal mattress sutures, ensuring a robust and durable repair. The suture bites were taken 1cm back from the torn ends of the tendon, creating a secure, eight-strand repair configuration.</p>
-  </li>
-  <li><strong>Primary Nerve Repair (Coaptation) if applicable</strong>
+
+<p><strong>14. Primary Nerve Repair (Coaptation) if applicable</strong></p>
     <p>Neurolysis performed until healthy vaso-nervosum and fascicles exposed.</p>
     <p>Sharp debridement with straight microscissors until healthy, bleeding, and bulging fascicles visible. May also be likened to a bugs eyes.</p>
     <p>Coaptation performed with two interrupted 9-0 nylon sutures, leaving a visible 0.1 mm light gap. May also be described as a grandmas kiss.</p>
     <p>A tension free repair should always be.</p>
     <p>Always say that the limb or digit was fully ranged through its motion to test that the suture line will not break. Do not however mention this if the joint was fused or kwired to immobilize.</p>
-  </li>
-  <li><strong>Synthetic Nerve Membrane (if applicable)</strong>
+
+<p><strong>15. Synthetic Nerve Membrane (if applicable)</strong></p>
     <p>If used, describe membrane placement to minimize axonal sprouting and prevent neuroma.</p>
     <p>If applicable, include soaking in stem cell solution with brief citation supporting Schwann cell differentiation.</p>
     <p>Secure with 9-0 nylon sutures, then reinforce with fibrin glue.</p>
-  </li>
-</ol>
 
 <h4>Final Note</h4>
 <p>Ensure absolute compliance with each instruction. Maintain maximum clarity, precision, and anatomical detail in your documentation at all times. The procedures listed above have key points that MUST be mentioned. Sometimes I will do surgeries that are not listed above if the procedure list that is provided does not have a corresponding instructions please write the procedure yourself but with that same level of detail and minutia.</p>`;
   };
 
-  const getOROperativeTemplate = (selectedPatient?: Patient) => {
+  const getOROperativeTemplate = (selectedPatient?: Patient, formData?: ORCorrespondingFormData) => {
     const patientName = selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : '';
     const patientDOB = selectedPatient && selectedPatient.dateOfBirth ? new Date(selectedPatient.dateOfBirth).toLocaleDateString() : '';
     const currentDate = new Date().toLocaleDateString();
+    const cf = formData || orCorrespondingFormData;
 
     return `<h2>OR Operative Report</h2>
 
 <p><strong>I expect that the following will be carried over directly from the intake form or EMR:</strong></p>
-<ul>
-  <li><strong>Patient Name:</strong> ${patientName || '[To be filled from patient selection]'}</li>
-  <li><strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled from patient data]'}</li>
-  <li><strong>Location:</strong> should be pulled from the appointment settings</li>
-  <li><strong>Date of Service:</strong> should be pulled from the appointment settings</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${patientName || '[To be filled from patient selection]'}</p>
+<p>• <strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled from patient data]'}</p>
+<p>• <strong>Location:</strong> should be pulled from the appointment settings</p>
+<p>• <strong>Date of Service:</strong> should be pulled from the appointment settings</p>
 
 <h3>Corresponding Form</h3>
-<ul>
-  <li><strong>MRN:</strong> [To be filled]</li>
-  <li><strong>Surgeon:</strong> [To be filled]</li>
-  <li><strong>Assistant Surgeon:</strong> [To be filled]</li>
-  <li><strong>Anesthesia Type:</strong> [To be filled]</li>
-  <li><strong>Implants:</strong> [To be filled]</li>
-  <li><strong>Wound Class:</strong> (Clean, Contaminated, Dirty) this should be a dropdown</li>
-  <li><strong>Preoperative Diagnosis:</strong> [To be filled]</li>
-  <li><strong>Postoperative Diagnosis:</strong> If left blank should be the same as above</li>
-  <li><strong>Procedure List:</strong> [To be filled]</li>
-  <li><strong>Specific notes about the surgery:</strong> [To be filled]</li>
-</ul>
+<p>• <strong>MRN:</strong> ${cf.mrn || '[To be filled]'}</p>
+<p>• <strong>Surgeon:</strong> ${cf.surgeon || '[To be filled]'}</p>
+<p>• <strong>Assistant Surgeon:</strong> ${cf.assistantSurgeon || '[To be filled]'}</p>
+<p>• <strong>Anesthesia Type:</strong> ${cf.anesthesiaType || '[To be filled]'}</p>
+<p>• <strong>Implants:</strong> ${cf.implants || '[To be filled]'}</p>
+<p>• <strong>Wound Class:</strong> ${cf.woundClass || '(Clean, Contaminated, Dirty) this should be a dropdown'}</p>
+<p>• <strong>Preoperative Diagnosis:</strong> ${cf.preoperativeDiagnosis || '[To be filled]'}</p>
+<p>• <strong>Postoperative Diagnosis:</strong> ${cf.postoperativeDiagnosis || 'If left blank should be the same as above'}</p>
+<p>• <strong>Procedure List:</strong> ${cf.procedureList || '[To be filled]'}</p>
+<p>• <strong>Specific notes about the surgery:</strong> ${cf.specificNotes || '[To be filled]'}</p>
 
 <h3>Operative Report Prompt Instructions</h3>
 <p><strong>Role:</strong></p>
@@ -453,20 +504,18 @@ const NoteForm: React.FC = () => {
 <p>Every operative report must follow this standardized template:</p>
 
 <h4>Operative Dictation:</h4>
-<ul>
-  <li><strong>Patient Name:</strong> ${patientName || '[To be filled]'}</li>
-  <li><strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled]'}</li>
-  <li><strong>Location:</strong> (Which hospital)</li>
-  <li><strong>Place of Service:</strong> (Emergency - Inpatient, Emergency - Outpatient, Elective - Inpatient, Elective - Outpatient)</li>
-  <li><strong>MRN:</strong> [To be filled]</li>
-  <li><strong>Date of Service:</strong> [should be pulled from the appointment settings]</li>
-  <li><strong>Surgeon:</strong> Oren Michaeli, DO</li>
-  <li><strong>Assistant Surgeon (if applicable):</strong> [To be filled]</li>
-  <li><strong>Anesthesia Type:</strong> [To be filled]</li>
-  <li><strong>Estimated Blood Loss:</strong> Less than 10 ml (unless otherwise stated)</li>
-  <li><strong>Implants:</strong> (List any applicable: plates, screws, anchors, suture tape, tightropes, nerve grafts, nerve wraps, K-wires, intramedullary nails, bone allografts)</li>
-  <li><strong>Wound Class:</strong> (Clean, Contaminated, Dirty)</li>
-</ul>
+<p>• <strong>Patient Name:</strong> ${patientName || '[To be filled]'}</p>
+<p>• <strong>Patient Date of Birth:</strong> ${patientDOB || '[To be filled]'}</p>
+<p>• <strong>Location:</strong> (Which hospital)</p>
+<p>• <strong>Place of Service:</strong> (Emergency - Inpatient, Emergency - Outpatient, Elective - Inpatient, Elective - Outpatient)</p>
+<p>• <strong>MRN:</strong> [To be filled]</p>
+<p>• <strong>Date of Service:</strong> [should be pulled from the appointment settings]</p>
+<p>• <strong>Surgeon:</strong> Oren Michaeli, DO</p>
+<p>• <strong>Assistant Surgeon (if applicable):</strong> [To be filled]</p>
+<p>• <strong>Anesthesia Type:</strong> [To be filled]</p>
+<p>• <strong>Estimated Blood Loss:</strong> Less than 10 ml (unless otherwise stated)</p>
+<p>• <strong>Implants:</strong> (List any applicable: plates, screws, anchors, suture tape, tightropes, nerve grafts, nerve wraps, K-wires, intramedullary nails, bone allografts)</p>
+<p>• <strong>Wound Class:</strong> (Clean, Contaminated, Dirty)</p>
 
 <h4>Preoperative Diagnosis:</h4>
 <p>Provide numbered list.</p>
@@ -495,85 +544,82 @@ const NoteForm: React.FC = () => {
 
 <h4>Specific Procedure Descriptions depending on the procedure list provided. These details must be included although it is ok to paraphrase or expand on it.</h4>
 
-<ol>
-  <li><strong>Sterile Preparation</strong>
-    <p>Clean cases (if applicable):</p>
-    <p>Initially, the arm was meticulously scrubbed using a surgical-grade sponge, followed by drying with a sterile towel to ensure the absence of residual moisture. This procedure was diligently repeated. Subsequently, the [specify laterality and extremity] received a double application of a chlorhexidine preparation stick. A sterile surgical drape was applied, followed by a final chlorhexidine application within the sterile field.</p>
-    <p>Contaminated or Dirty cases (if applicable):</p>
-    <p>The extremity was prepared using a betadine-based solution in accordance with contaminated or infected wound protocols.</p>
-  </li>
-  <li><strong>Volar Plating of Distal Radius (If applicable)</strong>
-    <p>Prior to incision inspect the fracture under fluoroscopic guidance and attempt preliminary reduction.</p>
-    <p>A modified Henry approach was used. The FCR was palpated and a 10 cm incision made using a 15 blade. The FCR sheath was incised with a 15 blade, and a push-cut technique used proximally and distally with tenotomy scissors. A Ragnell retractor retracted the FCR ulnarly. The base and floor of the tendon sheath were opened with a tenotomy. The FPL was freed with finger-sweep dissection. The pronator quadratus was then cut with a bipolar and a combination of blunt dissection with a raytech and a key elevator was used to expose the fracture.</p>
-    <p>A freer elevator was used to open the fracture; hematoma was evacuated.</p>
-    <p>DRUJ stability was assessed with the elbow at 90° in both pronation and supination if there was an associated ulnar styloid fracture.</p>
-    <p>The volar plate was fixed distally first with screws to leverage and reduce the distal fragments.</p>
-    <p>Proximal screws were placed to complete longitudinal stabilization.</p>
-    <p>Fluoroscopy confirmed proper screw placement, no intra-articular penetration, and satisfactory construct alignment.</p>
-    <p>If specified that it was an arthroscopically assisted distal radius volar plating please describe as follows.</p>
-    <p>If anatomic alignment remained suboptimal (e.g., >2mm displacement), arthroscopic intervention may be employed to enhance precision. The arthroscope was introduced dorsally, adjacent to Lister's tubercle, through the inter-compartmental space without disrupting tendon sheaths. Extensive irrigation was performed to improve joint visibility.</p>
-    <p>A 6R portal was created with a small incision radial to the ECU, dissecting to the capsule. A probe introduced through this portal allowed adjustment of the fragments to a 0mm step-off.</p>
-    <p>After achieving alignment, the plate was first fixed distally, leveraging the distal fragment against the volar plate for anatomic tilt. Proximal screws were subsequently placed to secure longitudinal stability.</p>
-    <p>Screw placement and construct integrity were verified both arthroscopically and fluoroscopically, ensuring no intra-articular penetration and confirming optimal stabilization and wrist functionality.</p>
-  </li>
-  <li><strong>Ulnar Styloid Fixation (if applicable)</strong>
-    <p>2 cm incision made between ECU and FCU. The ulnar sensory nerve was identified and protected.</p>
-    <p>TFCC instability was addressed using a specialized hook plate to secure soft tissues to the ulnar styloid.</p>
-    <p>Screws were placed proximally to avoid intra-articular impingement and ensure DRUJ support. In some instances I will place a screw diagonally through the styloid into the neck/ shaft. Only include this detail if it is mentioned above.</p>
-  </li>
-  <li><strong>Intramedullary Nailing of Metacarpal (if applicable)</strong>
-    <p>A 1.4 mm K-wire was inserted at the dorsal third of the metacarpal head and advanced into the medullary canal.</p>
-    <p>Fracture reduced manually; fluoroscopic alignment confirmed.</p>
-    <p>A 0.3 mm skin incision allowed passage of a cannulated drill/reamer system.</p>
-    <p>After canal preparation, Skeletal Dynamics intramedullary nail was inserted over a guidewire and buried beneath the articular cartilage.</p>
-    <p>Must include the size of the screw</p>
-    <p>Must specify the digit number 1st-5th, with 1st being the thumb and 5th being the small finger. Also must mention the laterality.</p>
-    <p>If multiple fingers are involved each should be discussed separately.</p>
-  </li>
-  <li><strong>Blood Vessel Anastomosis (if applicable)</strong>
-    <p>Hematoma and adhesions were removed. The arterial ends were mobilized.</p>
-    <p>Adventitia was sharply removed with straight micro-scissors.</p>
-    <p>Vessel ends debrided until healthy tissue was visible.</p>
-    <p>Ends bathed in a heparin, lidocaine, and papaverine solution.</p>
-    <p>Microscopic vessel dilators expanded the lumen incrementally.</p>
-    <p>Vessel approximated using clamps and anastomosed with 8-0 nylon sutures under magnification.</p>
-    <p>Perfusion confirmed after clamp release.</p>
-  </li>
-  <li><strong>Primary Nerve Repair (Coaptation) if applicable</strong>
-    <p>Neurolysis performed until healthy vaso nervosum and fascicles exposed.</p>
-    <p>Sharp debridement with straight microscissors until healthy, bleeding, and bulging fascicles visible. May also be likened to a bugs eyes.</p>
-    <p>Coaptation performed with two interrupted 9-0 nylon sutures, leaving a visible 0.1 mm light gap. May also be described as a grandmas kiss.</p>
-    <p>A tension free repair should always be.</p>
-    <p>Fibrin glue applied to reinforce the repair using a drop, drop method.</p>
-    <p>Always say that the limb or digit was fully ranged through its motion to test that the suture line will not break. Do not however mention this if the joint was fused or kwired to immobilize.</p>
-  </li>
-  <li><strong>Nerve Graft (if applicable)</strong>
-    <p>Document diameter and length of graft.</p>
-    <p>Thaw nerve allograft, trim with microscissors, and coapt both ends with 9-0 nylon interrupted sutures.</p>
-    <p>Apply fibrin glue proximally and distally.</p>
-  </li>
-  <li><strong>Synthetic Nerve Membrane (if applicable)</strong>
-    <p>If used, describe membrane placement to minimize axonal sprouting and prevent neuroma.</p>
-    <p>If applicable, include soaking in stem cell solution with brief citation supporting Schwann cell differentiation.</p>
-    <p>Secure with 9-0 nylon sutures, then reinforce with fibrin glue.</p>
-  </li>
-  <li><strong>Intraoperative Nerve Stimulation (AKA ReGen, if applicable)</strong>
-    <p>Electrode placed proximal to nerve repair at last known healthy nerve.</p>
-    <p>Settings: 100 pulses/sec for 10 minutes at 2 mA.</p>
-    <p>Document device used and total stimulation time.</p>
-  </li>
-  <li><strong>Nano Fat Stem Cell Grafting with Tulip if applicable</strong>
-    <p>100 cc of tumescent fluid (saline, lidocaine, epinephrine) infiltrated into lower abdomen.</p>
-    <p>Suction cannula is always advanced through the umbilicus.</p>
-    <p>Fat harvested using Tulip cannula under manual suction pressure.</p>
-    <p>Gravity separation performed; supernatant and infranatant discarded.</p>
-    <p>Fat filtered through sequential Tulip filters to create nanofat.</p>
-    <p>~10 cc reserved for injection.</p>
-  </li>
-  <li><strong>Bone Grafting with allograft if applicable</strong>
-    <p>Fracture hematoma is cleared, then the void is packed with bone allograft. This could be added anywhere on the body that makes sense either after plating or in the middle of the plating. The packing must be tight.</p>
-  </li>
-</ol>
+<p><strong>1. Sterile Preparation</strong></p>
+<p><strong>Clean cases (if applicable):</strong></p>
+<p>Initially, the arm was meticulously scrubbed using a surgical-grade sponge, followed by drying with a sterile towel to ensure the absence of residual moisture. This procedure was diligently repeated. Subsequently, the [specify laterality and extremity] received a double application of a chlorhexidine preparation stick. A sterile surgical drape was applied, followed by a final chlorhexidine application within the sterile field.</p>
+<p><strong>Contaminated or Dirty cases (if applicable):</strong></p>
+<p>The extremity was prepared using a betadine-based solution in accordance with contaminated or infected wound protocols.</p>
+
+<p><strong>2. Volar Plating of Distal Radius (If applicable)</strong></p>
+<p>Prior to incision inspect the fracture under fluoroscopic guidance and attempt preliminary reduction.</p>
+<p>A modified Henry approach was used. The FCR was palpated and a 10 cm incision made using a 15 blade. The FCR sheath was incised with a 15 blade, and a push-cut technique used proximally and distally with tenotomy scissors. A Ragnell retractor retracted the FCR ulnarly. The base and floor of the tendon sheath were opened with a tenotomy. The FPL was freed with finger-sweep dissection. The pronator quadratus was then cut with a bipolar and a combination of blunt dissection with a raytech and a key elevator was used to expose the fracture.</p>
+<p>A freer elevator was used to open the fracture; hematoma was evacuated.</p>
+<p>DRUJ stability was assessed with the elbow at 90° in both pronation and supination if there was an associated ulnar styloid fracture.</p>
+<p>The volar plate was fixed distally first with screws to leverage and reduce the distal fragments.</p>
+<p>Proximal screws were placed to complete longitudinal stabilization.</p>
+<p>Fluoroscopy confirmed proper screw placement, no intra-articular penetration, and satisfactory construct alignment.</p>
+<p>If specified that it was an arthroscopically assisted distal radius volar plating please describe as follows.</p>
+<p>If anatomic alignment remained suboptimal (e.g., >2mm displacement), arthroscopic intervention may be employed to enhance precision. The arthroscope was introduced dorsally, adjacent to Lister's tubercle, through the inter-compartmental space without disrupting tendon sheaths. Extensive irrigation was performed to improve joint visibility.</p>
+<p>A 6R portal was created with a small incision radial to the ECU, dissecting to the capsule. A probe introduced through this portal allowed adjustment of the fragments to a 0mm step-off.</p>
+<p>After achieving alignment, the plate was first fixed distally, leveraging the distal fragment against the volar plate for anatomic tilt. Proximal screws were subsequently placed to secure longitudinal stability.</p>
+<p>Screw placement and construct integrity were verified both arthroscopically and fluoroscopically, ensuring no intra-articular penetration and confirming optimal stabilization and wrist functionality.</p>
+
+<p><strong>3. Ulnar Styloid Fixation (if applicable)</strong></p>
+<p>2 cm incision made between ECU and FCU. The ulnar sensory nerve was identified and protected.</p>
+<p>TFCC instability was addressed using a specialized hook plate to secure soft tissues to the ulnar styloid.</p>
+<p>Screws were placed proximally to avoid intra-articular impingement and ensure DRUJ support. In some instances I will place a screw diagonally through the styloid into the neck/ shaft. Only include this detail if it is mentioned above.</p>
+
+<p><strong>4. Intramedullary Nailing of Metacarpal (if applicable)</strong></p>
+<p>A 1.4 mm K-wire was inserted at the dorsal third of the metacarpal head and advanced into the medullary canal.</p>
+<p>Fracture reduced manually; fluoroscopic alignment confirmed.</p>
+<p>A 0.3 mm skin incision allowed passage of a cannulated drill/reamer system.</p>
+<p>After canal preparation, Skeletal Dynamics intramedullary nail was inserted over a guidewire and buried beneath the articular cartilage.</p>
+<p>Must include the size of the screw</p>
+<p>Must specify the digit number 1st-5th, with 1st being the thumb and 5th being the small finger. Also must mention the laterality.</p>
+<p>If multiple fingers are involved each should be discussed separately.</p>
+
+<p><strong>5. Blood Vessel Anastomosis (if applicable)</strong></p>
+<p>Hematoma and adhesions were removed. The arterial ends were mobilized.</p>
+<p>Adventitia was sharply removed with straight micro-scissors.</p>
+<p>Vessel ends debrided until healthy tissue was visible.</p>
+<p>Ends bathed in a heparin, lidocaine, and papaverine solution.</p>
+<p>Microscopic vessel dilators expanded the lumen incrementally.</p>
+<p>Vessel approximated using clamps and anastomosed with 8-0 nylon sutures under magnification.</p>
+<p>Perfusion confirmed after clamp release.</p>
+
+<p><strong>6. Primary Nerve Repair (Coaptation) if applicable</strong></p>
+<p>Neurolysis performed until healthy vaso nervosum and fascicles exposed.</p>
+<p>Sharp debridement with straight microscissors until healthy, bleeding, and bulging fascicles visible. May also be likened to a bugs eyes.</p>
+<p>Coaptation performed with two interrupted 9-0 nylon sutures, leaving a visible 0.1 mm light gap. May also be described as a grandmas kiss.</p>
+<p>A tension free repair should always be.</p>
+<p>Fibrin glue applied to reinforce the repair using a drop, drop method.</p>
+<p>Always say that the limb or digit was fully ranged through its motion to test that the suture line will not break. Do not however mention this if the joint was fused or kwired to immobilize.</p>
+
+<p><strong>7. Nerve Graft (if applicable)</strong></p>
+<p>Document diameter and length of graft.</p>
+<p>Thaw nerve allograft, trim with microscissors, and coapt both ends with 9-0 nylon interrupted sutures.</p>
+<p>Apply fibrin glue proximally and distally.</p>
+
+<p><strong>8. Synthetic Nerve Membrane (if applicable)</strong></p>
+<p>If used, describe membrane placement to minimize axonal sprouting and prevent neuroma.</p>
+<p>If applicable, include soaking in stem cell solution with brief citation supporting Schwann cell differentiation.</p>
+<p>Secure with 9-0 nylon sutures, then reinforce with fibrin glue.</p>
+
+<p><strong>9. Intraoperative Nerve Stimulation (AKA ReGen, if applicable)</strong></p>
+<p>Electrode placed proximal to nerve repair at last known healthy nerve.</p>
+<p>Settings: 100 pulses/sec for 10 minutes at 2 mA.</p>
+<p>Document device used and total stimulation time.</p>
+
+<p><strong>10. Nano Fat Stem Cell Grafting with Tulip if applicable</strong></p>
+<p>100 cc of tumescent fluid (saline, lidocaine, epinephrine) infiltrated into lower abdomen.</p>
+<p>Suction cannula is always advanced through the umbilicus.</p>
+<p>Fat harvested using Tulip cannula under manual suction pressure.</p>
+<p>Gravity separation performed; supernatant and infranatant discarded.</p>
+<p>Fat filtered through sequential Tulip filters to create nanofat.</p>
+<p>~10 cc reserved for injection.</p>
+
+<p><strong>11. Bone Grafting with allograft if applicable</strong></p>
+<p>Fracture hematoma is cleared, then the void is packed with bone allograft. This could be added anywhere on the body that makes sense either after plating or in the middle of the plating. The packing must be tight.</p>
 
 <h4>Final Note</h4>
 <p>Ensure absolute compliance with each instruction. Maintain maximum clarity, precision, and anatomical detail in your documentation at all times.</p>
@@ -633,7 +679,7 @@ const NoteForm: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const patientsResponse = await axios.get('https://oren-emr-ai-1.onrender.com/api/patients?limit=1000', {
+        const patientsResponse = await axios.get('/api/patients?limit=1000', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (patientsResponse.data && Array.isArray(patientsResponse.data.patients)) {
@@ -642,7 +688,7 @@ const NoteForm: React.FC = () => {
           setPatients([]);
         }
         if (isEditMode && id) {
-          const noteResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/notes/${id}`, {
+          const noteResponse = await axios.get(`/api/notes/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const noteData = noteResponse.data;
@@ -672,7 +718,7 @@ const NoteForm: React.FC = () => {
           // Fetch visits for the patient
           if (patientId) {
             try {
-              const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/visits/patient/${patientId}`, {
+              const visitsResponse = await axios.get(`/api/visits/patient/${patientId}`, {
                 headers: { Authorization: `Bearer ${token}` },
               });
               setVisits(visitsResponse.data || []);
@@ -700,17 +746,17 @@ const NoteForm: React.FC = () => {
 
       // If note type is Consultation and patient is selected, update the template with patient data
       if (prev.noteType === 'Consultation' && selectedPatient) {
-        const updatedTemplate = getConsultTemplate(selectedPatient);
+        const updatedTemplate = getConsultTemplate(selectedPatient, correspondingFormData);
         updatedNote.content = updatedTemplate;
       }
       // If note type is ER Operative Report and patient is selected, update the template with patient data
       else if (prev.noteType === 'New ER Operative Report' && selectedPatient) {
-        const updatedTemplate = getEROperativeTemplate(selectedPatient);
+        const updatedTemplate = getEROperativeTemplate(selectedPatient, erCorrespondingFormData);
         updatedNote.content = updatedTemplate;
       }
       // If note type is OR Operative Report and patient is selected, update the template with patient data
       else if (prev.noteType === 'New OR Operative Report' && selectedPatient) {
-        const updatedTemplate = getOROperativeTemplate(selectedPatient);
+        const updatedTemplate = getOROperativeTemplate(selectedPatient, orCorrespondingFormData);
         updatedNote.content = updatedTemplate;
       }
 
@@ -719,7 +765,7 @@ const NoteForm: React.FC = () => {
 
     if (patientId) {
       try {
-        const visitsResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/visits/patient/${patientId}`, {
+        const visitsResponse = await axios.get(`/api/visits/patient/${patientId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setVisits(visitsResponse.data);
@@ -765,31 +811,31 @@ const NoteForm: React.FC = () => {
         setNote(prev => ({ ...prev, [name]: value }));
       }
     } else if (name === 'noteType' && value === 'Consultation' && !note.content.trim()) {
-      const consultTemplate = getConsultTemplate(selectedPatient);
+      const consultTemplate = getConsultTemplate(selectedPatient, correspondingFormData);
       setNote(prev => ({ ...prev, [name]: value, content: consultTemplate }));
     } else if (name === 'noteType' && value === 'Consultation' && note.content.trim()) {
       if (window.confirm('Would you like to load the Consult template? This will replace your current content.')) {
-        const consultTemplate = getConsultTemplate(selectedPatient);
+        const consultTemplate = getConsultTemplate(selectedPatient, correspondingFormData);
         setNote(prev => ({ ...prev, [name]: value, content: consultTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
       }
     } else if (name === 'noteType' && value === 'New ER Operative Report' && !note.content.trim()) {
-      const erOperativeTemplate = getEROperativeTemplate(selectedPatient);
+      const erOperativeTemplate = getEROperativeTemplate(selectedPatient, erCorrespondingFormData);
       setNote(prev => ({ ...prev, [name]: value, content: erOperativeTemplate }));
     } else if (name === 'noteType' && value === 'New ER Operative Report' && note.content.trim()) {
       if (window.confirm('Would you like to load the ER Operative Report template? This will replace your current content.')) {
-        const erOperativeTemplate = getEROperativeTemplate(selectedPatient);
+        const erOperativeTemplate = getEROperativeTemplate(selectedPatient, erCorrespondingFormData);
         setNote(prev => ({ ...prev, [name]: value, content: erOperativeTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
       }
     } else if (name === 'noteType' && value === 'New OR Operative Report' && !note.content.trim()) {
-      const orOperativeTemplate = getOROperativeTemplate(selectedPatient);
+      const orOperativeTemplate = getOROperativeTemplate(selectedPatient, orCorrespondingFormData);
       setNote(prev => ({ ...prev, [name]: value, content: orOperativeTemplate }));
     } else if (name === 'noteType' && value === 'New OR Operative Report' && note.content.trim()) {
       if (window.confirm('Would you like to load the OR Operative Report template? This will replace your current content.')) {
-        const orOperativeTemplate = getOROperativeTemplate(selectedPatient);
+        const orOperativeTemplate = getOROperativeTemplate(selectedPatient, orCorrespondingFormData);
         setNote(prev => ({ ...prev, [name]: value, content: orOperativeTemplate }));
       } else {
         setNote(prev => ({ ...prev, [name]: value }));
@@ -821,6 +867,42 @@ const NoteForm: React.FC = () => {
     });
     setNote(prev => ({ ...prev, content: updatedTemplate }));
     setShowSOAPForm(false);
+  };
+
+  const handleCorrespondingFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setCorrespondingFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCorrespondingFormSubmit = () => {
+    const selectedPatient = patients.find(p => p._id === note.patient);
+    const updatedTemplate = getConsultTemplate(selectedPatient, correspondingFormData);
+    setNote(prev => ({ ...prev, content: updatedTemplate }));
+    setShowCorrespondingForm(false);
+  };
+
+  const handleERCorrespondingFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setERCorrespondingFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleERCorrespondingFormSubmit = () => {
+    const selectedPatient = patients.find(p => p._id === note.patient);
+    const updatedTemplate = getEROperativeTemplate(selectedPatient, erCorrespondingFormData);
+    setNote(prev => ({ ...prev, content: updatedTemplate }));
+    setShowERCorrespondingForm(false);
+  };
+
+  const handleORCorrespondingFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setORCorrespondingFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleORCorrespondingFormSubmit = () => {
+    const selectedPatient = patients.find(p => p._id === note.patient);
+    const updatedTemplate = getOROperativeTemplate(selectedPatient, orCorrespondingFormData);
+    setNote(prev => ({ ...prev, content: updatedTemplate }));
+    setShowORCorrespondingForm(false);
   };
 
 
@@ -941,7 +1023,7 @@ const NoteForm: React.FC = () => {
       toast.error('Please select a patient and note type before generating');
       return;
     }
-    
+
     if (!token) {
       toast.error('Authentication error. Please log in again.');
       return;
@@ -950,27 +1032,27 @@ const NoteForm: React.FC = () => {
     setGeneratingNote(true);
     try {
       console.log('Starting note generation...', { patientId: note.patient, noteType: note.noteType, visitId: note.visit });
-      
+
       const response = await axios.post(
-        'https://oren-emr-ai-1.onrender.com/api/notes/generate',
+        '/api/notes/generate',
         {
           patientId: note.patient,
           visitId: note.visit || null,
           noteType: note.noteType,
           promptData: promptData || '',
         },
-        { 
+        {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 120000 // 2 minute timeout for AI generation
         },
       );
-      
+
       console.log('Generate response received:', response.data);
-      
+
       // Handle both response structures: {success: true, data: {...}} or {success: true, note: {...}}
       // Check 'note' first since that's what the server is currently returning
       let responseData = response.data?.note || response.data?.data;
-      
+
       // If responseData is a note object with nested structure, extract the needed fields
       if (responseData) {
         // Handle case where note object might have patient as an object
@@ -988,11 +1070,11 @@ const NoteForm: React.FC = () => {
           };
         }
       }
-      
+
       // Check if we have valid response data - be more lenient with the check
       if (response.data && response.data.success && responseData) {
         toast.success('Note generated successfully. Please review and save.');
-        
+
         // Extract data ensuring we handle all possible structures
         // Handle patient ID - could be patientId, patient._id, or patient as string
         let extractedPatientId = responseData.patientId;
@@ -1003,7 +1085,7 @@ const NoteForm: React.FC = () => {
             extractedPatientId = responseData.patient;
           }
         }
-        
+
         // Handle visit ID - could be visitId, visit._id, or visit as string
         let extractedVisitId = responseData.visitId || null;
         if (!extractedVisitId && responseData.visit) {
@@ -1013,7 +1095,7 @@ const NoteForm: React.FC = () => {
             extractedVisitId = responseData.visit;
           }
         }
-        
+
         const generatedData = {
           title: responseData.title || '',
           content: responseData.content || '',
@@ -1021,14 +1103,14 @@ const NoteForm: React.FC = () => {
           patientId: extractedPatientId,
           visitId: extractedVisitId
         };
-        
+
         console.log('Processing generated data:', {
           title: generatedData.title,
           hasContent: !!generatedData.content,
           noteType: generatedData.noteType,
           patientId: generatedData.patientId
         });
-        
+
         if (note.noteType === 'Consultation') {
           try {
             setConsultationNoteData(null);
@@ -1036,11 +1118,11 @@ const NoteForm: React.FC = () => {
             console.error('Error parsing consultation note data:', error);
           }
         }
-        
+
         // Update form state with generated content - DO NOT save to database
         // Note will only be saved when user explicitly clicks "Save Note" button
         const processedContent = processContentToHTML(generatedData.content || '');
-        
+
         setNote(prev => ({
           ...prev,
           // CRITICAL: Do NOT set or update _id - the note is NOT saved yet, this is just generated content
@@ -1057,7 +1139,7 @@ const NoteForm: React.FC = () => {
           attachments: prev.attachments || [],
           isAiGenerated: true,
         }));
-        
+
         setPromptData('');
         // DO NOT navigate away or trigger any save operations
       } else {
@@ -1073,7 +1155,7 @@ const NoteForm: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error generating note:', error);
-      
+
       let errorMessage = 'Failed to generate note';
       if (error.response) {
         errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
@@ -1084,11 +1166,11 @@ const NoteForm: React.FC = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         errorMessage = 'Request timed out. AI generation can take a while. Please try again.';
       }
-      
+
       toast.error('Failed to generate note: ' + errorMessage);
     } finally {
       setGeneratingNote(false);
@@ -1142,7 +1224,7 @@ const NoteForm: React.FC = () => {
           uploadFormData.append('footerImage', footerFile);
         }
 
-        const uploadResponse = await axios.post('https://oren-emr-ai-1.onrender.com/api/templates/upload', uploadFormData, {
+        const uploadResponse = await axios.post('/api/templates/upload', uploadFormData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
@@ -1154,10 +1236,17 @@ const NoteForm: React.FC = () => {
         toast.success('Header and footer images stored in template successfully');
       } else if (useExistingTemplate) {
         // No upload needed; existing images are already set in note state for PDF
-        toast.info('Using existing template images');
+        // Check if images are actually set
+        if (!note.headerImage && !note.footerImage) {
+          toast.error('Template images not loaded. Please select a template again.');
+          return;
+        }
       } else {
-        toast.warning('No header/footer images selected');
-        return;  // Early return if neither
+        // Check if images are already in note state (from previous uploads)
+        if (!note.headerImage && !note.footerImage) {
+          toast.warning('No header/footer images selected');
+          return;  // Early return if neither
+        }
       }
 
       // Proceed with existing PDF generation (unchanged)
@@ -1268,7 +1357,7 @@ const NoteForm: React.FC = () => {
         console.log('Fetching existing template for DrId:', token);
         if (token) {
           try {
-            const templateResponse = await axios.get(`https://oren-emr-ai-1.onrender.com/api/templates/get-Templates`, {
+            const templateResponse = await axios.get(`/api/templates/get-Templates`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (templateResponse.data && Array.isArray(templateResponse.data.data)) {
@@ -1302,18 +1391,18 @@ const NoteForm: React.FC = () => {
       console.log('Save already in progress, ignoring duplicate call');
       return;
     }
-    
+
     if (!note.title || !note.content || !note.patient || !note.noteType) {
       toast.error('Please fill in all required fields including Note Type');
       return;
     }
-    
+
     // Prevent saving if note is being generated
     if (generatingNote) {
       toast.error('Please wait for note generation to complete');
       return;
     }
-    
+
     setSaving(true);
     try {
       const formData = new FormData();
@@ -1346,7 +1435,7 @@ const NoteForm: React.FC = () => {
         return;
       }
       if (isEditMode && id) {
-        await axios.put(`https://oren-emr-ai-1.onrender.com/api/notes/${id}`, formData, {
+        await axios.put(`/api/notes/${id}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
@@ -1354,7 +1443,7 @@ const NoteForm: React.FC = () => {
         });
         toast.success('Note updated successfully');
       } else {
-        await axios.post('https://oren-emr-ai-1.onrender.com/api/notes', formData, {
+        await axios.post('/api/notes', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
@@ -1392,16 +1481,53 @@ const NoteForm: React.FC = () => {
   // Replace entire function:
   const getImageUrl = (path: string): string => {
     if (!path) return '';
-    const normalizedPath = path.replace(/\\/g, '/');
-    return `https://oren-emr-ai-1.onrender.com/${normalizedPath}`;
+    // Normalize path separators
+    let normalizedPath = path.replace(/\\/g, '/');
+    // Remove leading slash if present, then add it back to ensure consistent format
+    normalizedPath = normalizedPath.replace(/^\/+/, '');
+    // Use the API base URL for images since frontend and backend are on different ports
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    // Ensure it starts with / for absolute path
+    return `${apiBaseUrl}/${normalizedPath}`;
   };
+
+  // Memoize selected template to prevent re-renders
+  const selectedTemplate = useMemo(() => {
+    if (!selectedTemplateId) return null;
+    return existingTemplates.find(t => t._id === selectedTemplateId) || null;
+  }, [existingTemplates, selectedTemplateId]);
+
+  // Memoize the selected template's image paths to use as stable dependencies
+  const selectedTemplateImagePaths = useMemo(() => {
+    if (!selectedTemplateId) return { header: '', footer: '' };
+    const template = existingTemplates.find(t => t._id === selectedTemplateId);
+    return {
+      header: template?.headerImage || '',
+      footer: template?.footerImage || ''
+    };
+  }, [selectedTemplateId, existingTemplates]);
+
+  // Update preview URLs when template selection or image paths change
+  useEffect(() => {
+    if (!selectedTemplateId) {
+      setHeaderPreviewUrl('');
+      setFooterPreviewUrl('');
+      return;
+    }
+
+    const newHeaderUrl = selectedTemplateImagePaths.header ? getImageUrl(selectedTemplateImagePaths.header) : '';
+    const newFooterUrl = selectedTemplateImagePaths.footer ? getImageUrl(selectedTemplateImagePaths.footer) : '';
+
+    setHeaderPreviewUrl(newHeaderUrl);
+    setFooterPreviewUrl(newFooterUrl);
+  }, [selectedTemplateId, selectedTemplateImagePaths.header, selectedTemplateImagePaths.footer]);
   const handleUseExisting = async () => {
-    const selectedTemplate = existingTemplates.find(t => t._id === selectedTemplateId);
-    if (selectedTemplate && selectedTemplate.headerImage && selectedTemplate.footerImage) {
+    const template = existingTemplates.find(t => t._id === selectedTemplateId);
+    if (template && template.headerImage && template.footerImage) {
       // Fetch images as base64 for PDF (since paths are server-side)
       try {
-        const headerBase64 = await fetchImageAsBase64(getImageUrl(selectedTemplate.headerImage));
-        const footerBase64 = await fetchImageAsBase64(getImageUrl(selectedTemplate.footerImage));
+        const headerBase64 = await fetchImageAsBase64(getImageUrl(template.headerImage));
+        const footerBase64 = await fetchImageAsBase64(getImageUrl(template.footerImage));
         setNote(prev => ({ ...prev, headerImage: headerBase64, footerImage: footerBase64 }));
         setUseExistingTemplate(true);
         setHeaderFile(null);
@@ -1542,7 +1668,7 @@ const NoteForm: React.FC = () => {
                 </option>
               )}
             </select>
-            {patients && patients.length === 0 && (
+            {!loading && patients && patients.length === 0 && (
               <p className="text-red-500 text-sm mt-1">No patients found. Please check your connection or permissions.</p>
             )}
           </div>
@@ -1595,6 +1721,7 @@ const NoteForm: React.FC = () => {
                       onChangeComplete={(color) => {
                         setNote(prev => ({ ...prev, colorCode: color.hex || '#FFFFFF' }));
                       }}
+                      disableAlpha={false}
                     />
                   </div>
                 </div>
@@ -1640,7 +1767,7 @@ const NoteForm: React.FC = () => {
                     type="button"
                     onClick={() => {
                       const selectedPatient = patients.find(p => p._id === note.patient);
-                      setNote(prev => ({ ...prev, content: getConsultTemplate(selectedPatient) }));
+                      setNote(prev => ({ ...prev, content: getConsultTemplate(selectedPatient, correspondingFormData) }));
                     }}
                     className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
                   >
@@ -1648,55 +1775,530 @@ const NoteForm: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowJsonView(!showJsonView)}
-                    className={`px-3 py-1 text-sm rounded ${showJsonView ? 'bg-purple-600 text-white' : 'bg-purple-500 text-white hover:bg-purple-600'
-                      }`}
+                    onClick={() => setShowCorrespondingForm(true)}
+                    className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
                   >
-                    {showJsonView ? 'Show Editor' : 'Show Structured View'}
+                    Edit Corresponding Form
                   </button>
                 </>
               )}
               {note.noteType === 'New ER Operative Report' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const selectedPatient = patients.find(p => p._id === note.patient);
-                    setNote(prev => ({ ...prev, content: getEROperativeTemplate(selectedPatient) }));
-                  }}
-                  className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                  Load ER Operative Template
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedPatient = patients.find(p => p._id === note.patient);
+                      setNote(prev => ({ ...prev, content: getEROperativeTemplate(selectedPatient, erCorrespondingFormData) }));
+                    }}
+                    className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Load ER Operative Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowERCorrespondingForm(true)}
+                    className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
+                  >
+                    Edit Corresponding Form
+                  </button>
+                </>
               )}
               {note.noteType === 'New OR Operative Report' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const selectedPatient = patients.find(p => p._id === note.patient);
-                    setNote(prev => ({ ...prev, content: getOROperativeTemplate(selectedPatient) }));
-                  }}
-                  className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
-                >
-                  Load OR Operative Template
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const selectedPatient = patients.find(p => p._id === note.patient);
+                      setNote(prev => ({ ...prev, content: getOROperativeTemplate(selectedPatient, orCorrespondingFormData) }));
+                    }}
+                    className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
+                  >
+                    Load OR Operative Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowORCorrespondingForm(true)}
+                    className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
+                  >
+                    Edit Corresponding Form
+                  </button>
+                </>
               )}
             </div>
           </div>
-          {note.noteType === 'Consultation' && showJsonView && consultationNoteData ? (
-            <div className="border rounded-md p-4 bg-gray-50">
-              <ConsultationNoteDisplay noteData={consultationNoteData} />
-            </div>
-          ) : (
-            <ReactQuill
-              ref={quillRef}
-              theme="snow"
-              value={note.content || ''}
-              onChange={handleContentChange}
-              modules={quillModules}
-              className="h-64 mb-12"
-            />
-          )}
+          <ReactQuill
+            ref={quillRef}
+            theme="snow"
+            value={note.content || ''}
+            onChange={handleContentChange}
+            modules={quillModules}
+            className="h-64 mb-12"
+          />
         </div>
+        {showCorrespondingForm && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4">Edit Corresponding Form</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">MRN</label>
+                  <input
+                    type="text"
+                    name="mrn"
+                    value={correspondingFormData.mrn}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="MRN"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assessment</label>
+                  <textarea
+                    name="assessment"
+                    value={correspondingFormData.assessment}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Assessment"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Plan</label>
+                  <textarea
+                    name="plan"
+                    value={correspondingFormData.plan}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Plan"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Medications</label>
+                  <select
+                    name="medications"
+                    value={correspondingFormData.medications.startsWith('other') ? 'other' : correspondingFormData.medications}
+                    onChange={(e) => {
+                      const value = e.target.value === 'other' ? 'other_____' : e.target.value;
+                      setCorrespondingFormData(prev => ({ ...prev, medications: value }));
+                    }}
+                    className="w-full p-2 border rounded-md mb-2"
+                  >
+                    <option value="None">None</option>
+                    <option value="Ordered Antibiotics">Ordered Antibiotics</option>
+                    <option value="Discontinue antibiotics">Discontinue antibiotics</option>
+                    <option value="other">Other</option>
+                  </select>
+                  {correspondingFormData.medications.startsWith('other') && (
+                    <input
+                      type="text"
+                      value={correspondingFormData.medications.replace('other', '').replace('_____', '')}
+                      onChange={(e) => {
+                        const value = e.target.value ? `other${e.target.value}` : 'other_____';
+                        setCorrespondingFormData(prev => ({ ...prev, medications: value }));
+                      }}
+                      className="w-full p-2 border rounded-md"
+                      placeholder="Enter medication details"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Therapy</label>
+                  <select
+                    name="therapy"
+                    value={correspondingFormData.therapy}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="None">None</option>
+                    <option value="Ordered">Ordered</option>
+                    <option value="Continue">Continue</option>
+                    <option value="Discontinue">Discontinue</option>
+                    <option value="Offered and Declined">Offered and Declined</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Outside Imaging or Nerve Study</label>
+                  <select
+                    name="outsideImaging"
+                    value={correspondingFormData.outsideImaging.startsWith('Prescription Provided') ? 'Prescription Provided' : correspondingFormData.outsideImaging}
+                    onChange={(e) => {
+                      const value = e.target.value === 'Prescription Provided' ? 'Prescription Provided for ______' : e.target.value;
+                      setCorrespondingFormData(prev => ({ ...prev, outsideImaging: value }));
+                    }}
+                    className="w-full p-2 border rounded-md mb-2"
+                  >
+                    <option value="None">None</option>
+                    <option value="Prescription Provided">Prescription Provided</option>
+                  </select>
+                  {correspondingFormData.outsideImaging.startsWith('Prescription Provided') && (
+                    <input
+                      type="text"
+                      value={correspondingFormData.outsideImaging.replace('Prescription Provided for ', '').replace('______', '')}
+                      onChange={(e) => {
+                        const value = e.target.value ? `Prescription Provided for ${e.target.value}` : 'Prescription Provided for ______';
+                        setCorrespondingFormData(prev => ({ ...prev, outsideImaging: value }));
+                      }}
+                      className="w-full p-2 border rounded-md"
+                      placeholder="Enter imaging or study type"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Splint</label>
+                  <select
+                    name="splint"
+                    value={correspondingFormData.splint}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="None">None</option>
+                    <option value="Options should be provided">Options should be provided</option>
+                    <option value="ordered">Ordered</option>
+                    <option value="discontinued">Discontinued</option>
+                    <option value="continued">Continued</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Splint Type</label>
+                  <input
+                    type="text"
+                    name="splintType"
+                    value={correspondingFormData.splintType}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Splint Type"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Injections</label>
+                  <select
+                    name="injections"
+                    value={correspondingFormData.injections}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="None (Default)">None (Default)</option>
+                    <option value="Fluoroscopy guided">Fluoroscopy guided</option>
+                    <option value="not fluoroscopy guided">Not fluoroscopy guided</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Injection Location</label>
+                  <input
+                    type="text"
+                    name="injectionLocation"
+                    value={correspondingFormData.injectionLocation}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Injection Location"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Injection Medication</label>
+                  <select
+                    name="injectionMedication"
+                    value={correspondingFormData.injectionMedication}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="Kenalog">Kenalog</option>
+                    <option value="Kenalog, Kenalog">Kenalog, Kenalog</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Work/School Status</label>
+                  <select
+                    name="workSchoolStatus"
+                    value={correspondingFormData.workSchoolStatus}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="No Restrictions">No Restrictions</option>
+                    <option value="One handed duty">One handed duty</option>
+                    <option value="5Lbs restriction">5Lbs restriction</option>
+                    <option value="10lbs restriction">10lbs restriction</option>
+                    <option value="15lbs Restriction">15lbs Restriction</option>
+                    <option value="20lbs restriction">20lbs restriction</option>
+                    <option value="no gym class">No gym class</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specific Comments</label>
+                  <textarea
+                    name="specificComments"
+                    value={correspondingFormData.specificComments}
+                    onChange={handleCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Specific Comments"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4 space-x-2">
+                <button
+                  onClick={() => setShowCorrespondingForm(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCorrespondingFormSubmit}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Update Note
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showERCorrespondingForm && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4">Edit Corresponding Form</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">MRN</label>
+                  <input
+                    type="text"
+                    name="mrn"
+                    value={erCorrespondingFormData.mrn}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="MRN"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Surgeon</label>
+                  <input
+                    type="text"
+                    name="surgeon"
+                    value={erCorrespondingFormData.surgeon}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Surgeon"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Implants</label>
+                  <textarea
+                    name="implants"
+                    value={erCorrespondingFormData.implants}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Implants"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Wound Class</label>
+                  <select
+                    name="woundClass"
+                    value={erCorrespondingFormData.woundClass}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="Contaminated">Contaminated</option>
+                    <option value="Dirty">Dirty</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Preoperative Diagnosis</label>
+                  <textarea
+                    name="preoperativeDiagnosis"
+                    value={erCorrespondingFormData.preoperativeDiagnosis}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Preoperative Diagnosis"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postoperative Diagnosis</label>
+                  <textarea
+                    name="postoperativeDiagnosis"
+                    value={erCorrespondingFormData.postoperativeDiagnosis}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Postoperative Diagnosis (leave blank to use same as preoperative)"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Procedure List</label>
+                  <textarea
+                    name="procedureList"
+                    value={erCorrespondingFormData.procedureList}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Procedure List"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specific notes about the surgery</label>
+                  <textarea
+                    name="specificNotes"
+                    value={erCorrespondingFormData.specificNotes}
+                    onChange={handleERCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Specific notes about the surgery"
+                    rows={4}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4 space-x-2">
+                <button
+                  onClick={() => setShowERCorrespondingForm(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleERCorrespondingFormSubmit}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Update Note
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showORCorrespondingForm && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4">Edit Corresponding Form</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">MRN</label>
+                  <input
+                    type="text"
+                    name="mrn"
+                    value={orCorrespondingFormData.mrn}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="MRN"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Surgeon</label>
+                  <input
+                    type="text"
+                    name="surgeon"
+                    value={orCorrespondingFormData.surgeon}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Surgeon"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assistant Surgeon</label>
+                  <input
+                    type="text"
+                    name="assistantSurgeon"
+                    value={orCorrespondingFormData.assistantSurgeon}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Assistant Surgeon"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Anesthesia Type</label>
+                  <input
+                    type="text"
+                    name="anesthesiaType"
+                    value={orCorrespondingFormData.anesthesiaType}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Anesthesia Type"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Implants</label>
+                  <textarea
+                    name="implants"
+                    value={orCorrespondingFormData.implants}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Implants"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Wound Class</label>
+                  <select
+                    name="woundClass"
+                    value={orCorrespondingFormData.woundClass}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="Clean">Clean</option>
+                    <option value="Contaminated">Contaminated</option>
+                    <option value="Dirty">Dirty</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Preoperative Diagnosis</label>
+                  <textarea
+                    name="preoperativeDiagnosis"
+                    value={orCorrespondingFormData.preoperativeDiagnosis}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Preoperative Diagnosis"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postoperative Diagnosis</label>
+                  <textarea
+                    name="postoperativeDiagnosis"
+                    value={orCorrespondingFormData.postoperativeDiagnosis}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Postoperative Diagnosis (leave blank to use same as preoperative)"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Procedure List</label>
+                  <textarea
+                    name="procedureList"
+                    value={orCorrespondingFormData.procedureList}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Procedure List"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specific notes about the surgery</label>
+                  <textarea
+                    name="specificNotes"
+                    value={orCorrespondingFormData.specificNotes}
+                    onChange={handleORCorrespondingFormChange}
+                    className="w-full p-2 border rounded-md"
+                    placeholder="Specific notes about the surgery"
+                    rows={4}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end mt-4 space-x-2">
+                <button
+                  onClick={() => setShowORCorrespondingForm(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleORCorrespondingFormSubmit}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Update Note
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {showSOAPForm && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50 ">
             <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -2068,29 +2670,47 @@ const NoteForm: React.FC = () => {
             </div>
 
             {/* Preview of Selected */}
-            {selectedTemplateId && (
+            {selectedTemplateId && selectedTemplate && (
               <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                   <div className="text-center">
                     <p className="text-sm font-medium text-gray-600 mb-2">Header Preview</p>
                     <div className="relative bg-white p-2 rounded-lg shadow-md border">
-                      <img
-                        src={getImageUrl(existingTemplates.find(t => t._id === selectedTemplateId)?.headerImage || '')}
-                        alt="Header Preview"
-                        className="w-full h-24 object-contain rounded border"
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-header.png'; }}  // Optional fallback
-                      />
+                      {headerPreviewUrl ? (
+                        <img
+                          key={`header-${selectedTemplateId}`}
+                          src={headerPreviewUrl}
+                          alt="Header Preview"
+                          className="w-full h-24 object-contain rounded border"
+                          onError={(e) => {
+                            console.error('Header image load error:', headerPreviewUrl);
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-24 flex items-center justify-center text-gray-400">No header image</div>
+                      )}
                     </div>
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-medium text-gray-600 mb-2">Footer Preview</p>
                     <div className="relative bg-white p-2 rounded-lg shadow-md border">
-                      <img
-                        src={getImageUrl(existingTemplates.find(t => t._id === selectedTemplateId)?.footerImage || '')}
-                        alt="Footer Preview"
-                        className="w-full h-24 object-contain rounded border"
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder-footer.png'; }}
-                      />
+                      {footerPreviewUrl ? (
+                        <img
+                          key={`footer-${selectedTemplateId}`}
+                          src={footerPreviewUrl}
+                          alt="Footer Preview"
+                          className="w-full h-24 object-contain rounded border"
+                          onError={(e) => {
+                            console.error('Footer image load error:', footerPreviewUrl);
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-24 flex items-center justify-center text-gray-400">No footer image</div>
+                      )}
                     </div>
                   </div>
                 </div>

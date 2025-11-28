@@ -232,8 +232,8 @@ const [isHomeCareModalOpen, setIsHomeCareModalOpen] = useState(false);
       try {
         // Fetch patient data
         const [patientResponse, visitsResponse] = await Promise.all([
-          axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${id}`),
-          axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/${id}/visits`)
+          axios.get(`/api/patients/${id}`),
+          axios.get(`/api/patients/${id}/visits`)
         ]);
         
         if (isMounted) {
@@ -290,7 +290,7 @@ setPreviousVisits(sortedVisits);
   const saveMusclePalpationData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`, {
+      await axios.put(`/api/patients/visits/${visitId}`, {
         muscleStrength: data.muscleStrength,
         strength: data.strength,
         tenderness: data.tenderness,
@@ -305,7 +305,7 @@ setPreviousVisits(sortedVisits);
   const saveOrthoTestsData = async (visitId: string, data: any, arom: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`, {
+      await axios.put(`/api/patients/visits/${visitId}`, {
         ortho: data,
         arom: arom,
       });
@@ -318,7 +318,7 @@ setPreviousVisits(sortedVisits);
   const saveTreatmentPlanData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`, {
+      await axios.put(`/api/patients/visits/${visitId}`, {
         chiropracticAdjustment: data.chiropracticAdjustment,
         chiropracticOther: data.chiropracticOther,
         acupuncture: data.acupuncture,
@@ -338,7 +338,7 @@ setPreviousVisits(sortedVisits);
   const saveTreatmentListData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`, {
+      await axios.put(`/api/patients/visits/${visitId}`, {
         chiropracticAdjustment: data.chiropracticAdjustment,
         chiropracticOther: data.chiropracticOther,
         acupuncture: data.acupuncture,
@@ -363,7 +363,7 @@ setPreviousVisits(sortedVisits);
   const saveImagingAndSpecialistData = async (visitId: string, data: any) => {
     if (!visitId) return;
     try {
-      await axios.put(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`, {
+      await axios.put(`/api/patients/visits/${visitId}`, {
         physiotherapy: data.physiotherapy,
         rehabilitationExercises: data.rehabilitationExercises,
         durationFrequency: data.durationFrequency,
@@ -408,7 +408,7 @@ setPreviousVisits(sortedVisits);
     if (!visitId) return alert("Please select a valid previous visit.");
   
     try {
-      const res = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`);
+      const res = await axios.get(`/api/patients/visits/${visitId}`);
       const visit = res.data;
   
       // Check if data exists for followup or initial
@@ -443,7 +443,7 @@ setPreviousVisits(sortedVisits);
     }
   
     try {
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`);
+      const response = await axios.get(`/api/patients/visits/${visitId}`);
       const visitData = response.data;
   
       if (!visitData) {
@@ -530,7 +530,7 @@ setPreviousVisits(sortedVisits);
     }
   
     try {
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`);
+      const response = await axios.get(`/api/patients/visits/${visitId}`);
       const visitData = response.data;
   
       // Filter only treatment plan data
@@ -575,7 +575,7 @@ setPreviousVisits(sortedVisits);
     }
   
     try {
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`);
+      const response = await axios.get(`/api/patients/visits/${visitId}`);
       const visitData = response.data;
   
       const treatmentList = {
@@ -625,7 +625,7 @@ setPreviousVisits(sortedVisits);
     }
   
     try {
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`);
+      const response = await axios.get(`/api/patients/visits/${visitId}`);
       const visitData = response.data;
   
       const imagingAndSpecialistData = {
@@ -747,7 +747,7 @@ Now generate this summary using the provided patient data:
   const fetchInitialVisitData = async (visitId: string) => {
     try {
       // Get the visit details using the correct endpoint
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/patients/visits/${visitId}`);
+      const response = await axios.get(`/api/patients/visits/${visitId}`);
       
       // Check if it's an initial visit (check both __t and visitType for compatibility)
       const isInitialVisit = response.data.__t === 'InitialVisit' || response.data.visitType === 'initial';
@@ -875,7 +875,7 @@ Now generate this summary using the provided patient data:
         visitType: 'followup'
       };
       
-      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/visits`, flattenedData);
+      const response = await axios.post(`/api/visits`, flattenedData);
       
       
       const savedVisitId = response.data.visit._id; // Assuming the saved visit ID is returned
@@ -889,7 +889,7 @@ Now generate this summary using the provided patient data:
 
         if (aiResponse.data.success) {
           // 3. Update the visit with the AI narrative
-          await axios.patch(`https://oren-emr-ai-1.onrender.com/api/visits/${savedVisitId}`, {
+          await axios.patch(`/api/visits/${savedVisitId}`, {
             aiNarrative: aiResponse.data.narrative
           });
         }
