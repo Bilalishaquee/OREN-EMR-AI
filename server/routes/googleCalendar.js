@@ -117,4 +117,80 @@ router.delete('/sync/:appointmentId', async (req, res) => {
   }
 });
 
+/** Sync all appointments for the logged-in user */
+router.post('/sync-all', async (req, res) => {
+  try {
+    // Check if user has Google Calendar connected
+    const user = await User.findById(req.user.id);
+    if (!user?.googleCalendar?.refreshToken && !user?.googleCalendar?.accessToken) {
+      return res.status(400).json({ message: 'Google Calendar not connected. Please connect your calendar first.' });
+    }
+
+    // Build query based on user role
+    let query = {};
+    if (req.user.role === 'doctor') {
+      query.doctor = req.user.id;
+    }
+    // Admin can sync all appointments
+
+    // Get all appointments that don't have a googleCalendarEventId yet
+    const appointments = await Appointment.find({
+      ...query,
+      $or: [
+        { googleCalendarEventId: { $exists: false } },
+        { googleCalendarEventId: null },
+        { googleCalendarEventId: '' }
+      ],
+      status: { $nin: ['cancelled', 'no-show'] } // Don't sync cancelled or no-show appointments
+    })
+      .populate('patient', 'firstName lastName')
+      .populate('doctor', 'firstName lastName');
+
+    if (appointments.length === 0) {
+      return res.json({ 
+        message: 'All appointments are already synced', 
+        synced: 0, 
+        total: 0 
+      });
+    }
+
+    let syncedCount = 0;
+    let failedCount = 0;
+    const errors = [];
+
+    // Sync each appointment
+    for (const appt of appointments) {
+      try {
+        // Only sync appointments for the logged-in doctor (if doctor role)
+        if (req.user.role === 'doctor' && String(appt.doctor._id) !== req.user.id) {
+          continue;
+        }
+
+        const data = await insertEventForAppointment(appt);
+        appt.googleCalendarEventId = data.id;
+        await appt.save();
+        syncedCount++;
+      } catch (error) {
+        console.error(`Error syncing appointment ${appt._id}:`, error);
+        failedCount++;
+        errors.push({
+          appointmentId: appt._id,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      message: `Successfully synced ${syncedCount} appointment(s)${failedCount > 0 ? `. ${failedCount} failed.` : '.'}`,
+      synced: syncedCount,
+      failed: failedCount,
+      total: appointments.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('Error syncing all appointments:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 export default router;

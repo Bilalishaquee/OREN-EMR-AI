@@ -4,6 +4,17 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+// Helper function to extract createdBy ID from template (handles both populated and unpopulated)
+const getCreatedById = (template) => {
+  if (!template.createdBy) return null;
+  if (typeof template.createdBy === 'object' && template.createdBy._id) {
+    // Populated - it's an object with _id
+    return template.createdBy._id.toString();
+  }
+  // Not populated - it's just the ObjectId
+  return template.createdBy.toString();
+};
+
 // Get all form templates (with optional filtering)
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -61,9 +72,23 @@ router.get('/:id', authenticateToken, async (req, res) => {
     }
     
     // Check if user has access to this template
+    const createdById = getCreatedById(template);
+    const userId = req.user.id.toString();
+    
+    // Allow access if:
+    // 1. User is admin
+    // 2. User created the template
+    // 3. Template is public
     if (req.user.role !== 'admin' && 
-        template.createdBy.toString() !== req.user.id && 
+        createdById !== userId && 
         !template.isPublic) {
+      console.error('Access denied for template:', {
+        templateId: template._id,
+        createdById,
+        userId,
+        userRole: req.user.role,
+        isPublic: template.isPublic
+      });
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -114,7 +139,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     }
     
     // Check if user has permission to update
-    if (req.user.role !== 'admin' && template.createdBy.toString() !== req.user.id) {
+    const createdById = getCreatedById(template);
+    const userId = req.user.id.toString();
+    
+    if (req.user.role !== 'admin' && createdById !== userId) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -148,7 +176,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
     
     // Check if user has permission to delete
-    if (req.user.role !== 'admin' && template.createdBy.toString() !== req.user.id) {
+    const createdById = getCreatedById(template);
+    const userId = req.user.id.toString();
+    
+    if (req.user.role !== 'admin' && createdById !== userId) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -171,8 +202,11 @@ router.post('/:id/duplicate', authenticateToken, async (req, res) => {
     }
     
     // Check if user has permission to view this template
+    const createdById = getCreatedById(template);
+    const userId = req.user.id.toString();
+    
     if (req.user.role !== 'admin' && 
-        template.createdBy.toString() !== req.user.id && 
+        createdById !== userId && 
         !template.isPublic) {
       return res.status(403).json({ message: 'Access denied' });
     }

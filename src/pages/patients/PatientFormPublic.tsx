@@ -171,7 +171,7 @@ const PatientFormPublic: React.FC = () => {
   // Filter items based on language
   const filteredItems = formTemplate?.items
     .filter(item => {
-      if (item.type === 'section') return true;
+      if (item.type === 'section' || item.type === 'sectionTitle') return true;
       if (item.questionText?.includes('Language Preference')) return true;
       if (language === 'english') {
         return !item.questionText?.toLowerCase().includes('español') && !item.questionText?.includes('¿');
@@ -192,7 +192,8 @@ const PatientFormPublic: React.FC = () => {
     value: any,
     fieldName?: string,
     rowIndex?: number,
-    columnIndex?: number
+    columnIndex?: number,
+    controlIndex?: number
   ) => {
     if (fieldName) {
       // For nested fields (demographics, insurance)
@@ -210,6 +211,24 @@ const PatientFormPublic: React.FC = () => {
           [questionId]: [...filtered, { rowIndex, columnIndex, value }]
         };
       });
+    } else if (controlIndex !== undefined) {
+      // For mixed controls
+      setResponses(prev => ({
+        ...prev,
+        [`${questionId}_${controlIndex}`]: value,
+      }));
+    } else if (Array.isArray(value) && questionId !== currentQuestion?.id) {
+      // For array responses (multiple choice multiple, etc.)
+      setResponses(prev => ({
+        ...prev,
+        [questionId]: value,
+      }));
+    } else if (questionId === currentQuestion?.id && currentQuestion.type === 'bodyMap') {
+      // For body map (object with markings and description)
+      setResponses(prev => ({
+        ...prev,
+        [questionId]: { ...prev[questionId], ...value },
+      }));
     } else {
       // Regular input
       setResponses(prev => ({
@@ -228,6 +247,51 @@ const PatientFormPublic: React.FC = () => {
         [questionId]: fileArray
       }));
     }
+  };
+
+  // Canvas drawing handlers for body map
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (currentQuestion?.type === 'bodyMap' && currentQuestion.allowPatientMarkings && canvasRef.current) {
+      setIsDrawing(true);
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / canvas.width;
+      const y = (e.clientY - rect.top) / canvas.height;
+      const currentMarkings = responses[currentQuestion.id]?.markings || [];
+      currentMarkings.push([{ x, y }]);
+      handleInputChange(currentQuestion.id, { markings: currentMarkings, description: responses[currentQuestion.id]?.description || '' });
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDrawing && currentQuestion?.type === 'bodyMap' && currentQuestion.allowPatientMarkings && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / canvas.width;
+      const y = (e.clientY - rect.top) / canvas.height;
+      const currentMarkings = responses[currentQuestion.id]?.markings || [];
+      const currentPath = currentMarkings[currentMarkings.length - 1];
+      if (currentPath) {
+        currentPath.push({ x, y });
+        handleInputChange(currentQuestion.id, { markings: currentMarkings, description: responses[currentQuestion.id]?.description || '' });
+
+        if (ctx) {
+          ctx.strokeStyle = 'red';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(currentPath[0].x * canvas.width, currentPath[0].y * canvas.height);
+          for (let i = 1; i < currentPath.length; i++) {
+            ctx.lineTo(currentPath[i].x * canvas.width, currentPath[i].y * canvas.height);
+          }
+          ctx.stroke();
+        }
+      }
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsDrawing(false);
   };
 
   // Handle form submission
@@ -346,6 +410,74 @@ const PatientFormPublic: React.FC = () => {
 
   // Navigation
   const nextStep = () => {
+    if (!currentQuestion) {
+      if (currentStep < filteredItems.length - 1) {
+        setCurrentStep(currentStep + 1);
+        window.scrollTo(0, 0);
+      }
+      return;
+    }
+
+    // Validate required fields
+    if (currentQuestion.isRequired && currentQuestion.type !== 'section' && currentQuestion.type !== 'sectionTitle') {
+      if ((currentQuestion.type === 'blank' || currentQuestion.type === 'openAnswer' || currentQuestion.type === 'smartEditor') && !responses[currentQuestion.id]) {
+        alert('This question is required');
+        return;
+      }
+      if (currentQuestion.type === 'demographics' && currentQuestion.demographicFields) {
+        for (const field of currentQuestion.demographicFields.filter(f => f.required)) {
+          if (!responses[`${currentQuestion.id}_${field.fieldName}`]) {
+            alert(`${field.fieldName} is required`);
+            return;
+          }
+        }
+        if (!responses[`${currentQuestion.id}_assignedDoctor`] && !responses['assignedDoctor']) {
+          alert('Assigned Doctor is required');
+          return;
+        }
+      }
+      if ((currentQuestion.type === 'primaryInsurance' || currentQuestion.type === 'secondaryInsurance') && currentQuestion.insuranceFields) {
+        for (const field of currentQuestion.insuranceFields.filter(f => f.required)) {
+          if (!responses[`${currentQuestion.id}_${field.fieldName}`]) {
+            alert(`${field.fieldName} is required`);
+            return;
+          }
+        }
+      }
+      if (currentQuestion.type === 'eSignature' && !responses[currentQuestion.id]) {
+        alert('Signature is required');
+        return;
+      }
+      if (currentQuestion.type === 'bodyMap' && (!responses[currentQuestion.id]?.markings || responses[currentQuestion.id].markings.length === 0) && !responses[currentQuestion.id]?.description) {
+        alert('Please provide markings or a description for the body map');
+        return;
+      }
+      if (currentQuestion.type === 'multipleChoiceSingle' && !responses[currentQuestion.id]) {
+        alert('Please select an option');
+        return;
+      }
+      if (currentQuestion.type === 'multipleChoiceMultiple' && (!responses[currentQuestion.id] || responses[currentQuestion.id].length === 0)) {
+        alert('Please select at least one option');
+        return;
+      }
+      if (currentQuestion.type === 'fileAttachment' && !responses[currentQuestion.id]) {
+        alert('Please upload a file');
+        return;
+      }
+      if (currentQuestion.type === 'date' && !responses[currentQuestion.id]) {
+        alert('Please select a date');
+        return;
+      }
+      if (currentQuestion.type === 'mixedControls' && currentQuestion.mixedControlsConfig) {
+        for (const control of currentQuestion.mixedControlsConfig.filter(c => c.required)) {
+          if (!responses[`${currentQuestion.id}_${currentQuestion.mixedControlsConfig.indexOf(control)}`]) {
+            alert(`${control.label} is required`);
+            return;
+          }
+        }
+      }
+    }
+
     if (currentStep < filteredItems.length - 1) {
       setCurrentStep(currentStep + 1);
       window.scrollTo(0, 0);
@@ -432,8 +564,10 @@ const PatientFormPublic: React.FC = () => {
 
           {/* Question */}
           <div className="mb-8">
-            {currentQuestion.type === 'section' ? (
-              <h2 className="text-2xl font-semibold text-gray-900">{currentQuestion.questionText.replace('(section)', '')}</h2>
+            {currentQuestion.type === 'section' || currentQuestion.type === 'sectionTitle' ? (
+              <h2 className="text-2xl font-semibold text-gray-900">
+                {currentQuestion.sectionContent || currentQuestion.questionText.replace('(section)', '')}
+              </h2>
             ) : (
               <>
                 <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -448,7 +582,7 @@ const PatientFormPublic: React.FC = () => {
           </div>
 
           {/* Answer Input */}
-          {currentQuestion.type !== 'section' && (
+          {currentQuestion.type !== 'section' && currentQuestion.type !== 'sectionTitle' && (
             <div className="mb-8">
               {(currentQuestion.type === 'blank' || currentQuestion.type === 'openAnswer') ? (
                 <div>
@@ -624,6 +758,272 @@ const PatientFormPublic: React.FC = () => {
                   <p className="mt-2 text-sm text-gray-500">
                     Max file size: {currentQuestion.maxFileSize || 5}MB
                   </p>
+                </div>
+              ) : (currentQuestion.type === 'allergies' || currentQuestion.type === 'matrix' || currentQuestion.type === 'matrixSingleAnswer') ? (
+                <div>
+                  {currentQuestion.matrix && (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 border border-gray-300">
+                        <thead>
+                          <tr>
+                            {currentQuestion.matrix?.rowHeader && (
+                              <th className="px-3 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">
+                                {currentQuestion.matrix.rowHeader}
+                              </th>
+                            )}
+                            {currentQuestion.matrix?.columnHeaders.map((header, index) => (
+                              <th key={index} className="px-3 py-2 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentQuestion.matrix?.rows.map((row, rowIndex) => (
+                            <tr key={rowIndex}>
+                              {currentQuestion.matrix?.rowHeader && (
+                                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-700 border border-gray-300">
+                                  {row}
+                                </td>
+                              )}
+                              {currentQuestion.matrix?.columnHeaders.map((_, colIndex) => (
+                                <td key={colIndex} className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 border border-gray-300">
+                                  {currentQuestion.type === 'matrixSingleAnswer' ? (
+                                    <div className="flex justify-center">
+                                      <input
+                                        type="radio"
+                                        name={`${currentQuestion.id}_row_${rowIndex}`}
+                                        checked={responses[`${currentQuestion.id}_${rowIndex}_selected`] === colIndex.toString()}
+                                        onChange={() => {
+                                          setResponses(prev => {
+                                            const newResponses = { ...prev };
+                                            newResponses[`${currentQuestion.id}_${rowIndex}_selected`] = colIndex.toString();
+                                            const existingMatrixResponses = Array.isArray(newResponses[currentQuestion.id]) ? newResponses[currentQuestion.id].filter((item: any) => item.rowIndex !== rowIndex) : [];
+                                            newResponses[currentQuestion.id] = [...existingMatrixResponses, { rowIndex, columnIndex: colIndex, value: 'selected' }];
+                                            return newResponses;
+                                          });
+                                        }}
+                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                      />
+                                    </div>
+                                  ) : (
+                                    currentQuestion.matrix?.columnTypes[colIndex] === 'dropdown' ? (
+                                      <select
+                                        className="w-full p-1 border border-gray-300 rounded-md text-sm"
+                                        value={responses[`${currentQuestion.id}_${rowIndex}_${colIndex}`] || ''}
+                                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, rowIndex, colIndex)}
+                                      >
+                                        <option value="">Select</option>
+                                        {currentQuestion.matrix?.dropdownOptions[colIndex]?.map((option, i) => (
+                                          <option key={i} value={option}>{option}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="text"
+                                        className="w-full p-1 border border-gray-300 rounded-md text-sm"
+                                        value={responses[`${currentQuestion.id}_${rowIndex}_${colIndex}`] || ''}
+                                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, rowIndex, colIndex)}
+                                      />
+                                    )
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {currentQuestion.matrix?.displayTextBox && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Additional Information
+                      </label>
+                      <textarea
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        rows={3}
+                        placeholder={`Enter any additional information ${currentQuestion.type === 'allergies' ? 'about your allergies' : ''}`}
+                        value={responses[`${currentQuestion.id}_additionalInfo`] || ''}
+                        onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, 'additionalInfo')}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : currentQuestion.type === 'mixedControls' ? (
+                <div className="space-y-4">
+                  {currentQuestion.mixedControlsConfig?.length ? (
+                    currentQuestion.mixedControlsConfig.map((control, index) => (
+                      <div key={index} className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {control.label}{control.required && <span className="text-red-500">*</span>}
+                        </label>
+                        {control.controlType === 'text' && (
+                          <input
+                            type="text"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            placeholder={control.placeholder || ''}
+                            value={responses[`${currentQuestion.id}_${index}`] || ''}
+                            onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                          />
+                        )}
+                        {control.controlType === 'date' && (
+                          <input
+                            type="date"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            value={responses[`${currentQuestion.id}_${index}`] || ''}
+                            onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                          />
+                        )}
+                        {control.controlType === 'textarea' && (
+                          <textarea
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            rows={3}
+                            placeholder={control.placeholder || ''}
+                            value={responses[`${currentQuestion.id}_${index}`] || ''}
+                            onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                          />
+                        )}
+                        {control.controlType === 'dropdown' && (
+                          <select
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            value={responses[`${currentQuestion.id}_${index}`] || ''}
+                            onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                          >
+                            <option value="">Select {control.label}</option>
+                            {control.options?.map((option, i) => (
+                              <option key={i} value={option}>{option}</option>
+                            ))}
+                          </select>
+                        )}
+                        {control.controlType === 'checkbox' && (
+                          <div className="space-y-2">
+                            {control.options?.map((option, optIndex) => (
+                              <div key={optIndex} className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id={`${currentQuestion.id}_${index}_option_${optIndex}`}
+                                  value={option}
+                                  checked={Array.isArray(responses[`${currentQuestion.id}_${index}`]) && responses[`${currentQuestion.id}_${index}`].includes(option)}
+                                  onChange={(e) => {
+                                    const currentSelections = Array.isArray(responses[`${currentQuestion.id}_${index}`]) ? [...responses[`${currentQuestion.id}_${index}`]] : [];
+                                    if (e.target.checked) {
+                                      handleInputChange(currentQuestion.id, [...currentSelections, option], undefined, undefined, undefined, index);
+                                    } else {
+                                      handleInputChange(currentQuestion.id, currentSelections.filter(item => item !== option), undefined, undefined, undefined, index);
+                                    }
+                                  }}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                />
+                                <label htmlFor={`${currentQuestion.id}_${index}_option_${optIndex}`} className="text-gray-700">
+                                  {option}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {control.controlType === 'radio' && (
+                          <div className="space-y-2">
+                            {control.options?.map((option, optIndex) => (
+                              <div key={optIndex} className="flex items-center space-x-2">
+                                <input
+                                  type="radio"
+                                  id={`${currentQuestion.id}_${index}_option_${optIndex}`}
+                                  name={`${currentQuestion.id}_${index}_options`}
+                                  value={option}
+                                  checked={responses[`${currentQuestion.id}_${index}`] === option}
+                                  onChange={(e) => handleInputChange(currentQuestion.id, e.target.value, undefined, undefined, undefined, index)}
+                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                                />
+                                <label htmlFor={`${currentQuestion.id}_${index}_option_${optIndex}`} className="text-gray-700">
+                                  {option}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-600">No controls configured for this question.</p>
+                  )}
+                </div>
+              ) : currentQuestion.type === 'eSignature' ? (
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Signature{currentQuestion.isRequired && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="border border-gray-300 rounded-md p-4">
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Type your name to sign"
+                      value={responses[currentQuestion.id] || ''}
+                      onChange={(e) => handleInputChange(currentQuestion.id, e.target.value)}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">{currentQuestion.signaturePrompt || 'Type your name to provide an electronic signature'}</p>
+                  </div>
+                </div>
+              ) : currentQuestion.type === 'bodyMap' ? (
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Body Map{currentQuestion.isRequired && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="border border-gray-300 rounded-md p-4">
+                    {currentQuestion.allowPatientMarkings ? (
+                      <>
+                        <canvas
+                          ref={canvasRef}
+                          width={300}
+                          height={500}
+                          className="w-full border border-gray-300 rounded-md bg-white"
+                          onMouseDown={handleCanvasMouseDown}
+                          onMouseMove={handleCanvasMouseMove}
+                          onMouseUp={handleCanvasMouseUp}
+                          onMouseLeave={handleCanvasMouseUp}
+                        />
+                        <p className="text-sm text-gray-600 mt-2">Click and drag to mark areas on the body map</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-600">View-only body map (markings disabled)</p>
+                    )}
+                    <textarea
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mt-2"
+                      rows={3}
+                      placeholder="Describe any issues related to the marked areas"
+                      value={responses[currentQuestion.id]?.description || ''}
+                      onChange={(e) => handleInputChange(currentQuestion.id, { markings: responses[currentQuestion.id]?.markings || [], description: e.target.value })}
+                    />
+                  </div>
+                </div>
+              ) : currentQuestion.type === 'smartEditor' ? (
+                <div className="space-y-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {currentQuestion.questionText}{currentQuestion.isRequired && <span className="text-red-500">*</span>}
+                  </label>
+                  <div className="border border-gray-300 rounded-md p-4">
+                    <div
+                      className="prose max-w-none mb-4"
+                      dangerouslySetInnerHTML={{ __html: currentQuestion.editorContent || '<p>No content provided</p>' }}
+                    />
+                    <ReactQuill
+                      ref={quillRef}
+                      value={responses[currentQuestion.id] || ''}
+                      onChange={(value) => handleInputChange(currentQuestion.id, value)}
+                      modules={quillModules}
+                      formats={quillFormats}
+                      className="border border-gray-300 rounded-md"
+                    />
+                  </div>
+                </div>
+              ) : currentQuestion.type === 'date' ? (
+                <div>
+                  <input
+                    type="date"
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={responses[currentQuestion.id] || ''}
+                    onChange={(e) => handleInputChange(currentQuestion.id, e.target.value)}
+                  />
                 </div>
               ) : (
                 <p className="text-gray-500">Question type not yet supported in public form</p>

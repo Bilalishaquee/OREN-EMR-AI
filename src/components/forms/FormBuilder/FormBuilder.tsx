@@ -279,17 +279,15 @@ case 'demographics':
   newItem = {
     id: uniqueId,
     type: 'demographics',
-    questionText: 'Client Information',
+    questionText: '[EN] Client Information',
     isRequired: false,
     instructions: 'Please enter your information.',
     demographicFields: [
-      { fieldName: 'Client ID', fieldType: 'text', required: false },
       { fieldName: 'First Name', fieldType: 'text', required: true },
       { fieldName: 'Middle Initials', fieldType: 'text', required: false },
       { fieldName: 'Last Name', fieldType: 'text', required: true },
       { fieldName: 'Date of Birth', fieldType: 'date', required: true },
       { fieldName: 'Gender', fieldType: 'dropdown', required: true, options: ['Female', 'Male', 'Non-Binary'] },
-      { fieldName: 'Sex', fieldType: 'dropdown', required: false, options: ['Female', 'Male'] },
       { fieldName: 'Marital Status', fieldType: 'dropdown', required: false, options: ['Single', 'Married', 'Divorced', 'Widowed'] },
       { fieldName: 'Street Address', fieldType: 'text', required: true },
       { fieldName: 'Apt/Unit #', fieldType: 'text', required: false },
@@ -301,16 +299,8 @@ case 'demographics':
       { fieldName: 'Work Phone', fieldType: 'text', required: false },
       { fieldName: 'Email', fieldType: 'text', required: true },
       { fieldName: 'Preferred contact method', fieldType: 'dropdown', required: true, options: ['Mobile Phone', 'Home Phone', 'Work Phone', 'Email'] },
-      { fieldName: 'Emergency Contact Name', fieldType: 'text', required: false },
-      { fieldName: 'Emergency Contact Phone #', fieldType: 'text', required: false },
-      { fieldName: 'Emergency Contact Relationship', fieldType: 'text', required: false },
-      { fieldName: 'Social Security Number', fieldType: 'text', required: false },
-      { fieldName: 'Laterality of Injury', fieldType: 'text', required: false },
       { fieldName: 'Occupation', fieldType: 'text', required: false },
-      { fieldName: 'Nature of Complaint', fieldType: 'text', required: false },
-      { fieldName: 'Non Encrypted Text Messaging Requested', fieldType: 'dropdown', required: false, options: ['Yes', 'No'] },
-      { fieldName: 'Non Encrypted Email Requested', fieldType: 'dropdown', required: false, options: ['Yes', 'No'] },
-      { fieldName: 'Additional Information', fieldType: 'textarea', required: false, placeholder: 'This should be comment section from my office' }
+      { fieldName: 'Additional Information', fieldType: 'textarea', required: false }
     ]
   };
   break;
@@ -923,6 +913,104 @@ case 'demographics':
     return (lang === 'english' ? '[EN] ' : '[ES] ') + text;
   };
 
+  // Translation mapping for demographic field names
+  const fieldNameTranslations: { [key: string]: { en: string; es: string } } = {
+    'First Name': { en: 'First Name', es: 'Nombre' },
+    'Middle Initials': { en: 'Middle Initials', es: 'Iniciales del Segundo Nombre' },
+    'Last Name': { en: 'Last Name', es: 'Apellido' },
+    'Date of Birth': { en: 'Date of Birth', es: 'Fecha de Nacimiento' },
+    'Gender': { en: 'Gender', es: 'Género' },
+    'Marital Status': { en: 'Marital Status', es: 'Estado Civil' },
+    'Street Address': { en: 'Street Address', es: 'Dirección' },
+    'Apt/Unit #': { en: 'Apt/Unit #', es: 'Apto/Unidad #' },
+    'City': { en: 'City', es: 'Ciudad' },
+    'State': { en: 'State', es: 'Estado' },
+    'Zip Code': { en: 'Zip Code', es: 'Código Postal' },
+    'Mobile Phone': { en: 'Mobile Phone', es: 'Teléfono Móvil' },
+    'Home Phone': { en: 'Home Phone', es: 'Teléfono de Casa' },
+    'Work Phone': { en: 'Work Phone', es: 'Teléfono del Trabajo' },
+    'Email': { en: 'Email', es: 'Correo Electrónico' },
+    'Preferred contact method': { en: 'Preferred contact method', es: 'Método de contacto preferido' },
+    'Occupation': { en: 'Occupation', es: 'Ocupación' },
+    'Additional Information': { en: 'Additional Information', es: 'Información Adicional' }
+  };
+
+  // Translation mapping for dropdown options
+  const optionTranslations: { [key: string]: { en: string[]; es: string[] } } = {
+    'Gender': {
+      en: ['Female', 'Male', 'Non-Binary'],
+      es: ['Femenino', 'Masculino', 'No Binario']
+    },
+    'Marital Status': {
+      en: ['Single', 'Married', 'Divorced', 'Widowed'],
+      es: ['Soltero', 'Casado', 'Divorciado', 'Viudo']
+    },
+    'Preferred contact method': {
+      en: ['Mobile Phone', 'Home Phone', 'Work Phone', 'Email'],
+      es: ['Teléfono Móvil', 'Teléfono de Casa', 'Teléfono del Trabajo', 'Correo Electrónico']
+    }
+  };
+
+  // Function to find the English field name (reverse lookup)
+  const findEnglishFieldName = (fieldName: string): string => {
+    // Check if it's already English
+    for (const [enName, translations] of Object.entries(fieldNameTranslations)) {
+      if (enName === fieldName) return enName;
+      if (translations.es === fieldName) return enName;
+    }
+    return fieldName; // Return original if not found
+  };
+
+  // Function to translate field names
+  const translateFieldName = (fieldName: string, lang: 'english' | 'spanish'): string => {
+    // First, find the English base name
+    const englishName = findEnglishFieldName(fieldName);
+    const translation = fieldNameTranslations[englishName];
+    if (translation) {
+      return lang === 'english' ? translation.en : translation.es;
+    }
+    return fieldName; // Return original if no translation found
+  };
+
+  // Function to translate dropdown options
+  const translateOptions = (englishFieldName: string, options: string[], lang: 'english' | 'spanish'): string[] => {
+    const translation = optionTranslations[englishFieldName];
+    if (translation && options.length === translation.en.length) {
+      // Check if options match English version
+      const isEnglish = options.every((opt, idx) => opt === translation.en[idx]);
+      if (isEnglish) {
+        return lang === 'english' ? translation.en : translation.es;
+      }
+      // Check if options match Spanish version
+      const isSpanish = options.every((opt, idx) => opt === translation.es[idx]);
+      if (isSpanish) {
+        return lang === 'english' ? translation.en : translation.es;
+      }
+    }
+    return options; // Return original if no translation found or doesn't match
+  };
+
+  // Function to translate all demographic fields
+  const translateDemographicFields = (fields: any[], lang: 'english' | 'spanish') => {
+    return fields.map(field => {
+      // Find the English field name first
+      const englishFieldName = findEnglishFieldName(field.fieldName);
+      const translatedFieldName = translateFieldName(englishFieldName, lang);
+      let translatedOptions = field.options;
+      
+      if (field.fieldType === 'dropdown' && field.options && field.options.length > 0) {
+        // Translate options based on English field name
+        translatedOptions = translateOptions(englishFieldName, field.options, lang);
+      }
+      
+      return {
+        ...field,
+        fieldName: translatedFieldName,
+        options: translatedOptions
+      };
+    });
+  };
+
   const renderQuestionEditor = () => {
     if (currentItemIndex === null || !formTemplate.items[currentItemIndex]) {
       return (
@@ -1001,10 +1089,61 @@ case 'demographics':
         return renderWithLanguageDropdown(BodyMapQuestionEditor);
       case 'demographics':
         return (
-          <DemographicsQuestionEditor
-            item={currentItem}
-            onChange={(updatedItem) => updateQuestion(currentItemIndex, updatedItem)}
-          />
+          <div className="flex flex-col">
+            <div className="flex justify-end mb-2">
+              <select
+                value={getQuestionLanguage(currentItem.questionText)}
+                onChange={e => {
+                  const lang = e.target.value as 'english' | 'spanish';
+                  // Extract base text (remove language prefix if exists)
+                  const baseText = currentItem.questionText.replace(/^\[(EN|ES)\]\s*/, '') || 'Client Information';
+                  
+                  // Set question text with language prefix
+                  const newQuestionText = lang === 'english' 
+                    ? '[EN] ' + (baseText === 'Client Information' || baseText === 'Información del Cliente' ? 'Client Information' : baseText)
+                    : '[ES] ' + (baseText === 'Client Information' || baseText === 'Información del Cliente' ? 'Información del Cliente' : baseText);
+                  
+                  // Set instructions based on language
+                  const newInstructions = lang === 'english' 
+                    ? 'Please enter your information.'
+                    : 'Por favor, introduzca su información.';
+                  
+                  // Translate all demographic fields
+                  const translatedFields = currentItem.demographicFields 
+                    ? translateDemographicFields(currentItem.demographicFields, lang)
+                    : [];
+                  
+                  updateQuestion(currentItemIndex, {
+                    ...currentItem,
+                    questionText: newQuestionText,
+                    instructions: newInstructions,
+                    demographicFields: translatedFields
+                  });
+                }}
+                className="border border-gray-300 rounded px-2 py-1 text-sm"
+              >
+                <option value="english">English</option>
+                <option value="spanish">Spanish</option>
+              </select>
+            </div>
+            <DemographicsQuestionEditor
+              item={currentItem}
+              onChange={(updatedItem: any) => {
+                // Preserve language prefix when updating
+                const currentLang = getQuestionLanguage(currentItem.questionText);
+                const baseText = updatedItem.questionText 
+                  ? updatedItem.questionText.replace(/^\[(EN|ES)\]\s*/, '')
+                  : currentItem.questionText.replace(/^\[(EN|ES)\]\s*/, '');
+                const newQuestionText = currentLang === 'english' 
+                  ? '[EN] ' + baseText 
+                  : '[ES] ' + baseText;
+                updateQuestion(currentItemIndex, {
+                  ...updatedItem,
+                  questionText: newQuestionText
+                });
+              }}
+            />
+          </div>
         );
       case 'primaryInsurance':
         return (
@@ -1035,11 +1174,9 @@ case 'demographics':
   useEffect(() => {
     if (!id && formTemplate.items.length === 0) {
       const demographicsQuestion = createNewQuestion('demographics');
-      const primaryInsuranceQuestion = createNewQuestion('primaryInsurance');
-      const secondaryInsuranceQuestion = createNewQuestion('secondaryInsurance');
       setFormTemplate(prev => ({
         ...prev,
-        items: [demographicsQuestion, primaryInsuranceQuestion, secondaryInsuranceQuestion]
+        items: [demographicsQuestion]
       }));
       setCurrentItemIndex(0);
     }

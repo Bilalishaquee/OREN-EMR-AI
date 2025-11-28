@@ -177,7 +177,8 @@ app.use('/api/appointments', authenticateToken, appointmentRoutes);
 app.use('/api/billing', authenticateToken, billingRoutes);
 app.use('/api', authenticateToken, aiRoutes);
 app.use('/api/notes', authenticateToken, notesRoutes);
-app.use('/api/google-calendar', authenticateToken, googleCalendarRoutes);
+// Google Calendar routes - callback is public, others require auth
+app.use('/api/google-calendar', googleCalendarRoutes);
 app.use('/api/tasks', authenticateToken, taskRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
 app.use('/api/form-templates', authenticateToken, formTemplateRoutes);

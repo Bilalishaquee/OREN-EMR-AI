@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Counter from '../models/Counter.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 
@@ -9,7 +10,7 @@ const router = express.Router();
 // Register a new user
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role, firstName, lastName, doctorId, specialization } = req.body;
+    const { username, email, password, role, firstName, lastName } = req.body;
     
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -17,9 +18,15 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
     
-    // If registering as a doctor, check if doctorId is provided
-    if (role === 'doctor' && !doctorId) {
-      return res.status(400).json({ message: 'Doctor ID is required for doctor registration' });
+    // Auto-generate unique doctor ID if registering as a doctor
+    let doctorId = undefined;
+    if (role === 'doctor') {
+      const counter = await Counter.findOneAndUpdate(
+        { name: 'doctorId' },
+        { $inc: { value: 1 } },
+        { new: true, upsert: true }
+      );
+      doctorId = `DOC-${String(counter.value).padStart(4, '0')}`;
     }
     
     // Create new user
@@ -30,8 +37,7 @@ router.post('/register', async (req, res) => {
       role,
       firstName,
       lastName,
-      doctorId: role === 'doctor' ? doctorId : undefined,
-      specialization: role === 'doctor' ? specialization : undefined
+      doctorId: role === 'doctor' ? doctorId : undefined
     });
     
     await user.save();
@@ -53,6 +59,7 @@ router.post('/register', async (req, res) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        doctorId: user.doctorId || null,
         googleCalendar: user.googleCalendar || null
       }
     });

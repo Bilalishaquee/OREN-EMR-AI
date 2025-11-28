@@ -157,21 +157,42 @@ const PatientIntakeFormBuilder: React.FC = () => {
   }, []);
   
   const fetchFormTemplate = async () => {
+    if (!id) return; // Don't fetch if no ID (new form)
+    
     setIsLoading(true);
     try {
       const response = await axios.get(`/api/form-templates/${id}`);
-      setFormTemplate(response.data);
       
-      // If there are no items, add the predefined questions
-      if (!response.data.items || response.data.items.length === 0) {
+      if (response.data) {
+        // Ensure items array exists and has proper structure
+        const items = response.data.items || [];
+        const itemsWithIds = items.map((item: any, index: number) => ({
+          ...item,
+          id: item.id || `item_${index}_${Date.now()}`
+        }));
+        
+        setFormTemplate({
+          ...response.data,
+          items: itemsWithIds.length > 0 ? itemsWithIds : predefinedQuestions
+        });
+      } else {
+        // If no data, initialize with predefined questions
         setFormTemplate(prev => ({
           ...prev,
           items: predefinedQuestions
         }));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching form template:', error);
-      toast.error('Failed to load form template');
+      if (error.response?.status === 403) {
+        toast.error('Access denied. You do not have permission to view this form.');
+        navigate('/forms/templates');
+      } else if (error.response?.status === 404) {
+        toast.error('Form template not found.');
+        navigate('/forms/templates');
+      } else {
+        toast.error('Failed to load form template');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -560,7 +581,8 @@ const PatientIntakeFormBuilder: React.FC = () => {
           </div>
           
           <div className="overflow-y-auto max-h-[calc(100vh-120px)]">
-            {formTemplate.items.map((item, index) => (
+            {formTemplate.items && formTemplate.items.length > 0 ? (
+              formTemplate.items.map((item, index) => (
               <div 
                 key={item.id} 
                 className={`flex items-start p-4 border-b border-gray-200 hover:bg-gray-100 cursor-pointer ${currentItemIndex === index ? 'bg-yellow-50' : ''}`}
@@ -604,7 +626,12 @@ const PatientIntakeFormBuilder: React.FC = () => {
                   </button>
                 </div>
               </div>
-            ))}
+              ))
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <p>No questions added yet. Click the "+" button to add questions.</p>
+              </div>
+            )}
           </div>
         </div>
         

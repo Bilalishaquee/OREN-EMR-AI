@@ -513,10 +513,17 @@ const PatientDetails: React.FC<{}> = () => {
                       if (value[0].rowIndex !== undefined && value[0].columnIndex !== undefined) {
                         return value.map((item: any) => `Row ${item.rowIndex + 1}, Col ${item.columnIndex + 1}: ${item.value || 'N/A'}`).join('\n');
                       }
-                      // Handle body map markings
+                      // Handle body map markings (can be array of paths or array of points)
                       if (value[0].x !== undefined && value[0].y !== undefined) {
+                        // Array of point objects
                         return value.map((item: any) => 
                           `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
+                        ).join('\n');
+                      }
+                      // Handle body map markings as array of paths (array of arrays of points)
+                      if (Array.isArray(value[0]) && value[0][0] && value[0][0].x !== undefined && value[0][0].y !== undefined) {
+                        return value.map((path: any[], pathIndex: number) => 
+                          `Path ${pathIndex + 1}: ${path.map((point: any) => `(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`).join(' -> ')}`
                         ).join('\n');
                       }
                       // Handle file attachments
@@ -546,11 +553,20 @@ const PatientDetails: React.FC<{}> = () => {
                         if (value.description) {
                           result += `Description: ${value.description}\n`;
                         }
-                        if (value.markings && Array.isArray(value.markings) && value.markings.length > 0) {
+                      if (value.markings && Array.isArray(value.markings) && value.markings.length > 0) {
+                        // Check if markings is array of paths (array of arrays) or array of points
+                        if (Array.isArray(value.markings[0]) && value.markings[0][0] && value.markings[0][0].x !== undefined) {
+                          // Array of paths
+                          result += value.markings.map((path: any[], pathIndex: number) => 
+                            `Path ${pathIndex + 1}: ${path.map((point: any) => `(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`).join(' -> ')}`
+                          ).join('\n');
+                        } else if (value.markings[0].x !== undefined) {
+                          // Array of point objects
                           result += value.markings.map((item: any) => 
                             `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
                           ).join('\n');
                         }
+                      }
                         return result || 'N/A';
                       }
                       // Generic object array - format nicely
@@ -576,9 +592,18 @@ const PatientDetails: React.FC<{}> = () => {
                         result += `Description: ${value.description}\n`;
                       }
                       if (value.markings && Array.isArray(value.markings) && value.markings.length > 0) {
-                        result += value.markings.map((item: any) => 
-                          `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
-                        ).join('\n');
+                        // Check if markings is array of paths (array of arrays) or array of points
+                        if (Array.isArray(value.markings[0]) && value.markings[0][0] && value.markings[0][0].x !== undefined) {
+                          // Array of paths
+                          result += value.markings.map((path: any[], pathIndex: number) => 
+                            `Path ${pathIndex + 1}: ${path.map((point: any) => `(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`).join(' -> ')}`
+                          ).join('\n');
+                        } else if (value.markings[0].x !== undefined) {
+                          // Array of point objects
+                          result += value.markings.map((item: any) => 
+                            `${item.type || 'Marking'} at (${item.x}, ${item.y})${item.intensity ? ` - Intensity: ${item.intensity}/10` : ''}${item.notes ? ` - ${item.notes}` : ''}`
+                          ).join('\n');
+                        }
                       }
                       return result || 'N/A';
                     }

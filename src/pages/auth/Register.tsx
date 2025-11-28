@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import logo from '../../Assets/logo.png';
 import bgTech from '../../Assets/bg-tech.jpg';
-import { User, Lock, Mail, UserCircle, Briefcase, AlertCircle, UserPlus, Building2 } from 'lucide-react';
+import { User, Lock, Mail, UserCircle, Briefcase, AlertCircle, UserPlus } from 'lucide-react';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -13,9 +13,7 @@ const Register: React.FC = () => {
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    role: 'doctor',
-    doctorId: '',
-    specialization: ''
+    role: 'doctor'
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -37,12 +35,6 @@ const Register: React.FC = () => {
       return;
     }
 
-    // Validate doctor ID if role is doctor
-    if (formData.role === 'doctor' && !formData.doctorId) {
-      setError('Doctor ID is required for doctor registration');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -52,9 +44,7 @@ const Register: React.FC = () => {
         password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
-        role: formData.role,
-        doctorId: formData.role === 'doctor' ? formData.doctorId : undefined,
-        specialization: formData.role === 'doctor' ? formData.specialization : undefined
+        role: formData.role
       });
       navigate('/dashboard');
     } catch (err: any) {
@@ -195,50 +185,6 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Doctor-specific fields */}
-            {formData.role === 'doctor' && (
-              <>
-                <div>
-                  <label htmlFor="doctorId" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Doctor ID
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Building2 className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="doctorId"
-                      name="doctorId"
-                      type="text"
-                      required
-                      className="appearance-none rounded-xl relative block w-full pl-12 pr-4 py-2.5 border-2 border-gray-200 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200 bg-white shadow-sm hover:border-gray-300"
-                      placeholder="Enter your Doctor ID"
-                      value={formData.doctorId}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="specialization" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Specialization
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Briefcase className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="specialization"
-                      name="specialization"
-                      type="text"
-                      className="appearance-none rounded-xl relative block w-full pl-12 pr-4 py-2.5 border-2 border-gray-200 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200 bg-white shadow-sm hover:border-gray-300"
-                      placeholder="Your specialization (optional)"
-                      value={formData.specialization}
-                      onChange={handleChange}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
 
             {/* Password Fields */}
             <div className="grid grid-cols-2 gap-4">
