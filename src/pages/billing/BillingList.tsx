@@ -217,14 +217,14 @@ const BillingList: React.FC<BillingListProps> = ({
       console.log('📄 Invoice ID:', selectedInvoice._id);
       console.log('🔗 Endpoint:', `/api/stripe/send-invoice-email/${selectedInvoice._id}`);
 
-      // Reduced timeout since backend is faster now
+      // Increased timeout for PDF generation and email sending
       const response = await axios.post(
         `/api/stripe/send-invoice-email/${selectedInvoice._id}`,
         {
           recipientEmail: emailAddress
         },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 120000, // 120 second timeout for PDF generation and email sending
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -319,7 +319,7 @@ const BillingList: React.FC<BillingListProps> = ({
           recipientEmail: emailAddress
         },
         {
-          timeout: 30000, // 30 second timeout (reduced since backend is faster now)
+          timeout: 120000, // 120 second timeout for PDF generation and email sending
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('token')}`

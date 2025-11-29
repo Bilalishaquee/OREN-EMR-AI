@@ -51,6 +51,10 @@ import Template from './routes/Template.js';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Increase server timeout for long-running operations like PDF generation and email sending
+// This ensures the server doesn't timeout before the client (120 seconds)
+app.timeout = 120000; // 120 seconds
+
 // CORS configuration
 const allowedOrigins = [
   'https://oren-emr-ai-ashen.vercel.app',

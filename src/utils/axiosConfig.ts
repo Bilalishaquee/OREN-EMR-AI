@@ -3,6 +3,10 @@ import axios from 'axios';
 // Set default base URL for all axios requests
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'https://oren-emr-ai-1.onrender.com';
 
+// Set default timeout for all requests (90 seconds)
+// This is especially important for operations like PDF generation and email sending
+axios.defaults.timeout = 90000;
+
 // Add a request interceptor to include auth token if available
 axios.interceptors.request.use(
   (config) => {
