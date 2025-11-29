@@ -95,7 +95,7 @@ const BillingList: React.FC<BillingListProps> = ({
   const fetchInvoices = async () => {
     setIsLoading(true);
     try {
-      let url = `https://oren-emr-ai-1.onrender.com/api/billing?page=${currentPage}`;
+      let url = `/api/billing?page=${currentPage}`;
 
       if (searchTerm) url += `&search=${searchTerm}`;
       if (statusFilter) url += `&status=${statusFilter}`;
@@ -121,7 +121,7 @@ const BillingList: React.FC<BillingListProps> = ({
 
   const fetchBillingSummary = async () => {
     try {
-      const response = await axios.get('https://oren-emr-ai-1.onrender.com/api/billing/summary/dashboard');
+      const response = await axios.get('/api/billing/summary/dashboard');
       setBillingStats(response.data);
     } catch (error) {
       console.error('Error fetching billing summary:', error);
@@ -652,7 +652,7 @@ const BillingList: React.FC<BillingListProps> = ({
                                 <button
                                   onClick={async () => {
                                     try {
-                                      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${invoice._id}/download`, {
+                                      const response = await axios.get(`/api/billing/${invoice._id}/download`, {
                                         responseType: 'blob'
                                       });
 

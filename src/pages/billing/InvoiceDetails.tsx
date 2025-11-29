@@ -109,7 +109,7 @@ const InvoiceDetails: React.FC = () => {
   const fetchInvoice = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`https://oren-emr-ai-1.onrender.com/api/billing/${id}`);
+      const response = await axios.get(`/api/billing/${id}`);
       setInvoice(response.data);
       if (response.data.appointment) {
         setAppintmentId(response.data.appointment._id || response.data.appointment);
@@ -152,7 +152,7 @@ const InvoiceDetails: React.FC = () => {
     }
 
     try {
-      const response = await axios.post(`https://oren-emr-ai-1.onrender.com/api/billing/${id}/payment`, paymentData, {
+      const response = await axios.post(`/api/billing/${id}/payment`, paymentData, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

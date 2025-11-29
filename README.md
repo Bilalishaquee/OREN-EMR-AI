@@ -81,7 +81,7 @@ cd ..
 Create a `.env` file in the root directory (if needed):
 
 ```env
-VITE_API_URL=http://localhost:5000
+VITE_API_URL=https://oren-emr-ai-1.onrender.com
 ```
 
 ### Backend Environment Variables
@@ -109,14 +109,14 @@ EMAIL_PASSWORD=your-app-password
 # Google Calendar API Configuration
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URL=http://localhost:5000/api/google-calendar/callback
+GOOGLE_REDIRECT_URL=https://oren-emr-ai-1.onrender.com/api/google-calendar/callback
 
 # Stripe Configuration
 STRIPE_SECRET_KEY=your_stripe_secret_key
 STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 
 # Frontend URL
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=https://oren-emr-ai-ashen.vercel.app/
 ```
 
 ### Getting API Keys
@@ -161,8 +161,8 @@ npm run server
 ```
 
 The application will be available at:
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:5000
+- **Frontend**: https://oren-emr-ai-ashen.vercel.app/
+- **Backend API**: https://oren-emr-ai-1.onrender.com
 
 ### Production Build
 

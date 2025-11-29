@@ -141,7 +141,7 @@ class EmailService {
     }
 
     // Ensure payment link exists (fallback if not provided)
-    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoiceData._id}`;
+    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/payment/${invoiceData._id}`;
 
     try {
       const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
@@ -317,7 +317,7 @@ class EmailService {
     }
 
     // Ensure payment link exists (fallback if not provided)
-    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/${invoiceData._id}`;
+    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/payment/${invoiceData._id}`;
 
     try {
       const htmlContent = `

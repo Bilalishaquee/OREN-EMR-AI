@@ -808,7 +808,7 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
     await formToken.save();
 
     // Base URL from environment - use FRONTEND_URL as fallback
-    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/';
     const formLink = `${baseUrl}/patients/form/${token}?lang=${language}`;
 
     // Sender email already determined at the top - no need to check again

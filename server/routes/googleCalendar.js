@@ -19,11 +19,11 @@ router.get('/callback', async (req, res) => {
     if (!code || !state) return res.status(400).send('Missing code/state');
 
     await handleAuthCallback(code, state);
-    const client = process.env.CLIENT_URL || 'http://localhost:5173';
+    const client = process.env.CLIENT_URL || 'https://oren-emr-ai-ashen.vercel.app';
     return res.redirect(`${client}/settings?calendarConnected=true`);
   } catch (err) {
     console.error('Callback error:', err);
-    const client = process.env.CLIENT_URL || 'http://localhost:5173';
+    const client = process.env.CLIENT_URL || 'https://oren-emr-ai-ashen.vercel.app';
     return res.redirect(`${client}/settings?calendarConnected=false`);
   }
 });

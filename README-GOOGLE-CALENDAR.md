@@ -13,7 +13,7 @@ This document provides instructions for setting up and using the Google Calendar
    - Go to "APIs & Services" > "Credentials"
    - Click "Create Credentials" > "OAuth client ID"
    - Select "Web application" as the application type
-   - Add authorized redirect URIs: `http://localhost:5000/api/google-calendar/callback`
+   - Add authorized redirect URIs: `https://oren-emr-ai-1.onrender.com/api/google-calendar/callback`
    - Click "Create"
 5. Note your Client ID and Client Secret
 
@@ -24,7 +24,7 @@ This document provides instructions for setting up and using the Google Calendar
    ```
    GOOGLE_CLIENT_ID=your_client_id_here
    GOOGLE_CLIENT_SECRET=your_client_secret_here
-   GOOGLE_REDIRECT_URL=http://localhost:5000/api/google-calendar/callback
+   GOOGLE_REDIRECT_URL=https://oren-emr-ai-1.onrender.com/api/google-calendar/callback
    ```
 
 ### 3. Install Dependencies
