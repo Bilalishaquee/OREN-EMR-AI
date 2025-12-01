@@ -8,6 +8,10 @@ class EmailService {
   constructor() {
     this.emailUser = process.env.EMAIL_USER;
     this.emailPassword = process.env.EMAIL_PASSWORD;
+
+    console.log("EMAIL ", emailUser);
+    console.log("PASS ", emailPassword);
+    
     
     // Check if email is configured
     this.isConfigured = !!(this.emailUser && this.emailPassword);
