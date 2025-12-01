@@ -183,6 +183,13 @@ async function startServer() {
     await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
     console.log('✅ Connected to MongoDB successfully');
 
+    // Test email configuration on startup (non-blocking)
+    import('./services/emailService.js').then(({ default: emailService }) => {
+      emailService.testConnection().catch(err => {
+        console.warn('⚠️  Email connection test failed on startup:', err.message);
+      });
+    });
+
     // Start server only after MongoDB connection is established
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

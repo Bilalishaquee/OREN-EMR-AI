@@ -80,7 +80,7 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       paymentLink,
       recipientEmail
     )
-    .then(() => {
+    .then((result) => {
       // Update invoice after successful email
       Billing.findByIdAndUpdate(invoiceId, {
         emailSent: true,
@@ -89,10 +89,25 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
         console.error('Error updating invoice email status:', err);
       });
       console.log(`✅ Invoice email sent successfully to ${recipientEmail}`);
+      console.log('Email result:', {
+        messageId: result?.messageId,
+        response: result?.response,
+        accepted: result?.accepted,
+        rejected: result?.rejected
+      });
     })
     .catch((emailError) => {
-      console.error('❌ Error sending invoice email in background:', emailError);
-      // Log error but don't fail the request since we already returned success
+      console.error('❌ Error sending invoice email in background:');
+      console.error('Error message:', emailError?.message);
+      console.error('Error code:', emailError?.code);
+      console.error('Error stack:', emailError?.stack);
+      console.error('Full error:', emailError);
+      
+      // Log configuration status
+      console.error('Email configuration check:');
+      console.error('  EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'NOT SET');
+      console.error('  EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'SET' : 'NOT SET');
+      console.error('  Email service configured:', emailService.isConfigured);
     });
 
     // Return immediately - email is being processed in background

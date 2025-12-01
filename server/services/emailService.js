@@ -3,30 +3,46 @@ import autoTable from 'jspdf-autotable';
 import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 import { FRONTEND_URL } from '../config/constants.js';
 
 class EmailService {
   constructor() {
     this.emailUser = process.env.EMAIL_USER;
     this.emailPassword = process.env.EMAIL_PASSWORD;
+    this.sendGridApiKey = process.env.SENDGRID_API_KEY;
+    this.emailFrom = process.env.EMAIL_FROM || this.emailUser;
 
-    // Check if email is configured
-    this.isConfigured = !!(this.emailUser && this.emailPassword);
+    // Check if email is configured (SendGrid or Gmail)
+    this.isConfigured = !!(this.sendGridApiKey || (this.emailUser && this.emailPassword));
+    this.useSendGrid = !!this.sendGridApiKey;
+    
+    // Initialize SendGrid if API key is available
+    if (this.sendGridApiKey) {
+      sgMail.setApiKey(this.sendGridApiKey);
+      console.log('✅ SendGrid API key configured');
+    }
     
     // Log environment information for debugging
     const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
     console.log('📧 Email Service Configuration:');
     console.log('  Environment:', isCloudEnvironment ? 'Cloud (Render/Heroku)' : 'Local');
+    console.log('  Email Provider:', this.useSendGrid ? 'SendGrid (Primary)' : 'Gmail SMTP (Nodemailer)');
     console.log('  Configured:', this.isConfigured ? 'Yes' : 'No');
-    console.log('  EMAIL_USER:', this.emailUser ? `${this.emailUser.substring(0, 3)}***` : 'Not set');
-    console.log('  EMAIL_PASSWORD:', this.emailPassword ? 'Set' : 'Not set');
-    
-    // Don't create transporter here - create it dynamically with fallback
-    // This allows us to try different ports if one fails
-    if (!this.isConfigured) {
-      console.warn('⚠️  Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+    if (this.useSendGrid) {
+      console.log('  SENDGRID_API_KEY:', this.sendGridApiKey ? 'Set' : 'Not set');
+      console.log('  EMAIL_FROM:', this.emailFrom || 'Not set (will use EMAIL_USER)');
     } else {
-      console.log('✅ Email service is ready (nodemailer with Gmail SMTP)');
+      console.log('  EMAIL_USER:', this.emailUser ? `${this.emailUser.substring(0, 3)}***` : 'Not set');
+      console.log('  EMAIL_PASSWORD:', this.emailPassword ? 'Set' : 'Not set');
+    }
+    
+    if (!this.isConfigured) {
+      console.warn('⚠️  Email service is not configured. Please set either:');
+      console.warn('     - SENDGRID_API_KEY (recommended for production)');
+      console.warn('     - OR EMAIL_USER and EMAIL_PASSWORD (for Gmail SMTP)');
+    } else {
+      console.log(`✅ Email service is ready (${this.useSendGrid ? 'SendGrid' : 'Gmail SMTP'})`);
     }
   }
 
@@ -39,6 +55,12 @@ class EmailService {
     
     // Detect if running on cloud platform (Render, Heroku, etc.)
     const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
+    
+    // For Render/production, prefer port 465 (SSL) as it's more reliable
+    // Port 465 uses SSL which is often less blocked by firewalls
+    if (isCloudEnvironment && port === 587) {
+      console.log('⚠️  Cloud environment detected - consider using port 465 (SSL) for better reliability');
+    }
     
     // Use longer timeouts for cloud environments where network latency is higher
     const connectionTimeout = isCloudEnvironment ? 60000 : 30000; // 60s cloud, 30s local
@@ -224,11 +246,10 @@ class EmailService {
 
   // Send invoice email - OPTIMIZED: PDF attachment removed for faster sending
   // The HTML email contains all invoice details and payment link, which is sufficient
-  // Includes fallback mechanism: tries port 587 first, then port 465 if connection fails
-  // Uses timeout wrapper to prevent hanging indefinitely
+  // Uses SendGrid if available (recommended for production), falls back to Gmail SMTP
   async sendInvoiceEmail(invoiceData, patientData, paymentLink, recipientEmail) {
     if (!this.isConfigured) {
-      throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+      throw new Error('Email service is not configured. Please set either SENDGRID_API_KEY or EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
     }
 
     // Ensure payment link exists (fallback if not provided)
@@ -237,102 +258,132 @@ class EmailService {
     const finalPaymentLink = paymentLink || `${baseUrl}/payment/${invoiceData._id}`;
 
     const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
+    const subject = `Invoice #${invoiceData.invoiceNumber} - Medical Services`;
+    const fromEmail = this.emailFrom || this.emailUser;
     
+    console.log(`📧 Sending invoice email to ${recipientEmail}...`);
+    console.log(`   Using: ${this.useSendGrid ? 'SendGrid' : 'Gmail SMTP'}`);
+    const startTime = Date.now();
+    
+    // Try SendGrid first if available (recommended for production)
+    if (this.useSendGrid) {
+      try {
+        console.log('🔄 Attempting SendGrid...');
+        const msg = {
+          to: recipientEmail,
+          from: fromEmail, // Must be verified in SendGrid dashboard
+          subject: subject,
+          html: htmlContent,
+        };
+        
+        const result = await sgMail.send(msg);
+        const duration = Date.now() - startTime;
+        console.log(`✅ Invoice email sent successfully via SendGrid in ${duration}ms`);
+        console.log('SendGrid response:', {
+          statusCode: result[0]?.statusCode,
+          headers: result[0]?.headers
+        });
+        return { messageId: result[0]?.headers['x-message-id'], accepted: [recipientEmail] };
+      } catch (sendgridError) {
+        const statusCode = sendgridError.response?.statusCode;
+        console.error('❌ SendGrid email failed:', {
+          statusCode: statusCode,
+          message: sendgridError.message,
+          body: sendgridError.response?.body
+        });
+        
+        // If SendGrid fails with auth errors, don't fallback to Gmail (configuration issue)
+        if (statusCode === 401 || statusCode === 403) {
+          throw new Error(`SendGrid authentication failed (${statusCode}): Please verify your SENDGRID_API_KEY is valid and the from email (${fromEmail}) is verified in SendGrid dashboard.`);
+        }
+        
+        // For other errors, fallback to Gmail if configured
+        if (this.emailUser && this.emailPassword) {
+          console.log('⚠️  SendGrid failed, falling back to Gmail SMTP...');
+        } else {
+          throw new Error(`SendGrid failed: ${sendgridError.message}. Gmail SMTP not configured as fallback.`);
+        }
+      }
+    }
+    
+    // Use Gmail SMTP (nodemailer) as primary or fallback
     const mailOptions = {
       from: this.emailUser,
       to: recipientEmail,
-      subject: `Invoice #${invoiceData.invoiceNumber} - Medical Services`,
+      subject: subject,
       html: htmlContent,
-      // REMOVED: PDF attachment to speed up email sending
-      // PDF generation was taking 5-10 seconds and causing timeouts
-      // The HTML email contains all invoice details and payment link, which is sufficient
-      // If PDF is needed, it can be generated on-demand via a separate endpoint
     };
-
-    console.log(`📧 Sending invoice email to ${recipientEmail}...`);
-    const startTime = Date.now();
     
     // Detect cloud environment for timeout adjustment
     const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
     const timeoutMs = isCloudEnvironment ? 90000 : 45000; // 90s cloud, 45s local
     
-    // Try port 587 first (TLS)
-    let lastError = null;
+    // For production/Render, try port 465 (SSL) FIRST as it's more reliable
+    // Port 465 uses SSL which is often less blocked by firewalls
+    const tryPort465First = isCloudEnvironment;
     
-    try {
-      console.log('🔄 Attempting connection on port 587 (TLS)...');
-      const transporter = this.createTransporter(587);
+    let lastError = null;
+    let portsToTry = tryPort465First ? [465, 587] : [587, 465];
+    
+    for (const port of portsToTry) {
+      const portName = port === 465 ? '465 (SSL)' : '587 (TLS)';
+      const isFirstAttempt = port === portsToTry[0];
       
-      // Verify connection first (helps catch issues early)
-      console.log('🔍 Verifying SMTP connection...');
-      await transporter.verify();
-      console.log('✅ SMTP connection verified');
-      
-      // Send email with timeout wrapper
-      const sendPromise = transporter.sendMail(mailOptions);
-      const result = await this.withTimeout(
-        sendPromise,
-        timeoutMs,
-        `Port 587 connection timeout after ${timeoutMs/1000} seconds`
-      );
-      
-      const duration = Date.now() - startTime;
-      console.log(`✅ Invoice email sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
-      
-      // Close connection pool
-      transporter.close();
-      return result;
-      
-    } catch (error) {
-      lastError = error;
-      const isTimeoutError = error.code === 'ETIMEDOUT' || 
-                           error.code === 'ETIMEOUT' || 
-                           error.code === 'ECONNECTION' || 
-                           error.code === 'ESOCKET' ||
-                           error.code === 'ETIMEOUT' ||
-                           error.message?.includes('timeout');
-      
-      console.error('❌ Port 587 failed:', {
-        code: error.code,
-        message: error.message,
-        isTimeout: isTimeoutError,
-        environment: isCloudEnvironment ? 'cloud' : 'local'
-      });
-      
-      // Try port 465 (SSL) as fallback if connection/timeout error
-      if (isTimeoutError || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-        console.log('🔄 Trying port 465 (SSL) as fallback...');
+      try {
+        console.log(`🔄 Attempting connection on port ${portName}${isFirstAttempt ? ' (primary)' : ' (fallback)'}...`);
+        const transporter = this.createTransporter(port);
         
-        try {
-          const transporter465 = this.createTransporter(465);
-          
-          // Verify connection first
-          console.log('🔍 Verifying SMTP connection (port 465)...');
-          await transporter465.verify();
-          console.log('✅ SMTP connection verified (port 465)');
-          
-          // Send email with timeout wrapper
-          const sendPromise465 = transporter465.sendMail(mailOptions);
-          const result = await this.withTimeout(
-            sendPromise465,
-            timeoutMs,
-            `Port 465 connection timeout after ${timeoutMs/1000} seconds`
-          );
-          
-          const duration = Date.now() - startTime;
-          console.log(`✅ Invoice email sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
-          
-          // Close connection pool
-          transporter465.close();
-          return result;
-          
-        } catch (fallbackError) {
-          console.error('❌ Port 465 also failed:', {
-            code: fallbackError.code,
-            message: fallbackError.message,
-            environment: isCloudEnvironment ? 'cloud' : 'local'
-          });
-          lastError = fallbackError;
+        // Verify connection first (helps catch issues early)
+        console.log(`🔍 Verifying SMTP connection (port ${port})...`);
+        const verifyStart = Date.now();
+        await transporter.verify();
+        const verifyDuration = Date.now() - verifyStart;
+        console.log(`✅ SMTP connection verified (port ${port}) in ${verifyDuration}ms`);
+        
+        // Send email with timeout wrapper
+        console.log(`📤 Sending email via port ${port}...`);
+        const sendPromise = transporter.sendMail(mailOptions);
+        const result = await this.withTimeout(
+          sendPromise,
+          timeoutMs,
+          `Port ${port} connection timeout after ${timeoutMs/1000} seconds`
+        );
+        
+        const duration = Date.now() - startTime;
+        console.log(`✅ Invoice email sent successfully in ${duration}ms (port ${portName}). Message ID: ${result.messageId}`);
+        console.log('Email details:', {
+          accepted: result.accepted,
+          rejected: result.rejected,
+          response: result.response?.substring(0, 100) // First 100 chars of response
+        });
+        
+        // Close connection pool
+        transporter.close();
+        return result;
+        
+      } catch (error) {
+        lastError = error;
+        const isTimeoutError = error.code === 'ETIMEDOUT' || 
+                             error.code === 'ETIMEOUT' || 
+                             error.code === 'ECONNECTION' || 
+                             error.code === 'ESOCKET' ||
+                             error.message?.includes('timeout');
+        
+        console.error(`❌ Port ${portName} failed:`, {
+          code: error.code,
+          message: error.message,
+          isTimeout: isTimeoutError,
+          environment: isCloudEnvironment ? 'cloud (Render/Heroku)' : 'local',
+          stack: isCloudEnvironment ? error.stack : undefined // Full stack in production
+        });
+        
+        // If this was the first port and it failed, try the next one
+        if (isFirstAttempt && (isTimeoutError || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'EAUTH')) {
+          console.log(`🔄 Port ${port} failed, will try fallback port...`);
+          continue; // Try next port
+        } else {
+          // If this was already the fallback or error is not retryable, break
+          break;
         }
       }
     }
@@ -341,24 +392,39 @@ class EmailService {
     const duration = Date.now() - startTime;
     console.error(`❌ Failed to send email after ${duration}ms. Both ports (587 and 465) failed.`);
     console.error('Environment:', isCloudEnvironment ? 'Cloud (Render/Heroku)' : 'Local');
+    console.error('Platform:', process.env.RENDER ? 'Render' : process.env.HEROKU ? 'Heroku' : 'Unknown');
     console.error('Last error details:', {
       code: lastError?.code,
       message: lastError?.message,
-      stack: lastError?.stack
+      command: lastError?.command,
+      response: lastError?.response,
+      responseCode: lastError?.responseCode
     });
     
     // Provide helpful error message based on error type
     if (lastError?.message?.includes('timeout') || lastError?.code === 'ETIMEDOUT' || lastError?.code === 'ECONNECTION' || lastError?.code === 'ETIMEOUT') {
       const envHint = isCloudEnvironment 
-        ? ' On cloud platforms like Render, this may be due to network restrictions, firewall rules, or Gmail blocking connections. Try using port 465 (SSL) or check Render\'s network settings.'
-        : ' Check your internet connection and firewall settings.';
+        ? '\n\n🔧 RENDER/PRODUCTION TROUBLESHOOTING:\n' +
+          '1. Gmail may be blocking Render\'s IP addresses\n' +
+          '2. Render may have firewall restrictions on SMTP ports\n' +
+          '3. Try using SendGrid or another email service for production\n' +
+          '4. Check Render logs for network errors\n' +
+          '5. Verify EMAIL_USER and EMAIL_PASSWORD are set correctly in Render environment variables'
+        : '\n\nCheck your internet connection and firewall settings.';
       throw new Error(`Connection timeout: Unable to connect to Gmail SMTP within ${timeoutMs/1000} seconds.${envHint}`);
     } else if (lastError?.code === 'EAUTH') {
-      throw new Error('Authentication failed: Please verify your EMAIL_USER and EMAIL_PASSWORD are correct. Make sure you are using a Gmail App Password, not your regular password.');
+      throw new Error('Authentication failed: Please verify your EMAIL_USER and EMAIL_PASSWORD are correct. Make sure you are using a Gmail App Password (16 characters), not your regular password. Also ensure 2-Step Verification is enabled on your Google Account.');
     } else if (lastError?.code === 'ECONNREFUSED' || lastError?.code === 'ENOTFOUND') {
-      throw new Error('Connection refused: Unable to reach Gmail SMTP server. This may be due to network restrictions or DNS issues. If on Render, check firewall settings.');
+      const renderHint = isCloudEnvironment 
+        ? '\n\n⚠️  RENDER NETWORK ISSUE:\n' +
+          'Render may be blocking outbound SMTP connections. Consider:\n' +
+          '1. Using SendGrid (recommended for production)\n' +
+          '2. Contacting Render support about SMTP port access\n' +
+          '3. Using a different email service provider'
+        : '';
+      throw new Error(`Connection refused: Unable to reach Gmail SMTP server. This may be due to network restrictions or DNS issues.${renderHint}`);
     } else {
-      throw new Error(`Failed to send email: ${lastError?.message || 'Unknown error'} (Code: ${lastError?.code || 'N/A'})`);
+      throw new Error(`Failed to send email: ${lastError?.message || 'Unknown error'} (Code: ${lastError?.code || 'N/A'})\n\nIf on Render, Gmail SMTP may be blocked. Consider using SendGrid for production.`);
     }
   }
 
@@ -560,15 +626,55 @@ class EmailService {
       </html>
     `;
 
+    const subject = `Payment Reminder - Invoice #${invoiceData.invoiceNumber}`;
+    const fromEmail = this.emailFrom || this.emailUser;
+    
+    console.log(`📧 Sending payment reminder to ${recipientEmail}...`);
+    console.log(`   Using: ${this.useSendGrid ? 'SendGrid' : 'Gmail SMTP'}`);
+    const startTime = Date.now();
+    
+    // Try SendGrid first if available
+    if (this.useSendGrid) {
+      try {
+        console.log('🔄 Attempting SendGrid for payment reminder...');
+        const msg = {
+          to: recipientEmail,
+          from: fromEmail,
+          subject: subject,
+          html: htmlContent,
+        };
+        
+        const result = await sgMail.send(msg);
+        const duration = Date.now() - startTime;
+        console.log(`✅ Payment reminder sent successfully via SendGrid in ${duration}ms`);
+        return { messageId: result[0]?.headers['x-message-id'], accepted: [recipientEmail] };
+      } catch (sendgridError) {
+        const statusCode = sendgridError.response?.statusCode;
+        console.error('❌ SendGrid payment reminder failed:', {
+          statusCode: statusCode,
+          message: sendgridError.message
+        });
+        
+        if (statusCode === 401 || statusCode === 403) {
+          throw new Error(`SendGrid authentication failed: Please verify your SENDGRID_API_KEY and from email (${fromEmail}) is verified.`);
+        }
+        
+        // Fallback to Gmail if configured
+        if (this.emailUser && this.emailPassword) {
+          console.log('⚠️  SendGrid failed, falling back to Gmail SMTP...');
+        } else {
+          throw new Error(`SendGrid failed: ${sendgridError.message}. Gmail SMTP not configured.`);
+        }
+      }
+    }
+    
+    // Use Gmail SMTP (nodemailer) as primary or fallback
     const mailOptions = {
       from: this.emailUser,
       to: recipientEmail,
-      subject: `Payment Reminder - Invoice #${invoiceData.invoiceNumber}`,
+      subject: subject,
       html: htmlContent
     };
-
-    console.log(`📧 Sending payment reminder to ${recipientEmail}...`);
-    const startTime = Date.now();
     
     // Detect cloud environment for timeout adjustment
     const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
@@ -648,7 +754,7 @@ class EmailService {
     throw lastError || new Error('Failed to send payment reminder');
   }
 
-  // Test email configuration - tries both ports
+  // Test email configuration - tests SendGrid or Gmail SMTP
   async testConnection() {
     if (!this.isConfigured) {
       console.error('❌ Email service is not configured');
@@ -658,8 +764,26 @@ class EmailService {
     const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
     console.log('🧪 Testing email connection...');
     console.log('  Environment:', isCloudEnvironment ? 'Cloud' : 'Local');
+    console.log('  Provider:', this.useSendGrid ? 'SendGrid' : 'Gmail SMTP');
 
-    // Try port 587 first
+    // Test SendGrid if configured
+    if (this.useSendGrid) {
+      try {
+        console.log('  Testing SendGrid API connection...');
+        // SendGrid doesn't have a verify method, so we'll test by checking API key format
+        if (!this.sendGridApiKey || this.sendGridApiKey.length < 20) {
+          throw new Error('Invalid SendGrid API key format');
+        }
+        console.log('✅ SendGrid API key format is valid');
+        console.log('  Note: Full SendGrid test requires sending a test email');
+        return true;
+      } catch (error) {
+        console.error('❌ SendGrid test failed:', error.message);
+        return false;
+      }
+    }
+
+    // Test Gmail SMTP - try port 587 first
     try {
       console.log('  Testing port 587 (TLS)...');
       const transporter = this.createTransporter(587);
