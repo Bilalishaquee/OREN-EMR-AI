@@ -13,12 +13,29 @@ class EmailService {
     this.isConfigured = !!(this.emailUser && this.emailPassword);
     
     if (this.isConfigured) {
+      // Optimized transporter configuration for cloud environments (Render, etc.)
+      // Using explicit SMTP settings instead of 'gmail' service for better reliability
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // false for 587, true for 465
+        requireTLS: true, // Force TLS
         auth: {
           user: this.emailUser,
           pass: this.emailPassword, // Use app password for Gmail
         },
+        tls: {
+          rejectUnauthorized: true, // Verify certificate
+          minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
+        },
+        // Optimized timeout settings for cloud environments
+        connectionTimeout: 20000, // 20 seconds - reduced from default 30s
+        greetingTimeout: 20000,
+        socketTimeout: 20000,
+        // Pool connections for better performance
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 3
       });
     } else {
       console.warn('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
@@ -134,14 +151,17 @@ class EmailService {
     `;
   }
 
-  // Send invoice email
+  // Send invoice email - OPTIMIZED: PDF attachment removed for faster sending
+  // The HTML email contains all invoice details and payment link, which is sufficient
   async sendInvoiceEmail(invoiceData, patientData, paymentLink, recipientEmail) {
     if (!this.isConfigured) {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
     }
 
     // Ensure payment link exists (fallback if not provided)
-    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/payment/${invoiceData._id}`;
+    // Use CLIENT_BASE_URL or FRONTEND_URL for production
+    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app';
+    const finalPaymentLink = paymentLink || `${baseUrl}/payment/${invoiceData._id}`;
 
     try {
       const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
@@ -151,19 +171,29 @@ class EmailService {
         to: recipientEmail,
         subject: `Invoice #${invoiceData.invoiceNumber} - Medical Services`,
         html: htmlContent,
-        attachments: [
-          {
-            filename: `invoice-${invoiceData.invoiceNumber}.pdf`,
-            content: await this.generateInvoicePDF(invoiceData, patientData, finalPaymentLink)
-          }
-        ]
+        // REMOVED: PDF attachment to speed up email sending
+        // PDF generation was taking 5-10 seconds and causing timeouts
+        // The HTML email contains all invoice details and payment link, which is sufficient
+        // If PDF is needed, it can be generated on-demand via a separate endpoint
       };
 
+      console.log(`📧 Sending invoice email to ${recipientEmail}...`);
+      const startTime = Date.now();
+      
       const result = await this.transporter.sendMail(mailOptions);
-      console.log('Invoice email sent successfully:', result.messageId);
+      
+      const duration = Date.now() - startTime;
+      console.log(`✅ Invoice email sent successfully in ${duration}ms. Message ID: ${result.messageId}`);
+      
       return result;
     } catch (error) {
-      console.error('Error sending invoice email:', error);
+      console.error('❌ Error sending invoice email:', error);
+      console.error('Error details:', {
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        message: error.message
+      });
       throw error;
     }
   }
