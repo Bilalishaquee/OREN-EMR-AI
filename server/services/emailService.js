@@ -12,33 +12,58 @@ class EmailService {
     // Check if email is configured
     this.isConfigured = !!(this.emailUser && this.emailPassword);
     
-    if (this.isConfigured) {
-      // Optimized transporter configuration for cloud environments (Render, etc.)
-      // Using explicit SMTP settings instead of 'gmail' service for better reliability
-      this.transporter = nodemailer.createTransport({
+    // Don't create transporter here - create it dynamically with fallback
+    // This allows us to try different ports if one fails
+    if (!this.isConfigured) {
+      console.warn('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+    }
+  }
+
+  // Create transporter with optimized settings for cloud environments
+  // Supports both port 587 (TLS) and port 465 (SSL) as fallback
+  createTransporter(port = 587) {
+    // Remove spaces from password (Gmail App Passwords sometimes have spaces)
+    const cleanPassword = (this.emailPassword || '').replace(/\s/g, '');
+    
+    if (port === 465) {
+      // SSL connection (port 465) - more reliable in some cloud environments
+      return nodemailer.createTransport({
         host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // false for 587, true for 465
-        requireTLS: true, // Force TLS
+        port: 465,
+        secure: true, // true for 465
         auth: {
           user: this.emailUser,
-          pass: this.emailPassword, // Use app password for Gmail
+          pass: cleanPassword,
         },
         tls: {
           rejectUnauthorized: true, // Verify certificate
           minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
         },
-        // Optimized timeout settings for cloud environments
-        connectionTimeout: 20000, // 20 seconds - reduced from default 30s
-        greetingTimeout: 20000,
-        socketTimeout: 20000,
-        // Pool connections for better performance
-        pool: true,
-        maxConnections: 1,
-        maxMessages: 3
+        // Increased timeout settings for cloud environments (Render, etc.)
+        connectionTimeout: 30000, // 30 seconds
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
       });
     } else {
-      console.warn('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+      // TLS connection (port 587) - standard port
+      return nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // false for 587
+        requireTLS: true, // Force TLS
+        auth: {
+          user: this.emailUser,
+          pass: cleanPassword,
+        },
+        tls: {
+          rejectUnauthorized: true, // Verify certificate
+          minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
+        },
+        // Increased timeout settings for cloud environments
+        connectionTimeout: 30000, // 30 seconds
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
+      });
     }
   }
 
@@ -153,6 +178,7 @@ class EmailService {
 
   // Send invoice email - OPTIMIZED: PDF attachment removed for faster sending
   // The HTML email contains all invoice details and payment link, which is sufficient
+  // Includes fallback mechanism: tries port 587 first, then port 465 if connection fails
   async sendInvoiceEmail(invoiceData, patientData, paymentLink, recipientEmail) {
     if (!this.isConfigured) {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
@@ -163,38 +189,92 @@ class EmailService {
     const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app';
     const finalPaymentLink = paymentLink || `${baseUrl}/payment/${invoiceData._id}`;
 
-    try {
-      const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
-      
-      const mailOptions = {
-        from: this.emailUser,
-        to: recipientEmail,
-        subject: `Invoice #${invoiceData.invoiceNumber} - Medical Services`,
-        html: htmlContent,
-        // REMOVED: PDF attachment to speed up email sending
-        // PDF generation was taking 5-10 seconds and causing timeouts
-        // The HTML email contains all invoice details and payment link, which is sufficient
-        // If PDF is needed, it can be generated on-demand via a separate endpoint
-      };
+    const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
+    
+    const mailOptions = {
+      from: this.emailUser,
+      to: recipientEmail,
+      subject: `Invoice #${invoiceData.invoiceNumber} - Medical Services`,
+      html: htmlContent,
+      // REMOVED: PDF attachment to speed up email sending
+      // PDF generation was taking 5-10 seconds and causing timeouts
+      // The HTML email contains all invoice details and payment link, which is sufficient
+      // If PDF is needed, it can be generated on-demand via a separate endpoint
+    };
 
-      console.log(`📧 Sending invoice email to ${recipientEmail}...`);
-      const startTime = Date.now();
+    console.log(`📧 Sending invoice email to ${recipientEmail}...`);
+    const startTime = Date.now();
+    
+    // Try port 587 first (TLS)
+    let lastError = null;
+    
+    try {
+      console.log('🔄 Attempting connection on port 587 (TLS)...');
+      const transporter = this.createTransporter(587);
       
-      const result = await this.transporter.sendMail(mailOptions);
+      // Verify connection first (optional, but helps catch issues early)
+      try {
+        await transporter.verify();
+        console.log('✅ SMTP connection verified on port 587');
+      } catch (verifyError) {
+        console.warn('⚠️ SMTP verification failed on port 587, attempting to send anyway...');
+      }
       
+      const result = await transporter.sendMail(mailOptions);
       const duration = Date.now() - startTime;
-      console.log(`✅ Invoice email sent successfully in ${duration}ms. Message ID: ${result.messageId}`);
-      
+      console.log(`✅ Invoice email sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
       return result;
+      
     } catch (error) {
-      console.error('❌ Error sending invoice email:', error);
-      console.error('Error details:', {
+      lastError = error;
+      console.error('❌ Port 587 failed:', {
         code: error.code,
-        command: error.command,
-        response: error.response,
-        message: error.message
+        message: error.message,
+        command: error.command
       });
-      throw error;
+      
+      // Try port 465 (SSL) as fallback if connection/timeout error
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION' || error.code === 'ESOCKET' || error.code === 'ETIMEOUT') {
+        console.log('🔄 Trying port 465 (SSL) as fallback...');
+        
+        try {
+          const transporter465 = this.createTransporter(465);
+          
+          // Verify fallback connection
+          try {
+            await transporter465.verify();
+            console.log('✅ SMTP connection verified on port 465');
+          } catch (verifyError) {
+            console.warn('⚠️ SMTP verification failed on port 465, attempting to send anyway...');
+          }
+          
+          const result = await transporter465.sendMail(mailOptions);
+          const duration = Date.now() - startTime;
+          console.log(`✅ Invoice email sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
+          return result;
+          
+        } catch (fallbackError) {
+          console.error('❌ Port 465 also failed:', {
+            code: fallbackError.code,
+            message: fallbackError.message,
+            command: fallbackError.command
+          });
+          lastError = fallbackError;
+        }
+      }
+    }
+    
+    // If both ports failed, throw a helpful error
+    const duration = Date.now() - startTime;
+    console.error(`❌ Failed to send email after ${duration}ms. Both ports (587 and 465) failed.`);
+    
+    // Provide helpful error message based on error type
+    if (lastError.code === 'ETIMEDOUT' || lastError.code === 'ECONNECTION' || lastError.code === 'ETIMEOUT') {
+      throw new Error('Connection timeout: Unable to connect to Gmail SMTP. This may be due to network restrictions or Gmail blocking connections from this server. Please try again or contact support.');
+    } else if (lastError.code === 'EAUTH') {
+      throw new Error('Authentication failed: Please verify your EMAIL_USER and EMAIL_PASSWORD are correct. Make sure you are using a Gmail App Password, not your regular password.');
+    } else {
+      throw new Error(`Failed to send email: ${lastError.message || 'Unknown error'}`);
     }
   }
 
@@ -340,91 +420,135 @@ class EmailService {
     }
   }
 
-  // Send payment reminder
+  // Send payment reminder - with fallback mechanism
   async sendPaymentReminder(invoiceData, patientData, paymentLink, recipientEmail) {
     if (!this.isConfigured) {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
     }
 
     // Ensure payment link exists (fallback if not provided)
-    const finalPaymentLink = paymentLink || `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/payment/${invoiceData._id}`;
+    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app';
+    const finalPaymentLink = paymentLink || `${baseUrl}/payment/${invoiceData._id}`;
 
-    try {
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Payment Reminder</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9fafb; }
-            .payment-button { 
-              display: inline-block; 
-              background: #10b981; 
-              color: white; 
-              padding: 15px 30px; 
-              text-decoration: none; 
-              border-radius: 5px; 
-              font-weight: bold; 
-              margin: 20px 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Payment Reminder</h1>
-            </div>
-            <div class="content">
-              <h2>Dear ${patientData.firstName} ${patientData.lastName},</h2>
-              <p>This is a friendly reminder that your invoice #${invoiceData.invoiceNumber} for $${invoiceData.total.toFixed(2)} is due on ${new Date(invoiceData.dueDate).toLocaleDateString()}.</p>
-              <p>Please click the button below to make your payment:</p>
-              <div style="text-align: center;">
-                <a href="${finalPaymentLink}" class="payment-button">
-                  Pay Now
-                </a>
-              </div>
-              <p>If you have already made the payment, please disregard this reminder.</p>
-              <p>Thank you for your prompt attention to this matter.</p>
-            </div>
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Payment Reminder</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9fafb; }
+          .payment-button { 
+            display: inline-block; 
+            background: #10b981; 
+            color: white; 
+            padding: 15px 30px; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            font-weight: bold; 
+            margin: 20px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Payment Reminder</h1>
           </div>
-        </body>
-        </html>
-      `;
+          <div class="content">
+            <h2>Dear ${patientData.firstName} ${patientData.lastName},</h2>
+            <p>This is a friendly reminder that your invoice #${invoiceData.invoiceNumber} for $${invoiceData.total.toFixed(2)} is due on ${new Date(invoiceData.dueDate).toLocaleDateString()}.</p>
+            <p>Please click the button below to make your payment:</p>
+            <div style="text-align: center;">
+              <a href="${finalPaymentLink}" class="payment-button">
+                Pay Now
+              </a>
+            </div>
+            <p>If you have already made the payment, please disregard this reminder.</p>
+            <p>Thank you for your prompt attention to this matter.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
 
-      const mailOptions = {
-        from: this.emailUser,
-        to: recipientEmail,
-        subject: `Payment Reminder - Invoice #${invoiceData.invoiceNumber}`,
-        html: htmlContent
-      };
+    const mailOptions = {
+      from: this.emailUser,
+      to: recipientEmail,
+      subject: `Payment Reminder - Invoice #${invoiceData.invoiceNumber}`,
+      html: htmlContent
+    };
 
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('Payment reminder sent successfully:', result.messageId);
+    console.log(`📧 Sending payment reminder to ${recipientEmail}...`);
+    const startTime = Date.now();
+    
+    // Try port 587 first (TLS)
+    let lastError = null;
+    
+    try {
+      const transporter = this.createTransporter(587);
+      const result = await transporter.sendMail(mailOptions);
+      const duration = Date.now() - startTime;
+      console.log(`✅ Payment reminder sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
       return result;
+      
     } catch (error) {
-      console.error('Error sending payment reminder:', error);
-      throw error;
+      lastError = error;
+      console.error('❌ Port 587 failed for payment reminder:', error.code);
+      
+      // Try port 465 (SSL) as fallback
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION' || error.code === 'ESOCKET' || error.code === 'ETIMEOUT') {
+        console.log('🔄 Trying port 465 (SSL) as fallback for payment reminder...');
+        
+        try {
+          const transporter465 = this.createTransporter(465);
+          const result = await transporter465.sendMail(mailOptions);
+          const duration = Date.now() - startTime;
+          console.log(`✅ Payment reminder sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
+          return result;
+          
+        } catch (fallbackError) {
+          console.error('❌ Port 465 also failed for payment reminder:', fallbackError.code);
+          lastError = fallbackError;
+        }
+      }
     }
+    
+    // If both ports failed, throw error
+    const duration = Date.now() - startTime;
+    console.error(`❌ Failed to send payment reminder after ${duration}ms. Both ports failed.`);
+    throw lastError || new Error('Failed to send payment reminder');
   }
 
-  // Test email configuration
+  // Test email configuration - tries both ports
   async testConnection() {
     if (!this.isConfigured) {
       console.error('Email service is not configured');
       return false;
     }
 
+    // Try port 587 first
     try {
-      await this.transporter.verify();
-      console.log('Email service is ready');
+      const transporter = this.createTransporter(587);
+      await transporter.verify();
+      console.log('✅ Email service is ready (port 587)');
       return true;
     } catch (error) {
-      console.error('Email service configuration error:', error);
-      return false;
+      console.warn('⚠️ Port 587 test failed, trying port 465...');
+      
+      // Try port 465 as fallback
+      try {
+        const transporter465 = this.createTransporter(465);
+        await transporter465.verify();
+        console.log('✅ Email service is ready (port 465)');
+        return true;
+      } catch (fallbackError) {
+        console.error('❌ Email service configuration error (both ports failed):', fallbackError);
+        return false;
+      }
     }
   }
 }
