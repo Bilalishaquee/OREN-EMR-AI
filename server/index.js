@@ -9,6 +9,9 @@ const __dirname = path.dirname(__filename);
 // Load environment variables from .env file in the server directory
 dotenv.config({ path: path.resolve(__dirname, './.env') });
 
+// Import centralized config (after dotenv.config)
+import { FRONTEND_URL } from './config/constants.js';
+
 // Log email configuration status on server start (for debugging)
 console.log('=== SERVER STARTUP - EMAIL CONFIGURATION ===');
 console.log('EMAIL_FROM:', process.env.EMAIL_FROM ? 'SET' : 'NOT SET');
@@ -57,22 +60,56 @@ app.timeout = 120000; // 120 seconds
 
 // CORS configuration
 const allowedOrigins = [
-  'https://oren-emr-ai-ashen.vercel.app',
-  process.env.FRONTEND_URL
+  FRONTEND_URL,
+  process.env.FRONTEND_URL,
+  // Development origins
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000'
 ].filter(Boolean);
+
+// Log CORS configuration for debugging
+console.log('🌐 CORS Configuration:');
+console.log('  NODE_ENV:', process.env.NODE_ENV || 'not set (defaults to development)');
+console.log('  FRONTEND_URL from config:', FRONTEND_URL);
+console.log('  FRONTEND_URL from env:', process.env.FRONTEND_URL || 'not set');
+console.log('  Allowed origins:', allowedOrigins);
+
+// CORS configuration - more permissive in development
+const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+    
+    // In development, allow all localhost origins
+    if (isDevelopment) {
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true);
+      }
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // In production, you might want to log this
+      // In production, log and block
       if (process.env.NODE_ENV === 'production') {
-        console.log('CORS blocked origin:', origin);
+        console.log('❌ CORS blocked origin:', origin);
+        console.log('   Allowed origins:', allowedOrigins);
+        callback(new Error('Not allowed by CORS'));
+      } else {
+        // In development, be more permissive - allow localhost
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          console.log('✅ CORS allowed (development):', origin);
+          return callback(null, true);
+        }
+        console.log('⚠️  CORS check - Origin:', origin);
+        console.log('   Allowed origins:', allowedOrigins);
+        callback(new Error('Not allowed by CORS'));
       }
-      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,

@@ -9,6 +9,7 @@ import {
   updateEventForAppointment,
   deleteEventById,
 } from '../services/googleCalendarService.js';
+import { CLIENT_URL } from '../config/constants.js';
 
 const router = express.Router();
 
@@ -19,12 +20,10 @@ router.get('/callback', async (req, res) => {
     if (!code || !state) return res.status(400).send('Missing code/state');
 
     await handleAuthCallback(code, state);
-    const client = process.env.CLIENT_URL || 'https://oren-emr-ai-ashen.vercel.app';
-    return res.redirect(`${client}/settings?calendarConnected=true`);
+    return res.redirect(`${CLIENT_URL}/settings?calendarConnected=true`);
   } catch (err) {
     console.error('Callback error:', err);
-    const client = process.env.CLIENT_URL || 'https://oren-emr-ai-ashen.vercel.app';
-    return res.redirect(`${client}/settings?calendarConnected=false`);
+    return res.redirect(`${CLIENT_URL}/settings?calendarConnected=false`);
   }
 });
 

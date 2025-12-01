@@ -3,6 +3,7 @@ const router = express.Router();
 import dotenv from 'dotenv';
 import Billing from '../models/Billing.js';
 import Stripe from 'stripe';
+import { FRONTEND_URL } from '../config/constants.js';
 
 dotenv.config();
 
@@ -41,8 +42,8 @@ router.post('/checkout-session', async (req, res) => {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/success/${id}`,
-      cancel_url: `${process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/cancel/${id}`,
+      success_url: `${FRONTEND_URL}/billing/success/${id}`,
+      cancel_url: `${FRONTEND_URL}/billing/cancel/${id}`,
     });
 
     res.status(201).json({ id: session.id });

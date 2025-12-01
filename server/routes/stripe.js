@@ -4,6 +4,7 @@ import Billing from '../models/Billing.js';
 import Patient from '../models/Patient.js';
 import emailService from '../services/emailService.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
+import { FRONTEND_URL } from '../config/constants.js';
 
 const router = express.Router();
 
@@ -55,8 +56,8 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
           quantity: 1
         }],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/success/${invoiceId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/cancel/${invoiceId}`,
+        success_url: `${FRONTEND_URL}/billing/success/${invoiceId}`,
+        cancel_url: `${FRONTEND_URL}/billing/cancel/${invoiceId}`,
         metadata: {
           invoiceId: invoice._id.toString(),
           invoiceNumber: invoice.invoiceNumber
@@ -159,8 +160,8 @@ router.post('/send-reminder/:invoiceId', authenticateToken, async (req, res) => 
           quantity: 1
         }],
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/success/${invoiceId}`,
-        cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/cancel/${invoiceId}`,
+        success_url: `${FRONTEND_URL}/billing/success/${invoiceId}`,
+        cancel_url: `${FRONTEND_URL}/billing/cancel/${invoiceId}`,
         metadata: {
           invoiceId: invoice._id.toString(),
           invoiceNumber: invoice.invoiceNumber
@@ -303,8 +304,8 @@ router.post('/create-payment-link/:invoiceId', authenticateToken, async (req, re
         quantity: 1
       }],
       mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/success/${invoiceId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/'}/billing/cancel/${invoiceId}`,
+      success_url: `${FRONTEND_URL}/billing/success/${invoiceId}`,
+      cancel_url: `${FRONTEND_URL}/billing/cancel/${invoiceId}`,
       metadata: {
         invoiceId: invoice._id.toString(),
         invoiceNumber: invoice.invoiceNumber

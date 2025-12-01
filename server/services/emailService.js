@@ -3,34 +3,50 @@ import autoTable from 'jspdf-autotable';
 import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
+import { FRONTEND_URL } from '../config/constants.js';
 
 class EmailService {
   constructor() {
     this.emailUser = process.env.EMAIL_USER;
     this.emailPassword = process.env.EMAIL_PASSWORD;
 
-    console.log("EMAIL ", emailUser);
-    console.log("PASS ", emailPassword);
-    
-    
     // Check if email is configured
     this.isConfigured = !!(this.emailUser && this.emailPassword);
+    
+    // Log environment information for debugging
+    const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
+    console.log('📧 Email Service Configuration:');
+    console.log('  Environment:', isCloudEnvironment ? 'Cloud (Render/Heroku)' : 'Local');
+    console.log('  Configured:', this.isConfigured ? 'Yes' : 'No');
+    console.log('  EMAIL_USER:', this.emailUser ? `${this.emailUser.substring(0, 3)}***` : 'Not set');
+    console.log('  EMAIL_PASSWORD:', this.emailPassword ? 'Set' : 'Not set');
     
     // Don't create transporter here - create it dynamically with fallback
     // This allows us to try different ports if one fails
     if (!this.isConfigured) {
-      console.warn('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+      console.warn('⚠️  Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+    } else {
+      console.log('✅ Email service is ready (nodemailer with Gmail SMTP)');
     }
   }
 
   // Create transporter with optimized settings for cloud environments
   // Supports both port 587 (TLS) and port 465 (SSL) as fallback
+  // Enhanced for Render and other cloud platforms
   createTransporter(port = 587) {
     // Remove spaces from password (Gmail App Passwords sometimes have spaces)
     const cleanPassword = (this.emailPassword || '').replace(/\s/g, '');
     
+    // Detect if running on cloud platform (Render, Heroku, etc.)
+    const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
+    
+    // Use longer timeouts for cloud environments where network latency is higher
+    const connectionTimeout = isCloudEnvironment ? 60000 : 30000; // 60s cloud, 30s local
+    const greetingTimeout = isCloudEnvironment ? 30000 : 15000; // 30s cloud, 15s local
+    const socketTimeout = isCloudEnvironment ? 60000 : 30000; // 60s cloud, 30s local
+    
     if (port === 465) {
-      // SSL connection (port 465) - more reliable in some cloud environments
+      // SSL connection (port 465) - more reliable in cloud environments like Render
       return nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 465,
@@ -43,11 +59,19 @@ class EmailService {
           rejectUnauthorized: true, // Verify certificate
           minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
         },
-        // Optimized timeout settings for cloud environments (Render, etc.)
-        // Set to 15 seconds to fail fast and try fallback port quickly
-        connectionTimeout: 15000, // 15 seconds
-        greetingTimeout: 15000,
-        socketTimeout: 15000,
+        // Optimized timeout settings for cloud environments
+        connectionTimeout: connectionTimeout,
+        greetingTimeout: greetingTimeout,
+        socketTimeout: socketTimeout,
+        // Connection pool settings for better reliability
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 3,
+        // Retry settings
+        retry: {
+          attempts: 3,
+          delay: 2000
+        }
       });
     } else {
       // TLS connection (port 587) - standard port
@@ -64,10 +88,19 @@ class EmailService {
           rejectUnauthorized: true, // Verify certificate
           minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
         },
-        // Optimized timeout settings - set to 15 seconds to fail fast
-        connectionTimeout: 15000, // 15 seconds
-        greetingTimeout: 15000,
-        socketTimeout: 15000,
+        // Optimized timeout settings
+        connectionTimeout: connectionTimeout,
+        greetingTimeout: greetingTimeout,
+        socketTimeout: socketTimeout,
+        // Connection pool settings for better reliability
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 3,
+        // Retry settings
+        retry: {
+          attempts: 3,
+          delay: 2000
+        }
       });
     }
   }
@@ -199,8 +232,8 @@ class EmailService {
     }
 
     // Ensure payment link exists (fallback if not provided)
-    // Use CLIENT_BASE_URL or FRONTEND_URL for production
-    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app';
+    // Use centralized FRONTEND_URL from config
+    const baseUrl = FRONTEND_URL;
     const finalPaymentLink = paymentLink || `${baseUrl}/payment/${invoiceData._id}`;
 
     const htmlContent = this.generateInvoiceEmailHTML(invoiceData, patientData, finalPaymentLink);
@@ -219,24 +252,35 @@ class EmailService {
     console.log(`📧 Sending invoice email to ${recipientEmail}...`);
     const startTime = Date.now();
     
-    // Try port 587 first (TLS) with 25 second timeout
+    // Detect cloud environment for timeout adjustment
+    const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
+    const timeoutMs = isCloudEnvironment ? 90000 : 45000; // 90s cloud, 45s local
+    
+    // Try port 587 first (TLS)
     let lastError = null;
     
     try {
       console.log('🔄 Attempting connection on port 587 (TLS)...');
       const transporter = this.createTransporter(587);
       
-      // Send email with timeout wrapper (20 seconds per port attempt)
-      // This ensures we don't wait too long before trying fallback
+      // Verify connection first (helps catch issues early)
+      console.log('🔍 Verifying SMTP connection...');
+      await transporter.verify();
+      console.log('✅ SMTP connection verified');
+      
+      // Send email with timeout wrapper
       const sendPromise = transporter.sendMail(mailOptions);
       const result = await this.withTimeout(
         sendPromise,
-        20000, // 20 seconds total timeout per port
-        'Port 587 connection timeout after 20 seconds'
+        timeoutMs,
+        `Port 587 connection timeout after ${timeoutMs/1000} seconds`
       );
       
       const duration = Date.now() - startTime;
       console.log(`✅ Invoice email sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
+      
+      // Close connection pool
+      transporter.close();
       return result;
       
     } catch (error) {
@@ -245,37 +289,48 @@ class EmailService {
                            error.code === 'ETIMEOUT' || 
                            error.code === 'ECONNECTION' || 
                            error.code === 'ESOCKET' ||
+                           error.code === 'ETIMEOUT' ||
                            error.message?.includes('timeout');
       
       console.error('❌ Port 587 failed:', {
         code: error.code,
         message: error.message,
-        isTimeout: isTimeoutError
+        isTimeout: isTimeoutError,
+        environment: isCloudEnvironment ? 'cloud' : 'local'
       });
       
       // Try port 465 (SSL) as fallback if connection/timeout error
-      if (isTimeoutError) {
+      if (isTimeoutError || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         console.log('🔄 Trying port 465 (SSL) as fallback...');
         
         try {
           const transporter465 = this.createTransporter(465);
           
-          // Send email with timeout wrapper (20 seconds)
+          // Verify connection first
+          console.log('🔍 Verifying SMTP connection (port 465)...');
+          await transporter465.verify();
+          console.log('✅ SMTP connection verified (port 465)');
+          
+          // Send email with timeout wrapper
           const sendPromise465 = transporter465.sendMail(mailOptions);
           const result = await this.withTimeout(
             sendPromise465,
-            20000, // 20 seconds total timeout per port
-            'Port 465 connection timeout after 20 seconds'
+            timeoutMs,
+            `Port 465 connection timeout after ${timeoutMs/1000} seconds`
           );
           
           const duration = Date.now() - startTime;
           console.log(`✅ Invoice email sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
+          
+          // Close connection pool
+          transporter465.close();
           return result;
           
         } catch (fallbackError) {
           console.error('❌ Port 465 also failed:', {
             code: fallbackError.code,
-            message: fallbackError.message
+            message: fallbackError.message,
+            environment: isCloudEnvironment ? 'cloud' : 'local'
           });
           lastError = fallbackError;
         }
@@ -285,14 +340,25 @@ class EmailService {
     // If both ports failed, throw a helpful error
     const duration = Date.now() - startTime;
     console.error(`❌ Failed to send email after ${duration}ms. Both ports (587 and 465) failed.`);
+    console.error('Environment:', isCloudEnvironment ? 'Cloud (Render/Heroku)' : 'Local');
+    console.error('Last error details:', {
+      code: lastError?.code,
+      message: lastError?.message,
+      stack: lastError?.stack
+    });
     
     // Provide helpful error message based on error type
-    if (lastError.message?.includes('timeout') || lastError.code === 'ETIMEDOUT' || lastError.code === 'ECONNECTION' || lastError.code === 'ETIMEOUT') {
-      throw new Error('Connection timeout: Unable to connect to Gmail SMTP within 20 seconds. This may be due to network restrictions or Gmail blocking connections from this server. Please try again or contact support.');
-    } else if (lastError.code === 'EAUTH') {
+    if (lastError?.message?.includes('timeout') || lastError?.code === 'ETIMEDOUT' || lastError?.code === 'ECONNECTION' || lastError?.code === 'ETIMEOUT') {
+      const envHint = isCloudEnvironment 
+        ? ' On cloud platforms like Render, this may be due to network restrictions, firewall rules, or Gmail blocking connections. Try using port 465 (SSL) or check Render\'s network settings.'
+        : ' Check your internet connection and firewall settings.';
+      throw new Error(`Connection timeout: Unable to connect to Gmail SMTP within ${timeoutMs/1000} seconds.${envHint}`);
+    } else if (lastError?.code === 'EAUTH') {
       throw new Error('Authentication failed: Please verify your EMAIL_USER and EMAIL_PASSWORD are correct. Make sure you are using a Gmail App Password, not your regular password.');
+    } else if (lastError?.code === 'ECONNREFUSED' || lastError?.code === 'ENOTFOUND') {
+      throw new Error('Connection refused: Unable to reach Gmail SMTP server. This may be due to network restrictions or DNS issues. If on Render, check firewall settings.');
     } else {
-      throw new Error(`Failed to send email: ${lastError.message || 'Unknown error'}`);
+      throw new Error(`Failed to send email: ${lastError?.message || 'Unknown error'} (Code: ${lastError?.code || 'N/A'})`);
     }
   }
 
@@ -445,7 +511,8 @@ class EmailService {
     }
 
     // Ensure payment link exists (fallback if not provided)
-    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app';
+    // Use centralized FRONTEND_URL from config
+    const baseUrl = FRONTEND_URL;
     const finalPaymentLink = paymentLink || `${baseUrl}/payment/${invoiceData._id}`;
 
     const htmlContent = `
@@ -503,20 +570,31 @@ class EmailService {
     console.log(`📧 Sending payment reminder to ${recipientEmail}...`);
     const startTime = Date.now();
     
-    // Try port 587 first (TLS) with timeout
+    // Detect cloud environment for timeout adjustment
+    const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
+    const timeoutMs = isCloudEnvironment ? 90000 : 45000; // 90s cloud, 45s local
+    
+    // Try port 587 first (TLS)
     let lastError = null;
     
     try {
+      console.log('🔄 Attempting connection on port 587 (TLS) for payment reminder...');
       const transporter = this.createTransporter(587);
+      
+      // Verify connection first
+      await transporter.verify();
+      
       const sendPromise = transporter.sendMail(mailOptions);
       const result = await this.withTimeout(
         sendPromise,
-        20000, // 20 seconds total timeout per port
-        'Port 587 connection timeout after 20 seconds'
+        timeoutMs,
+        `Port 587 connection timeout after ${timeoutMs/1000} seconds`
       );
       
       const duration = Date.now() - startTime;
       console.log(`✅ Payment reminder sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
+      
+      transporter.close();
       return result;
       
     } catch (error) {
@@ -527,27 +605,38 @@ class EmailService {
                            error.code === 'ESOCKET' ||
                            error.message?.includes('timeout');
       
-      console.error('❌ Port 587 failed for payment reminder:', error.code);
+      console.error('❌ Port 587 failed for payment reminder:', {
+        code: error.code,
+        message: error.message,
+        isTimeout: isTimeoutError
+      });
       
       // Try port 465 (SSL) as fallback
-      if (isTimeoutError) {
+      if (isTimeoutError || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
         console.log('🔄 Trying port 465 (SSL) as fallback for payment reminder...');
         
         try {
           const transporter465 = this.createTransporter(465);
+          await transporter465.verify();
+          
           const sendPromise465 = transporter465.sendMail(mailOptions);
           const result = await this.withTimeout(
             sendPromise465,
-            20000, // 20 seconds total timeout per port
-            'Port 465 connection timeout after 20 seconds'
+            timeoutMs,
+            `Port 465 connection timeout after ${timeoutMs/1000} seconds`
           );
           
           const duration = Date.now() - startTime;
           console.log(`✅ Payment reminder sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
+          
+          transporter465.close();
           return result;
           
         } catch (fallbackError) {
-          console.error('❌ Port 465 also failed for payment reminder:', fallbackError.code);
+          console.error('❌ Port 465 also failed for payment reminder:', {
+            code: fallbackError.code,
+            message: fallbackError.message
+          });
           lastError = fallbackError;
         }
       }
@@ -562,27 +651,37 @@ class EmailService {
   // Test email configuration - tries both ports
   async testConnection() {
     if (!this.isConfigured) {
-      console.error('Email service is not configured');
+      console.error('❌ Email service is not configured');
       return false;
     }
 
+    const isCloudEnvironment = process.env.RENDER || process.env.HEROKU || process.env.NODE_ENV === 'production';
+    console.log('🧪 Testing email connection...');
+    console.log('  Environment:', isCloudEnvironment ? 'Cloud' : 'Local');
+
     // Try port 587 first
     try {
+      console.log('  Testing port 587 (TLS)...');
       const transporter = this.createTransporter(587);
       await transporter.verify();
       console.log('✅ Email service is ready (port 587)');
+      transporter.close();
       return true;
     } catch (error) {
-      console.warn('⚠️ Port 587 test failed, trying port 465...');
+      console.warn('⚠️  Port 587 test failed:', error.code || error.message);
+      console.log('  Trying port 465 (SSL) as fallback...');
       
       // Try port 465 as fallback
       try {
         const transporter465 = this.createTransporter(465);
         await transporter465.verify();
         console.log('✅ Email service is ready (port 465)');
+        transporter465.close();
         return true;
       } catch (fallbackError) {
-        console.error('❌ Email service configuration error (both ports failed):', fallbackError);
+        console.error('❌ Email service configuration error (both ports failed):');
+        console.error('  Port 587 error:', error.code, error.message);
+        console.error('  Port 465 error:', fallbackError.code, fallbackError.message);
         return false;
       }
     }

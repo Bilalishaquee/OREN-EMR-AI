@@ -7,6 +7,7 @@ import FormToken from '../models/FormToken.js';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import sgMail from '@sendgrid/mail';
+import { FRONTEND_URL } from '../config/constants.js';
 
 // Set SendGrid API key if available
 if (process.env.SENDGRID_API_KEY) {
@@ -807,8 +808,8 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
     // Save the form token to the database
     await formToken.save();
 
-    // Base URL from environment - use FRONTEND_URL as fallback
-    const baseUrl = process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://oren-emr-ai-ashen.vercel.app/';
+    // Base URL from centralized config
+    const baseUrl = FRONTEND_URL;
     const formLink = `${baseUrl}/patients/form/${token}?lang=${language}`;
 
     // Sender email already determined at the top - no need to check again
