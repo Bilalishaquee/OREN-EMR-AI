@@ -39,10 +39,11 @@ class EmailService {
           rejectUnauthorized: true, // Verify certificate
           minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
         },
-        // Increased timeout settings for cloud environments (Render, etc.)
-        connectionTimeout: 30000, // 30 seconds
-        greetingTimeout: 30000,
-        socketTimeout: 30000,
+        // Optimized timeout settings for cloud environments (Render, etc.)
+        // Set to 15 seconds to fail fast and try fallback port quickly
+        connectionTimeout: 15000, // 15 seconds
+        greetingTimeout: 15000,
+        socketTimeout: 15000,
       });
     } else {
       // TLS connection (port 587) - standard port
@@ -59,10 +60,10 @@ class EmailService {
           rejectUnauthorized: true, // Verify certificate
           minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
         },
-        // Increased timeout settings for cloud environments
-        connectionTimeout: 30000, // 30 seconds
-        greetingTimeout: 30000,
-        socketTimeout: 30000,
+        // Optimized timeout settings - set to 15 seconds to fail fast
+        connectionTimeout: 15000, // 15 seconds
+        greetingTimeout: 15000,
+        socketTimeout: 15000,
       });
     }
   }
@@ -176,9 +177,18 @@ class EmailService {
     `;
   }
 
+  // Helper: Add timeout wrapper to prevent hanging
+  async withTimeout(promise, timeoutMs, errorMessage) {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+    });
+    return Promise.race([promise, timeoutPromise]);
+  }
+
   // Send invoice email - OPTIMIZED: PDF attachment removed for faster sending
   // The HTML email contains all invoice details and payment link, which is sufficient
   // Includes fallback mechanism: tries port 587 first, then port 465 if connection fails
+  // Uses timeout wrapper to prevent hanging indefinitely
   async sendInvoiceEmail(invoiceData, patientData, paymentLink, recipientEmail) {
     if (!this.isConfigured) {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
@@ -205,50 +215,55 @@ class EmailService {
     console.log(`📧 Sending invoice email to ${recipientEmail}...`);
     const startTime = Date.now();
     
-    // Try port 587 first (TLS)
+    // Try port 587 first (TLS) with 25 second timeout
     let lastError = null;
     
     try {
       console.log('🔄 Attempting connection on port 587 (TLS)...');
       const transporter = this.createTransporter(587);
       
-      // Verify connection first (optional, but helps catch issues early)
-      try {
-        await transporter.verify();
-        console.log('✅ SMTP connection verified on port 587');
-      } catch (verifyError) {
-        console.warn('⚠️ SMTP verification failed on port 587, attempting to send anyway...');
-      }
+      // Send email with timeout wrapper (20 seconds per port attempt)
+      // This ensures we don't wait too long before trying fallback
+      const sendPromise = transporter.sendMail(mailOptions);
+      const result = await this.withTimeout(
+        sendPromise,
+        20000, // 20 seconds total timeout per port
+        'Port 587 connection timeout after 20 seconds'
+      );
       
-      const result = await transporter.sendMail(mailOptions);
       const duration = Date.now() - startTime;
       console.log(`✅ Invoice email sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
       return result;
       
     } catch (error) {
       lastError = error;
+      const isTimeoutError = error.code === 'ETIMEDOUT' || 
+                           error.code === 'ETIMEOUT' || 
+                           error.code === 'ECONNECTION' || 
+                           error.code === 'ESOCKET' ||
+                           error.message?.includes('timeout');
+      
       console.error('❌ Port 587 failed:', {
         code: error.code,
         message: error.message,
-        command: error.command
+        isTimeout: isTimeoutError
       });
       
       // Try port 465 (SSL) as fallback if connection/timeout error
-      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION' || error.code === 'ESOCKET' || error.code === 'ETIMEOUT') {
+      if (isTimeoutError) {
         console.log('🔄 Trying port 465 (SSL) as fallback...');
         
         try {
           const transporter465 = this.createTransporter(465);
           
-          // Verify fallback connection
-          try {
-            await transporter465.verify();
-            console.log('✅ SMTP connection verified on port 465');
-          } catch (verifyError) {
-            console.warn('⚠️ SMTP verification failed on port 465, attempting to send anyway...');
-          }
+          // Send email with timeout wrapper (20 seconds)
+          const sendPromise465 = transporter465.sendMail(mailOptions);
+          const result = await this.withTimeout(
+            sendPromise465,
+            20000, // 20 seconds total timeout per port
+            'Port 465 connection timeout after 20 seconds'
+          );
           
-          const result = await transporter465.sendMail(mailOptions);
           const duration = Date.now() - startTime;
           console.log(`✅ Invoice email sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
           return result;
@@ -256,8 +271,7 @@ class EmailService {
         } catch (fallbackError) {
           console.error('❌ Port 465 also failed:', {
             code: fallbackError.code,
-            message: fallbackError.message,
-            command: fallbackError.command
+            message: fallbackError.message
           });
           lastError = fallbackError;
         }
@@ -269,8 +283,8 @@ class EmailService {
     console.error(`❌ Failed to send email after ${duration}ms. Both ports (587 and 465) failed.`);
     
     // Provide helpful error message based on error type
-    if (lastError.code === 'ETIMEDOUT' || lastError.code === 'ECONNECTION' || lastError.code === 'ETIMEOUT') {
-      throw new Error('Connection timeout: Unable to connect to Gmail SMTP. This may be due to network restrictions or Gmail blocking connections from this server. Please try again or contact support.');
+    if (lastError.message?.includes('timeout') || lastError.code === 'ETIMEDOUT' || lastError.code === 'ECONNECTION' || lastError.code === 'ETIMEOUT') {
+      throw new Error('Connection timeout: Unable to connect to Gmail SMTP within 20 seconds. This may be due to network restrictions or Gmail blocking connections from this server. Please try again or contact support.');
     } else if (lastError.code === 'EAUTH') {
       throw new Error('Authentication failed: Please verify your EMAIL_USER and EMAIL_PASSWORD are correct. Make sure you are using a Gmail App Password, not your regular password.');
     } else {
@@ -420,7 +434,7 @@ class EmailService {
     }
   }
 
-  // Send payment reminder - with fallback mechanism
+  // Send payment reminder - with fallback mechanism and timeout
   async sendPaymentReminder(invoiceData, patientData, paymentLink, recipientEmail) {
     if (!this.isConfigured) {
       throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
@@ -485,27 +499,45 @@ class EmailService {
     console.log(`📧 Sending payment reminder to ${recipientEmail}...`);
     const startTime = Date.now();
     
-    // Try port 587 first (TLS)
+    // Try port 587 first (TLS) with timeout
     let lastError = null;
     
     try {
       const transporter = this.createTransporter(587);
-      const result = await transporter.sendMail(mailOptions);
+      const sendPromise = transporter.sendMail(mailOptions);
+      const result = await this.withTimeout(
+        sendPromise,
+        20000, // 20 seconds total timeout per port
+        'Port 587 connection timeout after 20 seconds'
+      );
+      
       const duration = Date.now() - startTime;
       console.log(`✅ Payment reminder sent successfully in ${duration}ms (port 587). Message ID: ${result.messageId}`);
       return result;
       
     } catch (error) {
       lastError = error;
+      const isTimeoutError = error.code === 'ETIMEDOUT' || 
+                           error.code === 'ETIMEOUT' || 
+                           error.code === 'ECONNECTION' || 
+                           error.code === 'ESOCKET' ||
+                           error.message?.includes('timeout');
+      
       console.error('❌ Port 587 failed for payment reminder:', error.code);
       
       // Try port 465 (SSL) as fallback
-      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION' || error.code === 'ESOCKET' || error.code === 'ETIMEOUT') {
+      if (isTimeoutError) {
         console.log('🔄 Trying port 465 (SSL) as fallback for payment reminder...');
         
         try {
           const transporter465 = this.createTransporter(465);
-          const result = await transporter465.sendMail(mailOptions);
+          const sendPromise465 = transporter465.sendMail(mailOptions);
+          const result = await this.withTimeout(
+            sendPromise465,
+            20000, // 20 seconds total timeout per port
+            'Port 465 connection timeout after 20 seconds'
+          );
+          
           const duration = Date.now() - startTime;
           console.log(`✅ Payment reminder sent successfully in ${duration}ms (port 465). Message ID: ${result.messageId}`);
           return result;

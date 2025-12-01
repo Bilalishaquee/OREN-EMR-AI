@@ -71,42 +71,40 @@ router.post('/send-invoice-email/:invoiceId', authenticateToken, async (req, res
       await invoice.save();
     }
 
-    // Send email
-    try {
-      await emailService.sendInvoiceEmail(
-        invoice,
-        invoice.patient,
-        paymentLink,
-        recipientEmail
-      );
-
-      // Update invoice
-      invoice.emailSent = true;
-      invoice.emailSentAt = new Date();
-      await invoice.save();
-
-      res.json({
-        success: true,
-        message: 'Invoice email sent successfully',
-        data: {
-          emailSent: true,
-          paymentLink: paymentLink,
-          stripeSessionId: invoice.stripeSessionId
-        }
+    // Send email asynchronously to prevent timeout
+    // Return immediately to client, process email in background
+    emailService.sendInvoiceEmail(
+      invoice,
+      invoice.patient,
+      paymentLink,
+      recipientEmail
+    )
+    .then(() => {
+      // Update invoice after successful email
+      Billing.findByIdAndUpdate(invoiceId, {
+        emailSent: true,
+        emailSentAt: new Date()
+      }).catch(err => {
+        console.error('Error updating invoice email status:', err);
       });
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to send email',
-        error: emailError.message,
-        data: {
-          emailSent: false,
-          error: emailError.message,
-          paymentLink: paymentLink
-        }
-      });
-    }
+      console.log(`✅ Invoice email sent successfully to ${recipientEmail}`);
+    })
+    .catch((emailError) => {
+      console.error('❌ Error sending invoice email in background:', emailError);
+      // Log error but don't fail the request since we already returned success
+    });
+
+    // Return immediately - email is being processed in background
+    res.json({
+      success: true,
+      message: 'Invoice email is being sent. Please allow a few moments for delivery.',
+      data: {
+        emailQueued: true,
+        emailSent: false, // Will be updated in background
+        paymentLink: paymentLink,
+        stripeSessionId: invoice.stripeSessionId
+      }
+    });
   } catch (error) {
     console.error('Error in send-invoice-email:', error);
     res.status(500).json({

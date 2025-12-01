@@ -237,12 +237,16 @@ const BillingList: React.FC<BillingListProps> = ({
       console.log(`✅ Email response received in ${duration}ms:`, response.data);
 
       if (response.data.success) {
-        // Check if email was actually sent
-        if (response.data.data && response.data.data.emailSent) {
+        // Check if email was sent or queued (async processing)
+        if (response.data.data && (response.data.data.emailSent || response.data.data.emailQueued)) {
           setShowEmailModal(false);
           setSelectedInvoice(null);
           setEmailAddress('');
-          alert('Invoice email sent successfully!');
+          if (response.data.data.emailQueued) {
+            alert('Invoice email is being sent! Please allow a few moments for delivery.');
+          } else {
+            alert('Invoice email sent successfully!');
+          }
         } else {
           // Email sending failed but API returned success
           const errorMsg = response.data.data?.error || response.data.message || 'Email sending failed';

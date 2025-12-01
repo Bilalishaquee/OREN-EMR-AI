@@ -204,10 +204,15 @@ const InvoiceDetails: React.FC = () => {
       );
 
       if (response.data.success) {
-        if (response.data.data && response.data.data.emailSent) {
+        // Check if email was sent or queued (async processing)
+        if (response.data.data && (response.data.data.emailSent || response.data.data.emailQueued)) {
           setShowEmailModal(false);
           setEmailAddress('');
-          alert('Invoice email sent successfully!');
+          if (response.data.data.emailQueued) {
+            alert('Invoice email is being sent! Please allow a few moments for delivery.');
+          } else {
+            alert('Invoice email sent successfully!');
+          }
         } else {
           const errorMsg = response.data.data?.error || response.data.message || 'Email sending failed';
           alert(`Failed to send email: ${errorMsg}. Please check your email configuration.`);
