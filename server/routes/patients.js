@@ -4,18 +4,9 @@ import { Visit, InitialVisit, FollowupVisit, DischargeVisit } from '../models/Vi
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import Counter from '../models/Counter.js';
 import FormToken from '../models/FormToken.js';
-import nodemailer from 'nodemailer';
 import crypto from 'crypto';
-import sgMail from '@sendgrid/mail';
 import { FRONTEND_URL } from '../config/constants.js';
-
-// Set SendGrid API key if available
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  console.log('SendGrid API key configured');
-} else {
-  console.warn('SendGrid API key not found in environment variables');
-}
+import emailService from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -715,76 +706,11 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    // CRITICAL: Check email configuration FIRST before doing anything else
-    // This allows the system to work with either SendGrid (EMAIL_FROM) or Gmail (EMAIL_USER)
-    // Handle empty strings, whitespace, and null/undefined values
-    // IMPORTANT: Check that values exist AND are not empty strings
-    const rawEmailFrom = process.env.EMAIL_FROM;
-    const rawEmailUser = process.env.EMAIL_USER;
-    
-    // Helper function to check if a value is a valid non-empty email string
-    const isValidEmailString = (val) => {
-      return val && typeof val === 'string' && val.trim().length > 0;
-    };
-    
-    const emailFrom = isValidEmailString(rawEmailFrom) ? rawEmailFrom.trim() : '';
-    const emailUser = isValidEmailString(rawEmailUser) ? rawEmailUser.trim() : '';
-    const senderEmail = emailFrom || emailUser;
-    
-    // IMPORTANT: Check environment variables immediately and log them
-    // This helps debug if env vars are not being loaded
-    const envCheck = {
-      EMAIL_FROM_exists: rawEmailFrom !== undefined && rawEmailFrom !== null,
-      EMAIL_FROM_type: typeof rawEmailFrom,
-      EMAIL_FROM_length: rawEmailFrom ? rawEmailFrom.length : 0,
-      EMAIL_FROM_trimmed: emailFrom ? 'SET' : 'EMPTY',
-      EMAIL_USER_exists: rawEmailUser !== undefined && rawEmailUser !== null,
-      EMAIL_USER_type: typeof rawEmailUser,
-      EMAIL_USER_length: rawEmailUser ? rawEmailUser.length : 0,
-      EMAIL_USER_trimmed: emailUser ? 'SET' : 'EMPTY',
-      SENDGRID_API_KEY: process.env.SENDGRID_API_KEY ? 'SET' : 'NOT SET',
-      EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'SET' : 'NOT SET',
-      senderEmail_determined: senderEmail ? 'YES' : 'NO',
-      senderEmail_length: senderEmail ? senderEmail.length : 0
-    };
-    
-    console.log('=== EMAIL CONFIGURATION CHECK ===');
-    console.log(JSON.stringify(envCheck, null, 2));
-    if (emailUser) {
-      console.log('EMAIL_USER value (first 5 chars):', emailUser.substring(0, 5) + '...');
-    }
-    if (emailFrom) {
-      console.log('EMAIL_FROM value (first 5 chars):', emailFrom.substring(0, 5) + '...');
-    }
-    console.log('Sender email determined:', senderEmail ? `${senderEmail.substring(0, 5)}...` : 'NONE');
-    console.log('Raw EMAIL_FROM:', rawEmailFrom ? `"${rawEmailFrom.substring(0, 10)}..."` : rawEmailFrom);
-    console.log('Raw EMAIL_USER:', rawEmailUser ? `"${rawEmailUser.substring(0, 10)}..."` : rawEmailUser);
-    console.log('================================');
-    
-    // FAIL FAST: If no sender email is configured, return error immediately
-    if (!senderEmail || senderEmail.trim() === '' || senderEmail.length === 0) {
-      console.error('=== EMAIL CONFIGURATION ERROR ===');
-      console.error('No sender email found. Environment variables:', envCheck);
-      console.error('Raw values check:');
-      console.error('  process.env.EMAIL_FROM:', typeof process.env.EMAIL_FROM, process.env.EMAIL_FROM ? `"${process.env.EMAIL_FROM.substring(0, 20)}..."` : process.env.EMAIL_FROM);
-      console.error('  process.env.EMAIL_USER:', typeof process.env.EMAIL_USER, process.env.EMAIL_USER ? `"${process.env.EMAIL_USER.substring(0, 20)}..."` : process.env.EMAIL_USER);
-      console.error('================================');
-      
-      // Return detailed error with actual values for debugging
+    // Check if email service is configured
+    if (!emailService.isConfigured) {
       return res.status(500).json({ 
-        message: 'Sender email is not configured. Please set EMAIL_FROM or EMAIL_USER in your server environment variables.',
-        error: 'EMAIL_CONFIGURATION_MISSING',
-        debug: {
-          EMAIL_FROM_exists: rawEmailFrom !== undefined && rawEmailFrom !== null,
-          EMAIL_FROM_hasValue: !!emailFrom,
-          EMAIL_FROM_length: rawEmailFrom ? rawEmailFrom.length : 0,
-          EMAIL_USER_exists: rawEmailUser !== undefined && rawEmailUser !== null,
-          EMAIL_USER_hasValue: !!emailUser,
-          EMAIL_USER_length: rawEmailUser ? rawEmailUser.length : 0,
-          SENDGRID_API_KEY_set: !!process.env.SENDGRID_API_KEY,
-          EMAIL_PASSWORD_set: !!process.env.EMAIL_PASSWORD,
-          note: 'Ensure variables have non-empty values in Render dashboard Environment tab'
-        }
+        message: 'Email service is not configured. Please set SENDGRID_API_KEY or EMAIL_USER and EMAIL_PASSWORD in your server environment variables.',
+        error: 'EMAIL_SERVICE_NOT_CONFIGURED'
       });
     }
 
@@ -801,8 +727,8 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
       createdBy: req.user.id,
       language,
       status: 'sent',
-      patientId: patientId || null, // If we have a patient ID, associate it
-      formTemplateId: formTemplateId || null // If we have a form template ID, associate it
+      patientId: patientId || null,
+      formTemplateId: formTemplateId || null
     });
 
     // Save the form token to the database
@@ -812,357 +738,32 @@ router.post('/send-to-client', authenticateToken, async (req, res) => {
     const baseUrl = FRONTEND_URL;
     const formLink = `${baseUrl}/patients/form/${token}?lang=${language}`;
 
-    // Sender email already determined at the top - no need to check again
-    console.log('Using sender email:', senderEmail.substring(0, 5) + '...');
+    // Send response immediately - process email in background
+    res.json({
+      success: true,
+      message: 'Form link is being sent. Please allow a few moments for delivery.',
+      formLink,
+      token,
+      emailQueued: true,
+      emailSent: false
+    });
 
-    const subject = language === 'spanish' ?
-      'Complete su formulario médico - The Wellness Studio' :
-      'Complete Your Medical Form - The Wellness Studio';
-
-    const text = language === 'spanish' ?
-      `Por favor complete su formulario médico utilizando el siguiente enlace: ${formLink}` :
-      `Please complete your medical form using the following link: ${formLink}`;
-
-    // Create HTML content for the email
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: #333;">${language === 'spanish' ? 'Complete su formulario médico' : 'Complete Your Medical Form'}</h2>
-        <p style="color: #666; line-height: 1.5;">
-          ${language === 'spanish' ?
-        `Hola ${clientName},<br><br>Por favor haga clic en el enlace a continuación para completar su formulario médico:` :
-        `Hello ${clientName},<br><br>Please click the link below to complete your medical form:`}
-        </p>
-        ${instructions ? `
-        <p style="color: #666; line-height: 1.5; background-color: #f9f9f9; padding: 10px; border-left: 4px solid #4a90e2;">
-          <strong>${language === 'spanish' ? 'Instrucciones especiales:' : 'Special instructions:'}</strong><br>
-          ${instructions}
-        </p>
-        ` : ''}
-        <p style="margin: 25px 0;">
-          <a href="${formLink}" style="background-color: #4a90e2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">
-            ${language === 'spanish' ? 'Completar Formulario' : 'Complete Form'}
-          </a>
-        </p>
-        <p style="color: #999; font-size: 0.9em;">
-          ${language === 'spanish' ?
-        'Si tiene problemas con el enlace, puede copiar y pegar esta URL en su navegador:' :
-        'If you have trouble with the link, you can copy and paste this URL into your browser:'}
-          <br>
-          <span style="color: #4a90e2;">${formLink}</span>
-        </p>
-      </div>
-    `;
-
-    // Send email using SendGrid if available, otherwise use nodemailer
-    try {
-      let emailSent = false;
-      
-      // Try SendGrid first if API key is configured
-      // BUT: If SendGrid fails with auth errors, skip it and go straight to Gmail
-      const shouldTrySendGrid = process.env.SENDGRID_API_KEY && process.env.SENDGRID_API_KEY.trim();
-      
-      if (shouldTrySendGrid) {
-        try {
-          console.log('=== Attempting SendGrid ===');
-          console.log('SendGrid from email:', senderEmail);
-          console.log('SendGrid to email:', email);
-          
-          const msg = {
-            to: email,
-            from: senderEmail, // Must be a verified sender in SendGrid
-            subject: subject,
-            text: text,
-            html: htmlContent,
-          };
-          
-          const response = await sgMail.send(msg);
-          console.log('✅ Email sent successfully with SendGrid:', response);
-          emailSent = true;
-        } catch (sendgridError) {
-          const statusCode = sendgridError.response?.statusCode;
-          const errorBody = sendgridError.response?.body;
-          
-          console.error('❌ SendGrid email failed:', {
-            message: sendgridError.message,
-            code: sendgridError.code,
-            statusCode: statusCode,
-            errorBody: errorBody
-          });
-          
-          // If SendGrid fails with unauthorized/forbidden, skip it permanently for this request
-          if (statusCode === 401 || statusCode === 403 || sendgridError.message?.includes('Unauthorized')) {
-            console.error('SendGrid authorization failed. Skipping SendGrid and using Gmail only.');
-            console.error('Common causes:');
-            console.error('  1. Invalid API key');
-            console.error('  2. From email (' + senderEmail + ') not verified in SendGrid dashboard');
-            console.error('  3. API key lacks mail.send permission');
-            // Don't try SendGrid again - go straight to Gmail
-          } else {
-            console.log('SendGrid failed with non-auth error, will try Gmail as fallback');
-          }
-        }
-      } else {
-        console.log('SendGrid API key not configured, using nodemailer/Gmail directly');
+    // Now process email sending in background (non-blocking)
+    (async () => {
+      try {
+        await emailService.sendFormLinkEmail(email, clientName, formLink, instructions, language);
+        console.log(`✅ Form link email sent successfully to ${email}`);
+      } catch (emailError) {
+        console.error('❌ Error sending form link email in background:', emailError);
+        console.error('Error message:', emailError?.message);
+        console.error('Error code:', emailError?.code);
       }
-      
-      // Use nodemailer if SendGrid is not configured or failed
-      if (!emailSent) {
-        console.log('=== Attempting Gmail/nodemailer ===');
-        
-        // For nodemailer/Gmail, we need EMAIL_USER for authentication
-        // IMPORTANT: We must use EMAIL_USER (not senderEmail) because Gmail auth requires the actual Gmail account
-        // But we use senderEmail (EMAIL_FROM or EMAIL_USER) as the "from" field in the email
-        const emailUserForAuth = isValidEmailString(process.env.EMAIL_USER) ? process.env.EMAIL_USER.trim() : '';
-        const emailPassword = process.env.EMAIL_PASSWORD && process.env.EMAIL_PASSWORD.trim() ? process.env.EMAIL_PASSWORD.trim() : '';
-        
-        console.log('Gmail configuration check:');
-        console.log('  EMAIL_USER exists:', !!process.env.EMAIL_USER);
-        console.log('  EMAIL_USER length:', process.env.EMAIL_USER ? process.env.EMAIL_USER.length : 0);
-        console.log('  EMAIL_USER valid:', !!emailUserForAuth);
-        console.log('  EMAIL_PASSWORD exists:', !!process.env.EMAIL_PASSWORD);
-        console.log('  EMAIL_PASSWORD length:', process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0);
-        console.log('  EMAIL_PASSWORD valid:', !!emailPassword);
-        
-        if (!emailUserForAuth || !emailPassword) {
-          console.error('❌ Nodemailer configuration missing:', {
-            EMAIL_USER: emailUserForAuth ? 'SET' : 'NOT SET',
-            EMAIL_USER_length: emailUserForAuth ? emailUserForAuth.length : 0,
-            EMAIL_PASSWORD: emailPassword ? 'SET' : 'NOT SET',
-            EMAIL_PASSWORD_length: emailPassword ? emailPassword.length : 0
-          });
-          throw new Error('Email service is not configured. Please set EMAIL_USER and EMAIL_PASSWORD (both must be non-empty) in Render dashboard environment variables.');
-        }
-        
-        console.log('Gmail credentials validated. Creating transporter...');
-        
-        // Create nodemailer transporter with explicit Gmail SMTP settings
-        // Using explicit SMTP is more reliable than 'gmail' service
-        // Remove spaces from password (Gmail App Passwords sometimes have spaces)
-        const cleanPassword = emailPassword.replace(/\s/g, '');
-        
-        console.log('Creating nodemailer transporter with Gmail SMTP...');
-        console.log('SMTP Host: smtp.gmail.com');
-        console.log('SMTP Port: 587 (TLS) - will fallback to 465 if needed');
-        console.log('Auth user:', emailUserForAuth);
-        console.log('Password length:', cleanPassword.length, '(spaces removed)');
-        
-        // Try port 587 first (TLS), then fallback to 465 (SSL) if it fails
-        let transporter = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port: 587,
-          secure: false, // false for 587, true for 465
-          requireTLS: true, // Force TLS
-          auth: {
-            user: emailUserForAuth,
-            pass: cleanPassword, // Use cleaned password (spaces removed)
-          },
-          tls: {
-            // Use modern TLS configuration
-            rejectUnauthorized: true, // Verify certificate (more secure)
-            minVersion: 'TLSv1.2' // Require TLS 1.2 or higher
-          },
-          // Additional connection options
-          connectionTimeout: 30000, // 30 seconds (increased for better reliability)
-          greetingTimeout: 30000,
-          socketTimeout: 30000
-        });
-        
-        const mailOptions = {
-          from: senderEmail, // Can be EMAIL_FROM or EMAIL_USER
-          to: email,
-          subject: subject,
-          text: text,
-          html: htmlContent,
-        };
-        
-        console.log('Attempting to send email with nodemailer/Gmail...');
-        console.log('From:', senderEmail);
-        console.log('To:', email);
-        console.log('Auth user:', emailUserForAuth);
-        
-        // Verify connection before sending
-        try {
-          console.log('Verifying SMTP connection...');
-          await transporter.verify();
-          console.log('✅ SMTP connection verified successfully');
-        } catch (verifyError) {
-          console.error('❌ SMTP connection verification failed:', verifyError.message);
-          console.error('Error code:', verifyError.code);
-          // Continue anyway - sometimes verify fails but sendMail works
-        }
-        
-        // Try sending email - if port 587 fails, try port 465 as fallback
-        let sendError = null;
-        try {
-          const info = await transporter.sendMail(mailOptions);
-          console.log('✅ Email sent successfully with nodemailer (port 587):', info.messageId);
-          emailSent = true;
-        } catch (firstError) {
-          sendError = firstError;
-          console.error('❌ Port 587 failed:', {
-            code: firstError.code,
-            message: firstError.message,
-            command: firstError.command,
-            response: firstError.response
-          });
-          console.warn(`Port 587 failed (${firstError.code}), trying port 465 (SSL) as fallback...`);
-          
-          // Try port 465 (SSL) as fallback
-          try {
-            const transporter465 = nodemailer.createTransport({
-              host: 'smtp.gmail.com',
-              port: 465,
-              secure: true,
-              auth: {
-                user: emailUserForAuth,
-                pass: cleanPassword,
-              },
-              tls: { 
-                rejectUnauthorized: true,
-                minVersion: 'TLSv1.2'
-              },
-              connectionTimeout: 30000,
-              greetingTimeout: 30000,
-              socketTimeout: 30000
-            });
-            
-            // Verify fallback connection
-            try {
-              await transporter465.verify();
-              console.log('✅ SMTP connection verified on port 465');
-            } catch (verifyError) {
-              console.warn('⚠️ SMTP verification failed on port 465, continuing anyway...');
-            }
-            
-            const info = await transporter465.sendMail(mailOptions);
-            console.log('✅ Email sent successfully with nodemailer (port 465):', info.messageId);
-            emailSent = true;
-          } catch (fallbackError) {
-            console.error('❌ Port 465 also failed:', {
-              code: fallbackError.code,
-              message: fallbackError.message,
-              command: fallbackError.command,
-              response: fallbackError.response
-            });
-            // Use the more specific error (auth errors are more helpful)
-            sendError = (fallbackError.code === 'EAUTH' || firstError.code !== 'ECONNECTION') ? fallbackError : firstError;
-          }
-        }
-        
-        // If email wasn't sent, throw error with helpful message
-        if (!emailSent && sendError) {
-          let errorMessage = 'Failed to send email via Gmail. ';
-          
-          if (sendError.code === 'EAUTH' || 
-              sendError.message?.includes('Invalid login') || 
-              sendError.message?.includes('authentication failed') ||
-              sendError.message?.includes('Username and Password not accepted') ||
-              sendError.message?.includes('Invalid credentials') ||
-              sendError.responseCode === 535) {
-            errorMessage += 'Gmail authentication failed. Please verify:\n';
-            errorMessage += '1. EMAIL_USER is your full Gmail address (e.g., yourname@gmail.com)\n';
-            errorMessage += '2. EMAIL_PASSWORD is a Gmail App Password (NOT your regular password)\n';
-            errorMessage += '3. Generate App Password at: https://myaccount.google.com/apppasswords\n';
-            errorMessage += '4. Enable 2-Step Verification first if needed\n';
-            errorMessage += '5. Update EMAIL_PASSWORD in Render dashboard and restart service';
-          } else if (sendError.code === 'ECONNECTION' || sendError.code === 'ETIMEDOUT') {
-            errorMessage += 'Connection to Gmail SMTP servers failed. ';
-            errorMessage += 'Possible causes:\n';
-            errorMessage += '1. Network/firewall blocking SMTP ports (587/465)\n';
-            errorMessage += '2. Gmail blocking less secure app access (use App Password)\n';
-            errorMessage += '3. Server IP is blocked by Gmail\n';
-            errorMessage += '4. Check if "Allow less secure apps" is enabled (deprecated, use App Password instead)\n';
-            errorMessage += `\nError details: ${sendError.message || sendError.code}`;
-          } else if (sendError.code === 'ESOCKET' || sendError.code === 'ETIMEDOUT') {
-            errorMessage += 'Socket/Timeout error. ';
-            errorMessage += 'This usually means:\n';
-            errorMessage += '1. Network connectivity issues\n';
-            errorMessage += '2. Firewall blocking SMTP ports\n';
-            errorMessage += '3. Gmail rate limiting\n';
-            errorMessage += `\nError details: ${sendError.message || sendError.code}`;
-          } else {
-            errorMessage += sendError.message || 'Unknown error occurred.';
-            if (sendError.code) {
-              errorMessage += ` (Error code: ${sendError.code})`;
-            }
-          }
-          
-          throw new Error(errorMessage);
-        }
-      } else {
-        console.log('Email already sent via SendGrid, skipping nodemailer');
-      }
-
-      res.status(200).json({
-        message: 'Form link sent successfully',
-        formLink,
-        token,
-        emailSent: true
-      });
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      console.error('Email error details:', {
-        message: emailError.message,
-        code: emailError.code,
-        command: emailError.command,
-        response: emailError.response?.data || emailError.response?.body,
-        statusCode: emailError.response?.statusCode,
-        stack: emailError.stack
-      });
-
-      // Determine which service failed and provide helpful error message
-      let errorMessage = emailError.message;
-      let helpfulHint = '';
-      
-      if (emailError.response?.statusCode === 401 || emailError.message?.includes('Unauthorized')) {
-        if (process.env.SENDGRID_API_KEY) {
-          helpfulHint = 'SendGrid authentication failed. Check: 1) API key is valid, 2) From email is verified in SendGrid dashboard, 3) API key has mail.send permission.';
-        } else {
-          helpfulHint = 'Gmail authentication failed. For Gmail, you must use an App Password (not your regular password). Enable 2FA and generate an app password.';
-        }
-      } else if (emailError.code === 'EAUTH') {
-        helpfulHint = 'Gmail authentication failed. Please verify EMAIL_USER and EMAIL_PASSWORD are correct. Use an App Password for Gmail accounts with 2FA enabled.';
-      }
-
-      // Still save the token but inform about email failure
-      res.status(500).json({
-        message: 'Form token created but email failed to send',
-        error: errorMessage,
-        errorCode: emailError.code || emailError.response?.statusCode,
-        hint: helpfulHint,
-        formLink,
-        token,
-        emailSent: false,
-        debug: {
-          triedSendGrid: !!process.env.SENDGRID_API_KEY,
-          triedNodemailer: !process.env.SENDGRID_API_KEY || emailError.code !== 'EAUTH',
-          EMAIL_USER_set: !!process.env.EMAIL_USER,
-          EMAIL_PASSWORD_set: !!process.env.EMAIL_PASSWORD,
-          SENDGRID_API_KEY_set: !!process.env.SENDGRID_API_KEY
-        }
-      });
-    }
+    })();
   } catch (error) {
     console.error('Send form link error:', error);
-    console.error('Full error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
-    
-    // More detailed error response
     res.status(500).json({ 
-      message: 'Failed to send form link', 
-      error: error.message,
-      errorType: error.name,
-      errorCode: error.code,
-      debug: {
-        EMAIL_USER: !!process.env.EMAIL_USER,
-        EMAIL_PASSWORD: !!process.env.EMAIL_PASSWORD,
-        EMAIL_FROM: !!process.env.EMAIL_FROM,
-        SENDGRID_API_KEY: !!process.env.SENDGRID_API_KEY
-      }
+      message: 'Failed to create form link', 
+      error: error.message
     });
   }
 });
@@ -1502,49 +1103,30 @@ router.post('/form-submission/:token', async (req, res) => {
     // For now, we'll just log it
     console.log(`New patient submission received: ${patient.firstName} ${patient.lastName}`);
 
-    // Send confirmation email to the patient
-    if (process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM) {
-      try {
-        const language = patientData.preferredLanguage || formToken.language || 'english';
-
-        const subject = language === 'spanish' ?
-          'Formulario recibido - The Wellness Studio' :
-          'Form Received - The Wellness Studio';
-
-        const text = language === 'spanish' ?
-          `Gracias por enviar su formulario. Nos pondremos en contacto con usted pronto.` :
-          `Thank you for submitting your form. We will be in touch with you soon.`;
-
-        const htmlContent = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-            <h2 style="color: #333;">${language === 'spanish' ? 'Formulario Recibido' : 'Form Received'}</h2>
-            <p style="color: #666; line-height: 1.5;">
-              ${language === 'spanish' ?
-            `Hola ${patient.firstName},<br><br>Gracias por enviar su formulario. Hemos recibido su información y nos pondremos en contacto con usted pronto.` :
-            `Hello ${patient.firstName},<br><br>Thank you for submitting your form. We have received your information and will be in touch with you soon.`}
-            </p>
-            <p style="color: #666; line-height: 1.5;">
-              ${language === 'spanish' ?
-            'Si tiene alguna pregunta, no dude en contactarnos.' :
-            'If you have any questions, please don\'t hesitate to contact us.'}
-            </p>
-          </div>
-        `;
-
-        const msg = {
-          to: patient.email,
-          from: process.env.EMAIL_FROM,
-          subject: subject,
-          text: text,
-          html: htmlContent,
-        };
-
-        const response = await sgMail.send(msg);
-        console.log(`Confirmation email sent to ${patient.email} using SendGrid`);
-      } catch (emailError) {
-        console.error('Error sending confirmation email:', emailError);
-        // Don't fail the request if email sending fails
-      }
+    // Send confirmation email to the patient (non-blocking)
+    if (emailService.isConfigured && patient.email) {
+      (async () => {
+        try {
+          const language = patientData.preferredLanguage || formToken.language || 'english';
+          const confirmationMessage = language === 'spanish' ?
+            `Gracias por enviar su formulario. Hemos recibido su información y nos pondremos en contacto con usted pronto.` :
+            `Thank you for submitting your form. We have received your information and will be in touch with you soon.`;
+          
+          // Use sendFormLinkEmail with a placeholder link (it will show the message)
+          // The method will handle the case where formLink is empty
+          await emailService.sendFormLinkEmail(
+            patient.email,
+            patient.firstName,
+            '#', // Placeholder link
+            confirmationMessage,
+            language
+          );
+          console.log(`✅ Confirmation email sent to ${patient.email}`);
+        } catch (emailError) {
+          console.error('Error sending confirmation email:', emailError);
+          // Don't fail the request if email sending fails
+        }
+      })();
     }
 
     res.status(201).json({

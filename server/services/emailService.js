@@ -891,6 +891,179 @@ class EmailService {
       }
     }
   }
+
+  // Send form link email - Uses SendGrid if available, falls back to Gmail SMTP
+  async sendFormLinkEmail(recipientEmail, clientName, formLink, instructions = '', language = 'english') {
+    if (!this.isConfigured) {
+      throw new Error('Email service is not configured. Please set either SENDGRID_API_KEY or EMAIL_USER and EMAIL_PASSWORD in your environment variables.');
+    }
+
+    // If formLink is empty or '#', treat as confirmation message (no form link)
+    const isConfirmationEmail = !formLink || formLink === '#' || formLink.trim() === '';
+    
+    const subject = isConfirmationEmail ? 
+      (language === 'spanish' ? 'Formulario recibido - The Wellness Studio' : 'Form Received - The Wellness Studio') :
+      (language === 'spanish' ? 'Complete su formulario médico - The Wellness Studio' : 'Complete Your Medical Form - The Wellness Studio');
+    
+    const htmlContent = isConfirmationEmail ? `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #333;">${language === 'spanish' ? 'Mensaje de Confirmación' : 'Confirmation Message'}</h2>
+        <p style="color: #666; line-height: 1.5;">
+          ${language === 'spanish' ?
+        `Hola ${clientName},<br><br>` :
+        `Hello ${clientName},<br><br>`}
+          ${instructions || ''}
+        </p>
+      </div>
+    ` : `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
+        <h2 style="color: #333;">${language === 'spanish' ? 'Complete su formulario médico' : 'Complete Your Medical Form'}</h2>
+        <p style="color: #666; line-height: 1.5;">
+          ${language === 'spanish' ?
+        `Hola ${clientName},<br><br>Por favor haga clic en el enlace a continuación para completar su formulario médico:` :
+        `Hello ${clientName},<br><br>Please click the link below to complete your medical form:`}
+        </p>
+        ${instructions ? `
+        <p style="color: #666; line-height: 1.5; background-color: #f9f9f9; padding: 10px; border-left: 4px solid #4a90e2;">
+          <strong>${language === 'spanish' ? 'Instrucciones especiales:' : 'Special instructions:'}</strong><br>
+          ${instructions}
+        </p>
+        ` : ''}
+        <p style="margin: 25px 0;">
+          <a href="${formLink}" style="background-color: #4a90e2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; display: inline-block;">
+            ${language === 'spanish' ? 'Completar Formulario' : 'Complete Form'}
+          </a>
+        </p>
+        <p style="color: #999; font-size: 0.9em;">
+          ${language === 'spanish' ?
+        'Si tiene problemas con el enlace, puede copiar y pegar esta URL en su navegador:' :
+        'If you have trouble with the link, you can copy and paste this URL into your browser:'}
+          <br>
+          <span style="color: #4a90e2;">${formLink}</span>
+        </p>
+      </div>
+    `;
+
+    const text = isConfirmationEmail ?
+      (instructions || (language === 'spanish' ? 'Gracias por enviar su formulario.' : 'Thank you for submitting your form.')) :
+      (language === 'spanish' ?
+        `Por favor complete su formulario médico utilizando el siguiente enlace: ${formLink}` :
+        `Please complete your medical form using the following link: ${formLink}`);
+
+    const fromEmail = this.emailFrom || this.emailUser;
+    
+    console.log(`📧 Sending form link email to ${recipientEmail}...`);
+    console.log(`   Using: ${this.useSendGrid ? 'SendGrid' : 'Gmail SMTP'}`);
+    const startTime = Date.now();
+    
+    // Try SendGrid first if available (recommended for production)
+    if (this.useSendGrid) {
+      try {
+        console.log('🔄 Attempting SendGrid for form link...');
+        console.log('   From:', fromEmail);
+        console.log('   To:', recipientEmail);
+        console.log('   Subject:', subject);
+        
+        const msg = {
+          to: recipientEmail,
+          from: fromEmail, // Must be verified in SendGrid dashboard
+          subject: subject,
+          html: htmlContent,
+          text: text,
+        };
+        
+        const result = await sgMail.send(msg);
+        const duration = Date.now() - startTime;
+        console.log(`✅ Form link email sent successfully via SendGrid in ${duration}ms`);
+        console.log('SendGrid response:', {
+          statusCode: result[0]?.statusCode,
+          headers: result[0]?.headers,
+        });
+        return { messageId: result[0]?.headers['x-message-id'], accepted: [recipientEmail] };
+      } catch (sendgridError) {
+        const statusCode = sendgridError.response?.statusCode;
+        const errorBody = sendgridError.response?.body;
+        const errorMessage = sendgridError.message;
+        
+        console.error('❌ SendGrid form link email failed:');
+        console.error('   Status Code:', statusCode);
+        console.error('   Error Message:', errorMessage);
+        console.error('   Error Body:', JSON.stringify(errorBody, null, 2));
+        
+        // Check for unverified sender
+        if (errorMessage?.includes('The from address does not match a verified Sender Identity') || 
+            (errorBody?.errors && errorBody.errors.some(e => e.message?.includes('verified Sender Identity')))) {
+          const helpfulError = `\n\n❌ SendGrid Error: The from email address "${fromEmail}" is not verified in SendGrid.\n\n` +
+            `📋 To fix this:\n` +
+            `1. Go to https://app.sendgrid.com\n` +
+            `2. Navigate to: Settings → Sender Authentication\n` +
+            `3. Click "Verify a Single Sender"\n` +
+            `4. Enter: ${fromEmail}\n` +
+            `5. Complete the verification process\n\n`;
+          
+          console.error(helpfulError);
+          
+          // Fallback to Gmail if configured
+          if (this.emailUser && this.emailPassword) {
+            console.log('⚠️  Falling back to Gmail SMTP until SendGrid sender is verified...');
+          } else {
+            throw new Error(helpfulError);
+          }
+        } else if (statusCode === 401 || statusCode === 403) {
+          throw new Error(`SendGrid authentication failed (${statusCode}): Please verify your SENDGRID_API_KEY and from email (${fromEmail}) is verified in SendGrid dashboard.`);
+        } else {
+          // For other errors, fallback to Gmail if configured
+          if (this.emailUser && this.emailPassword) {
+            console.log('⚠️  SendGrid failed, falling back to Gmail SMTP...');
+          } else {
+            throw new Error(`SendGrid failed: ${errorMessage}. Gmail SMTP not configured as fallback.`);
+          }
+        }
+      }
+    }
+    
+    // Use Gmail SMTP (nodemailer) as primary or fallback
+    const mailOptions = {
+      from: this.emailUser,
+      to: recipientEmail,
+      subject: subject,
+      text: text,
+      html: htmlContent,
+    };
+
+    const startTimeGmail = Date.now();
+    let lastError = null;
+
+    try {
+      console.log('🔄 Attempting connection on port 587 (TLS)...');
+      const transporter = this.createTransporter(587);
+      const sendPromise = transporter.sendMail(mailOptions);
+      const result = await this.withTimeout(sendPromise, 20000, 'Port 587 connection timeout after 20 seconds');
+      console.log(`✅ Form link email sent successfully in ${Date.now() - startTimeGmail}ms (port 587). Message ID: ${result.messageId}`);
+      return result;
+    } catch (error) {
+      lastError = error;
+      const isTimeoutError = error.code === 'ETIMEDOUT' || error.code === 'ETIMEOUT' || error.code === 'ECONNECTION' || error.code === 'ESOCKET' || error.message?.includes('timeout');
+      console.error('❌ Port 587 failed:', { code: error.code, message: error.message, isTimeout: isTimeoutError });
+
+      if (isTimeoutError) {
+        console.log('🔄 Trying port 465 (SSL) as fallback...');
+        try {
+          const transporter465 = this.createTransporter(465);
+          const sendPromise465 = transporter465.sendMail(mailOptions);
+          const result = await this.withTimeout(sendPromise465, 20000, 'Port 465 connection timeout after 20 seconds');
+          console.log(`✅ Form link email sent successfully in ${Date.now() - startTimeGmail}ms (port 465). Message ID: ${result.messageId}`);
+          return result;
+        } catch (fallbackError) {
+          console.error('❌ Port 465 also failed:', { code: fallbackError.code, message: fallbackError.message });
+          lastError = fallbackError;
+        }
+      }
+    }
+
+    // If both ports failed, throw error
+    throw new Error(`Failed to send form link email: ${lastError?.message || 'Unknown error'}`);
+  }
 }
 
 export default new EmailService(); 
