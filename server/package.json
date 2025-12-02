@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "build": "echo 'No build step required for Node.js server'"
+
+    "build": "echo \"No build step required\"",
+    "vercel-build": "echo \"Vercel serverless build\""
   },
   "dependencies": {
     "@google-cloud/storage": "^7.16.0",
@@ -20,7 +22,6 @@
     "dotenv": "^16.0.3",
     "ejs": "^3.1.10",
     "express": "^4.18.2",
-    "fs": "^0.0.1-security",
     "googleapis": "^118.0.0",
     "jsonwebtoken": "^9.0.0",
     "jspdf": "^3.0.3",
@@ -37,7 +38,8 @@
     "stripe": "^18.3.0",
     "tesseract.js": "^6.0.1",
     "url": "^0.11.4",
-    "uuidv4": "^6.2.13"
+    "uuidv4": "^6.2.13",
+    "fs": "^0.0.1-security"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
