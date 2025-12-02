@@ -1,5 +1,5 @@
 // Vercel Serverless Function - Express App Handler
-// This file exports the Express app for Vercel's serverless functions
+// This file exports a handler function for Vercel's serverless functions
 
 // Set VERCEL environment variable so server knows it's running on Vercel
 process.env.VERCEL = '1';
@@ -8,6 +8,6 @@ process.env.VERCEL = '1';
 // All routes are already registered in server/index.js
 import app from '../server/index.js';
 
-// Export the Express app directly - Vercel supports this format
-// The app will handle all incoming requests
+// Vercel serverless function handler
+// Express app can be used directly as a handler
 export default app;

@@ -1,20 +1,33 @@
 {
   "version": 2,
-  "buildCommand": "cd server && npm install && cd ..",
-  "installCommand": "cd server && npm install && cd ..",
-  "rewrites": [
+  "buildCommand": "cd server && npm install",
+  "installCommand": "cd server && npm install",
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/api/index.js"
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.js"
     }
   ],
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
       "memory": 3008,
-      "runtime": "nodejs20.x",
-      "includeFiles": "server/**"
+      "runtime": "nodejs20.x"
     }
-  }
+  },
+  "ignore": [
+    "src/**",
+    "public/**",
+    "*.ts",
+    "*.tsx",
+    "vite.config.ts",
+    "tailwind.config.js"
+  ]
 }
 
