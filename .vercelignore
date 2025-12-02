@@ -1,5 +1,27 @@
-server/
+# Vercel ignore file
+# Files and directories to exclude from Vercel deployment
+
+# Server uploads and temporary files
+server/uploads/
+server/server/debug/
+
+# Node modules (will be installed during build)
 node_modules/
+server/node_modules/
+
+# Environment files (use Vercel environment variables instead)
 .env
 .env.local
+.env.*.local
+server/.env
+server/.env.local
 
+# Development files
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/

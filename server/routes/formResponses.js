@@ -12,8 +12,41 @@ import OpenAI from 'openai';
 // import * as pdfjsLib from "pdfjs-dist";
 import csv from "csv-parser";
 import stream from 'stream';
-import { DOMMatrix } from "canvas";
-global.DOMMatrix = DOMMatrix;
+// Canvas is optional - may not work on Vercel serverless
+// Provide fallback DOMMatrix if canvas fails to load
+let DOMMatrix;
+try {
+  // Dynamic import for ES modules
+  const canvasModule = await import("canvas");
+  DOMMatrix = canvasModule.DOMMatrix;
+  global.DOMMatrix = DOMMatrix;
+} catch (error) {
+  console.warn('⚠️ Canvas package not available, using DOMMatrix polyfill:', error.message);
+  // Fallback DOMMatrix polyfill for serverless environments
+  class DOMMatrixPolyfill {
+    constructor(init) {
+      if (typeof init === 'string') {
+        // Parse matrix string
+        const values = init.match(/[\d.]+/g) || [];
+        this.a = parseFloat(values[0]) || 1;
+        this.b = parseFloat(values[1]) || 0;
+        this.c = parseFloat(values[2]) || 0;
+        this.d = parseFloat(values[3]) || 1;
+        this.e = parseFloat(values[4]) || 0;
+        this.f = parseFloat(values[5]) || 0;
+      } else {
+        this.a = init?.a ?? 1;
+        this.b = init?.b ?? 0;
+        this.c = init?.c ?? 0;
+        this.d = init?.d ?? 1;
+        this.e = init?.e ?? 0;
+        this.f = init?.f ?? 0;
+      }
+    }
+  }
+  DOMMatrix = DOMMatrixPolyfill;
+  global.DOMMatrix = DOMMatrix;
+}
 
 const router = express.Router();
 
