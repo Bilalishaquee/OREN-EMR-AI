@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "echo 'No build needed for serverless'",
+    "vercel-build": "npm install",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
