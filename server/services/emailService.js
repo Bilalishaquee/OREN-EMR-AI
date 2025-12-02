@@ -15,12 +15,12 @@ class EmailService {
 
     // Check if email is configured (SendGrid or Gmail)
     this.isConfigured = !!(this.sendGridApiKey || (this.emailUser && this.emailPassword));
-    this.useSendGrid = !!this.sendGridApiKey;
+    this.useSendGrid = !!this.sendGridApiKey && this.sendGridApiKey.trim().length > 0;
     
     // Initialize SendGrid if API key is available
-    if (this.sendGridApiKey) {
+    if (this.useSendGrid) {
       sgMail.setApiKey(this.sendGridApiKey);
-      console.log('✅ SendGrid API key configured');
+      console.log('✅ SendGrid API key configured and initialized');
     }
     
     // Log environment information for debugging
@@ -42,7 +42,13 @@ class EmailService {
       console.warn('     - SENDGRID_API_KEY (recommended for production)');
       console.warn('     - OR EMAIL_USER and EMAIL_PASSWORD (for Gmail SMTP)');
     } else {
-      console.log(`✅ Email service is ready (${this.useSendGrid ? 'SendGrid' : 'Gmail SMTP'})`);
+      const provider = this.useSendGrid ? 'SendGrid' : 'Gmail SMTP (Nodemailer)';
+      console.log(`✅ Email service is ready (${provider})`);
+      if (this.useSendGrid) {
+        console.log('   📧 SendGrid will be used for all email sending');
+      } else {
+        console.log('   📧 Gmail SMTP will be used for all email sending');
+      }
     }
   }
 
@@ -269,6 +275,10 @@ class EmailService {
     if (this.useSendGrid) {
       try {
         console.log('🔄 Attempting SendGrid...');
+        console.log('   From:', fromEmail);
+        console.log('   To:', recipientEmail);
+        console.log('   Subject:', subject);
+        
         const msg = {
           to: recipientEmail,
           from: fromEmail, // Must be verified in SendGrid dashboard
@@ -281,27 +291,78 @@ class EmailService {
         console.log(`✅ Invoice email sent successfully via SendGrid in ${duration}ms`);
         console.log('SendGrid response:', {
           statusCode: result[0]?.statusCode,
-          headers: result[0]?.headers
+          headers: result[0]?.headers,
+          body: result[0]?.body
         });
         return { messageId: result[0]?.headers['x-message-id'], accepted: [recipientEmail] };
       } catch (sendgridError) {
         const statusCode = sendgridError.response?.statusCode;
-        console.error('❌ SendGrid email failed:', {
-          statusCode: statusCode,
-          message: sendgridError.message,
-          body: sendgridError.response?.body
-        });
+        const errorBody = sendgridError.response?.body;
+        const errorMessage = sendgridError.message;
         
-        // If SendGrid fails with auth errors, don't fallback to Gmail (configuration issue)
-        if (statusCode === 401 || statusCode === 403) {
-          throw new Error(`SendGrid authentication failed (${statusCode}): Please verify your SENDGRID_API_KEY is valid and the from email (${fromEmail}) is verified in SendGrid dashboard.`);
+        console.error('❌ SendGrid email failed:');
+        console.error('   Status Code:', statusCode);
+        console.error('   Error Message:', errorMessage);
+        console.error('   Error Body:', JSON.stringify(errorBody, null, 2));
+        console.error('   Full Error:', sendgridError);
+        
+        // Parse SendGrid error for helpful messages
+        if (errorBody && typeof errorBody === 'object') {
+          if (errorBody.errors && Array.isArray(errorBody.errors)) {
+            errorBody.errors.forEach((err, index) => {
+              console.error(`   Error ${index + 1}:`, err.message || err);
+            });
+          }
+        }
+        
+        // If SendGrid fails with auth errors (but not unverified sender), don't fallback to Gmail
+        // Unverified sender (403) is handled separately above
+        const isUnverifiedSender = errorMessage?.includes('verified Sender Identity') || 
+                                   (errorBody?.errors && errorBody.errors.some(e => e.message?.includes('verified Sender Identity')));
+        
+        if ((statusCode === 401 || statusCode === 403) && !isUnverifiedSender) {
+          const helpfulMsg = `SendGrid authentication failed (${statusCode}):\n` +
+            `1. Verify your SENDGRID_API_KEY is correct\n` +
+            `2. Verify the from email (${fromEmail}) is verified in SendGrid dashboard\n` +
+            `3. Check API key has "Mail Send" permissions\n` +
+            `Error: ${errorMessage}`;
+          throw new Error(helpfulMsg);
+        }
+        
+        // Check for common SendGrid errors
+        if (errorMessage?.includes('The from address does not match a verified Sender Identity') || 
+            (errorBody?.errors && errorBody.errors.some(e => e.message?.includes('verified Sender Identity')))) {
+          const helpfulError = `\n\n❌ SendGrid Error: The from email address "${fromEmail}" is not verified in SendGrid.\n\n` +
+            `📋 To fix this:\n` +
+            `1. Go to https://app.sendgrid.com\n` +
+            `2. Navigate to: Settings → Sender Authentication\n` +
+            `3. Click "Verify a Single Sender"\n` +
+            `4. Enter: ${fromEmail}\n` +
+            `5. Complete the verification process\n` +
+            `6. Check your email and click the verification link\n\n` +
+            `Once verified, SendGrid will work for production emails.\n` +
+            `Currently falling back to Gmail SMTP.`;
+          
+          console.error(helpfulError);
+          
+          // Don't throw error, just fallback to Gmail
+          if (this.emailUser && this.emailPassword) {
+            console.log('⚠️  Falling back to Gmail SMTP until SendGrid sender is verified...');
+          } else {
+            throw new Error(helpfulError);
+          }
+        }
+        
+        if (errorMessage?.includes('Invalid API key')) {
+          throw new Error(`SendGrid Error: Invalid API key. Please verify your SENDGRID_API_KEY is correct.`);
         }
         
         // For other errors, fallback to Gmail if configured
         if (this.emailUser && this.emailPassword) {
           console.log('⚠️  SendGrid failed, falling back to Gmail SMTP...');
+          console.log('   SendGrid Error:', errorMessage);
         } else {
-          throw new Error(`SendGrid failed: ${sendgridError.message}. Gmail SMTP not configured as fallback.`);
+          throw new Error(`SendGrid failed: ${errorMessage}. Gmail SMTP not configured as fallback.`);
         }
       }
     }
@@ -637,6 +698,9 @@ class EmailService {
     if (this.useSendGrid) {
       try {
         console.log('🔄 Attempting SendGrid for payment reminder...');
+        console.log('   From:', fromEmail);
+        console.log('   To:', recipientEmail);
+        
         const msg = {
           to: recipientEmail,
           from: fromEmail,
@@ -650,20 +714,37 @@ class EmailService {
         return { messageId: result[0]?.headers['x-message-id'], accepted: [recipientEmail] };
       } catch (sendgridError) {
         const statusCode = sendgridError.response?.statusCode;
-        console.error('❌ SendGrid payment reminder failed:', {
-          statusCode: statusCode,
-          message: sendgridError.message
-        });
+        const errorBody = sendgridError.response?.body;
+        const errorMessage = sendgridError.message;
+        
+        console.error('❌ SendGrid payment reminder failed:');
+        console.error('   Status Code:', statusCode);
+        console.error('   Error Message:', errorMessage);
+        console.error('   Error Body:', JSON.stringify(errorBody, null, 2));
         
         if (statusCode === 401 || statusCode === 403) {
-          throw new Error(`SendGrid authentication failed: Please verify your SENDGRID_API_KEY and from email (${fromEmail}) is verified.`);
+          throw new Error(`SendGrid authentication failed (${statusCode}): Please verify your SENDGRID_API_KEY and from email (${fromEmail}) is verified in SendGrid dashboard.`);
+        }
+        
+        if (errorMessage?.includes('The from address does not match a verified Sender Identity') ||
+            (errorBody?.errors && errorBody.errors.some(e => e.message?.includes('verified Sender Identity')))) {
+          const helpfulError = `\n\n❌ SendGrid Error: The from email "${fromEmail}" is not verified.\n\n` +
+            `📋 Verify it at: https://app.sendgrid.com → Settings → Sender Authentication\n\n` +
+            `Falling back to Gmail SMTP until verified.`;
+          console.error(helpfulError);
+          
+          if (this.emailUser && this.emailPassword) {
+            console.log('⚠️  Falling back to Gmail SMTP...');
+          } else {
+            throw new Error(helpfulError);
+          }
         }
         
         // Fallback to Gmail if configured
         if (this.emailUser && this.emailPassword) {
           console.log('⚠️  SendGrid failed, falling back to Gmail SMTP...');
         } else {
-          throw new Error(`SendGrid failed: ${sendgridError.message}. Gmail SMTP not configured.`);
+          throw new Error(`SendGrid failed: ${errorMessage}. Gmail SMTP not configured.`);
         }
       }
     }

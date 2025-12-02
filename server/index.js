@@ -18,6 +18,13 @@ console.log('EMAIL_FROM:', process.env.EMAIL_FROM ? 'SET' : 'NOT SET');
 console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'NOT SET');
 console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'SET' : 'NOT SET');
 console.log('SENDGRID_API_KEY:', process.env.SENDGRID_API_KEY ? 'SET' : 'NOT SET');
+if (process.env.SENDGRID_API_KEY) {
+  console.log('📧 Email Provider: SendGrid (will be used as primary)');
+} else if (process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
+  console.log('📧 Email Provider: Gmail SMTP (Nodemailer)');
+} else {
+  console.log('⚠️  Email Provider: NOT CONFIGURED');
+}
 console.log('===========================================');
 
 import reportsRoutes from './routes/reports.js';
