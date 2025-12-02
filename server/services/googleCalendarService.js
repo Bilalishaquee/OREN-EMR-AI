@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 import dotenv from 'dotenv';
 import User from '../models/User.js';
 import { Storage } from '@google-cloud/storage';
+import { GOOGLE_REDIRECT_URL } from '../config/constants.js';
 
 dotenv.config();
 
@@ -14,10 +15,13 @@ const GOOGLE_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || 'primary';
 const DEFAULT_TIMEZONE = process.env.DEFAULT_TZ || 'Asia/Karachi'; // your local time
 
 function makeOAuthClient() {
+  const redirectUrl = process.env.GOOGLE_REDIRECT_URL || GOOGLE_REDIRECT_URL;
+  console.log('🔗 Using Google OAuth Redirect URL:', redirectUrl);
+  
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URL
+    redirectUrl
   );
 }
 
