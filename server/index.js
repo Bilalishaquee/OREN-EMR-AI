@@ -285,6 +285,20 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'Server is running' });
 });
 
+// Root path handler - show "Cannot GET /" message
+app.get('/', (req, res) => {
+  res.status(404).send('Cannot GET /');
+});
+
+// API root handler
+app.get('/api', (req, res) => {
+  res.status(200).json({ 
+    message: 'OrenEMR API Server',
+    status: 'running',
+    version: '1.0.0'
+  });
+});
+
 app.use('/api/reports', authenticateToken, reportsRoutes);
 app.use('/api/visits', authenticateToken, visitRoutes);
 app.use('/api/payments', authenticateToken, payment)

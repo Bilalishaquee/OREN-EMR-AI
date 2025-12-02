@@ -5,8 +5,9 @@
 process.env.VERCEL = '1';
 
 // Import the Express app (it will handle MongoDB connection automatically)
+// All routes are already registered in server/index.js
 import app from '../server/index.js';
 
-// Export the Express app as a serverless function handler
+// Export the Express app directly - Vercel supports this format
+// The app will handle all incoming requests
 export default app;
-
