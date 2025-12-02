@@ -6,8 +6,14 @@ import path from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables from .env file in the server directory
-dotenv.config({ path: path.resolve(__dirname, './.env') });
+// Load environment variables from .env file in the server directory (for local)
+// On Vercel, environment variables are automatically available
+if (!process.env.VERCEL) {
+  dotenv.config({ path: path.resolve(__dirname, './.env') });
+} else {
+  // On Vercel, just load dotenv without path (uses root .env if exists)
+  dotenv.config();
+}
 
 // Import centralized config (after dotenv.config)
 import { FRONTEND_URL } from './config/constants.js';
@@ -181,13 +187,25 @@ mongoose.connection.on('reconnected', () => {
   console.log('🔄 MongoDB reconnected');
 });
 
-// Connect to MongoDB and start server only after connection
-async function startServer() {
+// Connect to MongoDB - for both local and Vercel
+let mongoConnected = false;
+
+async function connectMongoDB() {
+  if (mongoConnected) {
+    return;
+  }
+  
   try {
+    if (mongoose.connection.readyState === 1) {
+      mongoConnected = true;
+      return;
+    }
+
     console.log('🔄 Attempting to connect to MongoDB...');
     console.log('MongoDB URI:', process.env.MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')); // Hide credentials
 
     await mongoose.connect(process.env.MONGODB_URI, mongooseOptions);
+    mongoConnected = true;
     console.log('✅ Connected to MongoDB successfully');
 
     // Test email configuration on startup (non-blocking)
@@ -195,11 +213,6 @@ async function startServer() {
       emailService.testConnection().catch(err => {
         console.warn('⚠️  Email connection test failed on startup:', err.message);
       });
-    });
-
-    // Start server only after MongoDB connection is established
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {
     console.error('❌ Failed to connect to MongoDB:', error.message);
@@ -219,6 +232,32 @@ async function startServer() {
       console.error('5. Try using a local MongoDB instance for development');
     }
 
+    // Don't exit on Vercel - let it retry
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
+  }
+}
+
+// Connect MongoDB on module load (for Vercel serverless)
+connectMongoDB();
+
+// Start server only for local development (not on Vercel)
+async function startServer() {
+  if (process.env.VERCEL) {
+    // On Vercel, we don't start a server - it's serverless
+    return;
+  }
+
+  try {
+    await connectMongoDB();
+    
+    // Start server only after MongoDB connection is established
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error.message);
     process.exit(1);
   }
 }
@@ -257,5 +296,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
 
-// ✅ Start server after MongoDB connection
-startServer();
+// ✅ Start server after MongoDB connection (only for local development)
+// On Vercel, the app is exported and used as a serverless function
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+// Export the app for Vercel serverless functions
+export default app;
