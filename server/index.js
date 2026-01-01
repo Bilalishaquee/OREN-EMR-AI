@@ -79,7 +79,12 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000'
+  'http://127.0.0.1:3000',
+  // Vercel deployment URLs (support multiple deployments)
+  'https://oren-emr-1-ai.vercel.app',
+  'https://oren-emr-ai-ashen.vercel.app',
+  // Allow any Vercel preview/deployment URL
+  /^https:\/\/.*\.vercel\.app$/
 ].filter(Boolean);
 
 // Log CORS configuration for debugging
@@ -104,8 +109,23 @@ app.use(cors({
       }
     }
     
-    // Check if origin is in allowed list
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Allow any Vercel deployment URL (production and preview deployments)
+    if (origin.includes('.vercel.app')) {
+      console.log('✅ CORS allowed (Vercel):', origin);
+      return callback(null, true);
+    }
+    
+    // Check if origin matches any allowed origin (string or regex)
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
       // In production, log and block

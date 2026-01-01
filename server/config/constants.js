@@ -13,7 +13,7 @@ const DEVELOPMENT_FRONTEND_URL = 'http://localhost:5173';
 const DEVELOPMENT_BACKEND_URL = 'http://localhost:5000';
 
 // Production URL (fallback if FRONTEND_URL is not set)
-const PRODUCTION_FRONTEND_URL = 'https://oren-emr-ai-ashen.vercel.app';
+const PRODUCTION_FRONTEND_URL = 'https://oren-emr-1-ai.vercel.app';
 const PRODUCTION_BACKEND_URL = 'https://oren-emr-ai-1.onrender.com';
 
 // Get Frontend URL from environment variable or use fallback based on NODE_ENV
