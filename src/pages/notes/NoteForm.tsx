@@ -161,6 +161,7 @@ const NoteForm: React.FC = () => {
   const [showCorrespondingForm, setShowCorrespondingForm] = useState<boolean>(false);
   const [showERCorrespondingForm, setShowERCorrespondingForm] = useState<boolean>(false);
   const [showORCorrespondingForm, setShowORCorrespondingForm] = useState<boolean>(false);
+  const [showPromptEditor, setShowPromptEditor] = useState<boolean>(false);
   const [correspondingFormData, setCorrespondingFormData] = useState<CorrespondingFormData>({
     mrn: '',
     assessment: '',
@@ -715,6 +716,16 @@ ${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</stro
             headerImage: noteData.headerImage || '',
             footerImage: noteData.footerImage || '',
           });
+
+          // Auto-show corresponding form based on note type
+          const noteType = noteData.noteType || '';
+          if (noteType === 'Consultation') {
+            setShowCorrespondingForm(true);
+          } else if (noteType === 'New ER Operative Report') {
+            setShowERCorrespondingForm(true);
+          } else if (noteType === 'New OR Operative Report') {
+            setShowORCorrespondingForm(true);
+          }
 
           // Fetch visits for the patient
           if (patientId) {
@@ -1589,7 +1600,7 @@ ${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</stro
               }`}
           >
             {generatingNote ? <FaSpinner className="animate-spin mr-2" /> : <FaRobot className="mr-2" />}
-            Generate with AI
+            Submit
           </button>
 
           <button
@@ -2458,6 +2469,37 @@ ${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</stro
             </div>
           </div>
         )}
+        {showPromptEditor && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h2 className="text-xl font-bold mb-4">Edit Prompt</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Additional Information for AI Generation
+                  </label>
+                  <textarea
+                    value={promptData}
+                    onChange={e => setPromptData(e.target.value)}
+                    placeholder="Add any additional information you'd like to include in the AI-generated note..."
+                    className="w-full p-2 border rounded-md h-32"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This information will be used when generating a note with AI. It will not be saved unless you generate a note.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end mt-4 space-x-2">
+                <button
+                  onClick={() => setShowPromptEditor(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-md hover:bg-gray-400"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis Codes</label>
@@ -2826,23 +2868,16 @@ ${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</stro
         </div>
 
 
-        {/* {!isEditMode && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Additional Information for AI Generation
-            </label>
-            <textarea
-              value={promptData}
-              onChange={e => setPromptData(e.target.value)}
-              placeholder="Add any additional information you'd like to include in the AI-generated note..."
-              className="w-full p-2 border rounded-md h-24"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              This information will be used when generating a note with AI. It will not be saved unless you generate a
-              note.
-            </p>
-          </div>
-        )} */}
+        {/* Hidden link to edit prompt - placed at bottom of form */}
+        <div className="mt-4 pt-4 border-t border-gray-200 text-right">
+          <button
+            type="button"
+            onClick={() => setShowPromptEditor(true)}
+            className="text-xs text-gray-400 hover:text-gray-600 underline"
+          >
+            Edit Prompt
+          </button>
+        </div>
       </div>
     </div>
   );
