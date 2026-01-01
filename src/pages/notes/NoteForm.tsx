@@ -1363,7 +1363,7 @@ ${cf.injectionLocation ? `<p>&nbsp;&nbsp;&nbsp;&nbsp;• <strong>Location:</stro
     const fetchData = async () => {
       setLoading(true);
       try {
-        // ... existing patients and note fetch code ...
+       
 
 
         console.log('Fetching existing template for DrId:', token);
