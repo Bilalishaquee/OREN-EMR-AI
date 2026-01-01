@@ -8,8 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "echo 'No build needed for serverless'",
-    "vercel-build": "npm install",
+    "build": "vite build",
+    "vercel-build": "npm install && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
