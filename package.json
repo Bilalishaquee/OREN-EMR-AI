@@ -7,13 +7,13 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node init && vite",
+    "build": "node init && vite build",
     "vercel-build": "npm install && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
+    "dev:all": "node init && concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
